@@ -21,7 +21,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
+      - name: Debug env
+        run: |
+          echo "KIS_APP_KEY is set? ${KIS_APP_KEY:+yes}"
+          echo "KIS_ACCOUNT is set? ${KIS_ACCOUNT:+yes}"
+          echo "KIS_APP_SECRET is set? ${KIS_APP_SECRET:+yes}"
+          echo "TELEGRAM_BOT_TOKEN is set? ${TELEGRAM_BOT_TOKEN:+yes}"
+          echo "TELEGRAM_CHAT_ID is set? ${TELEGRAM_CHAT_ID:+yes}"
       - name: Run daily trader
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

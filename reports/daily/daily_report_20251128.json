@@ -8,7 +8,7 @@
       "quantity": 13,
       "est_price": 9210.0,
       "est_value": 119730.0,
-      "target_weight": 0.1197824796989181,
+      "target_weight": 0.11978247969891807,
       "current_qty": 0,
       "target_qty": 13
     },
@@ -18,7 +18,7 @@
       "quantity": 17,
       "est_price": 6490.0,
       "est_value": 110330.0,
-      "target_weight": 0.11605959861164172,
+      "target_weight": 0.11605959861164174,
       "current_qty": 0,
       "target_qty": 17
     },
@@ -28,7 +28,7 @@
       "quantity": 35,
       "est_price": 2915.0,
       "est_value": 102025.0,
-      "target_weight": 0.10425692756639002,
+      "target_weight": 0.10425692756639003,
       "current_qty": 0,
       "target_qty": 35
     },
