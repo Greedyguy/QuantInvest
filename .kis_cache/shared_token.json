@@ -1,0 +1,8 @@
+{
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJ0b2tlbiIsImF1ZCI6Ijc3ZTVlN2M4LWI4N2UtNGM0Yy04YzZkLWE2ZDdlY2U0M2Q5NCIsInByZHRfY2QiOiIiLCJpc3MiOiJ1bm9ndyIsImV4cCI6MTc2NDM3MzczMCwiaWF0IjoxNzY0Mjg3MzMwLCJqdGkiOiJQU1RpWWhEdm1USFhkMEpmY3ZXVE9YYVh5NktuY2lnZklpTmEifQ.Oi4Vl55gUVFzzDLtHLAAdByaBG7PFhB4rMy70BIhbTmJH93cHpg2bbtCtvTomfEGRI4qFon7vhe9HYbR_MLmdw",
+  "expires_at": 1764373731.002031,
+  "daily_count": 1,
+  "daily_reset": 1764255600.0,
+  "environment": "real",
+  "last_update": 1764287331.002034
+}

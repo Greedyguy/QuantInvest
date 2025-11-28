@@ -1,0 +1,106 @@
+{
+  "date": "20251119",
+  "equity": 1000000,
+  "orders": [
+    {
+      "symbol": "092200",
+      "action": "BUY",
+      "quantity": 26,
+      "est_price": 6490.0,
+      "est_value": 168740.0,
+      "target_weight": 0.17121480731079314,
+      "current_qty": 0,
+      "target_qty": 26
+    },
+    {
+      "symbol": "452450",
+      "action": "BUY",
+      "quantity": 14,
+      "est_price": 9210.0,
+      "est_value": 128940.0,
+      "target_weight": 0.12958507450086532,
+      "current_qty": 0,
+      "target_qty": 14
+    },
+    {
+      "symbol": "049630",
+      "action": "BUY",
+      "quantity": 70,
+      "est_price": 1383.0,
+      "est_value": 96810.0,
+      "target_weight": 0.09729433118061713,
+      "current_qty": 0,
+      "target_qty": 70
+    },
+    {
+      "symbol": "010170",
+      "action": "BUY",
+      "quantity": 29,
+      "est_price": 2915.0,
+      "est_value": 84535.0,
+      "target_weight": 0.08715510812826249,
+      "current_qty": 0,
+      "target_qty": 29
+    },
+    {
+      "symbol": "229200",
+      "action": "BUY",
+      "quantity": 5,
+      "est_price": 15225.0,
+      "est_value": 76125.0,
+      "target_weight": 0.08033113840699001,
+      "current_qty": 0,
+      "target_qty": 5
+    },
+    {
+      "symbol": "001440",
+      "action": "BUY",
+      "quantity": 3,
+      "est_price": 24500.0,
+      "est_value": 73500.0,
+      "target_weight": 0.08617899905730728,
+      "current_qty": 0,
+      "target_qty": 3
+    },
+    {
+      "symbol": "046970",
+      "action": "BUY",
+      "quantity": 49,
+      "est_price": 1283.0,
+      "est_value": 62867.0,
+      "target_weight": 0.06318151759458585,
+      "current_qty": 0,
+      "target_qty": 49
+    },
+    {
+      "symbol": "114800",
+      "action": "BUY",
+      "quantity": 21,
+      "est_price": 2685.0,
+      "est_value": 56385.0,
+      "target_weight": 0.056667088767886536,
+      "current_qty": 0,
+      "target_qty": 21
+    },
+    {
+      "symbol": "069500",
+      "action": "BUY",
+      "quantity": 1,
+      "est_price": 55410.0,
+      "est_value": 55410.0,
+      "target_weight": 0.09745261913806932,
+      "current_qty": 0,
+      "target_qty": 1
+    }
+  ],
+  "portfolio": {
+    "account": {
+      "account_no": "SIM_ACCOUNT",
+      "total_cash": 1000000,
+      "available_cash": 1000000,
+      "total_value": 1000000,
+      "stock_value": 0
+    },
+    "holdings": []
+  }
+}
