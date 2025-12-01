@@ -40,3 +40,6 @@ TAX_SCHEDULE = [  # (YYYYMMDD, tax_rate) 효과발생일 순서
 W = dict(LC=2.0, VS=1.5, BO=1.0, RS=1.0, VCP=0.5, GG=0.5)
 
 RANDOM_SEED = 42
+
+# Data freshness (business days allowed between cached data end and request end)
+DATA_STALE_TOLERANCE_BDAYS = 3

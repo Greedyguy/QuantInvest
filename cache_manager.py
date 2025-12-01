@@ -10,8 +10,12 @@ import os
 import pickle
 import hashlib
 import json
-import pandas as pd
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from config import DATA_STALE_TOLERANCE_BDAYS
 
 
 # 캐시 디렉토리 설정
@@ -23,6 +27,33 @@ BACKTEST_DIR = os.path.join(os.path.dirname(__file__), "reports", "cache")
 # 디렉토리 생성
 for d in [CACHE_DIR, ENRICHED_DIR, INDEX_DIR, BACKTEST_DIR]:
     os.makedirs(d, exist_ok=True)
+
+
+def _business_day_gap(old: pd.Timestamp, new: pd.Timestamp) -> int:
+    """Return business day gap from old (exclusive) to new (exclusive end)."""
+    if old is None or new is None:
+        return DATA_STALE_TOLERANCE_BDAYS + 1
+    if new <= old:
+        return 0
+    try:
+        old_day = np.datetime64(old.date())
+        new_day = np.datetime64(new.date())
+        if new_day <= old_day:
+            return 0
+        return int(np.busday_count(old_day, new_day))
+    except Exception:
+        return max(int((new - old).days), 0)
+
+
+def _is_cache_stale(cache_end: pd.Timestamp, req_end: pd.Timestamp) -> bool:
+    """Determine whether cached data is too old compared to requested end date."""
+    if cache_end is None or pd.isna(cache_end):
+        return True
+    if req_end is None or pd.isna(req_end):
+        return True
+    if cache_end >= req_end:
+        return False
+    return _business_day_gap(cache_end, req_end) > DATA_STALE_TOLERANCE_BDAYS
 
 
 def get_config_hash(config_dict: dict) -> str:
@@ -105,6 +136,9 @@ def load_enriched(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
                 return None
             
             # 요청 범위가 캐시 범위 내에 있는지 확인
+            if _is_cache_stale(df_end, req_end):
+                return None
+
             if df_start <= req_start and df_end >= req_end:
                 # ✅ 시작 날짜와 종료 날짜 모두 필터링
                 df = df[(df.index >= req_start) & (df.index <= req_end)]

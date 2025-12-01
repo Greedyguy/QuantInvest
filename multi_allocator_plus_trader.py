@@ -68,12 +68,14 @@ class MultiAllocatorPlusTrader:
         dry_run: bool = True,
         virtual_account: bool = True,
         min_trade_value: int = 200_000,
+        cache_only: bool = False,
     ):
         self.start_date = start_date
         self.use_cache = use_cache
         self.dry_run = dry_run
         self.virtual_account = virtual_account
         self.min_trade_value = min_trade_value
+        self.cache_only = cache_only
 
         self.kis = KoreaInvestmentConnector(virtual_account=virtual_account)
         self.telegram = TelegramNotifier()
@@ -213,6 +215,7 @@ class MultiAllocatorPlusTrader:
             logger.info("🚫 실행할 주문이 없습니다.")
             return
         account_no = self.kis.account
+        executed_orders = 0
         for plan in plans:
             logger.info(
                 "➡️ %s %s x %s (목표 %.2f%%)",
@@ -225,7 +228,7 @@ class MultiAllocatorPlusTrader:
                 continue
             order_type = 1 if plan.action == "BUY" else 2
             try:
-                self.kis.send_order(
+                result = self.kis.send_order(
                     request_name=f"multi_alloc_plus_{plan.action.lower()}",
                     screen_no="9001",
                     account_no=account_no,
@@ -235,6 +238,8 @@ class MultiAllocatorPlusTrader:
                     price=0,
                     quote_type="03",
                 )
+                if result == 0:
+                    executed_orders += 1
             except Exception as exc:
                 logger.error("주문 실패: %s (%s)", plan.symbol, exc)
         equity = account.get("total_value") or (
@@ -244,13 +249,33 @@ class MultiAllocatorPlusTrader:
             equity = 1_000_000
         snapshot = {"account": account, "holdings": list(holdings.values())}
         report_path = self.reporter.save_report(as_of, equity, [plan.__dict__ for plan in plans], snapshot)
-        self._notify(latest_equity=equity, plans=plans, report_path=report_path, report_date=as_of)
+        if self.dry_run:
+            logger.info("dry-run 모드이므로 텔레그램 알림을 생략합니다.")
+            return
+        if executed_orders == 0:
+            logger.info("실제 체결된 주문이 없어 텔레그램 알림을 생략합니다.")
+            return
+        self._notify(
+            latest_equity=equity,
+            plans=plans,
+            report_path=report_path,
+            report_date=as_of,
+            trade_time=datetime.now(),
+        )
 
-    def _notify(self, latest_equity: float, plans: List[OrderPlan], report_path: Path, report_date: datetime):
+    def _notify(
+        self,
+        latest_equity: float,
+        plans: List[OrderPlan],
+        report_path: Path,
+        report_date: datetime,
+        trade_time: datetime | None = None,
+    ):
         if not self.telegram.can_send():
             return
+        trade_date = trade_time.date() if trade_time else report_date.date()
         lines = [
-            f"날짜: {report_date.date()}",
+            f"날짜: {trade_date}",
             f"총자산: {latest_equity:,.0f}원",
             f"주문 수: {len(plans)}",
         ]
@@ -263,6 +288,9 @@ class MultiAllocatorPlusTrader:
 
     def run(self):
         self.load_market_data()
+        if self.cache_only:
+            logger.info("🗂️ 캐시 리프레시 전용 실행이 완료되었습니다. 트레이딩 루틴은 건너뜁니다.")
+            return
         last_date, targets = self.compute_target_weights()
         account, holdings = self.fetch_account_snapshot()
         plans = self.build_order_plan(targets, account, holdings)
@@ -306,6 +334,7 @@ def main():
     parser.add_argument("--real", action="store_true", help="실거래 모드 (기본: 모의투자)")
     parser.add_argument("--dry-run", action="store_true", help="주문 미전송, 계획만 출력")
     parser.add_argument("--min-trade", type=int, default=200_000, help="최소 매매 금액 기준")
+    parser.add_argument("--cache-only", action="store_true", help="캐시 업데이트만 수행하고 주문 단계 생략")
     args = parser.parse_args()
 
     trader = MultiAllocatorPlusTrader(
@@ -314,6 +343,7 @@ def main():
         dry_run=args.dry_run,
         virtual_account=not args.real,
         min_trade_value=args.min_trade,
+        cache_only=args.cache_only,
     )
     trader.run()
 

@@ -6,12 +6,70 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
+from config import DATA_STALE_TOLERANCE_BDAYS
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data", "ohlcv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 def _bizdays(start, end):
     return pd.bdate_range(start, end, freq="C")
+
+
+def _business_day_gap(old: pd.Timestamp, new: pd.Timestamp) -> int:
+    if old is None or pd.isna(old) or new is None or pd.isna(new):
+        return DATA_STALE_TOLERANCE_BDAYS + 1
+    if new <= old:
+        return 0
+    try:
+        old_day = np.datetime64(old.date())
+        new_day = np.datetime64(new.date())
+        if new_day <= old_day:
+            return 0
+        return int(np.busday_count(old_day, new_day))
+    except Exception:
+        return max(int((new - old).days), 0)
+
+
+def _is_cache_stale(cache_end: pd.Timestamp, req_end: pd.Timestamp) -> bool:
+    if cache_end is None or pd.isna(cache_end):
+        return True
+    if req_end is None or pd.isna(req_end):
+        return True
+    if cache_end >= req_end:
+        return False
+    return _business_day_gap(cache_end, req_end) > DATA_STALE_TOLERANCE_BDAYS
+
+
+def _download_ohlcv_block(
+    ticker: str,
+    start: str,
+    end: str,
+    include_market_cap: bool = True,
+    min_rows: int = 120,
+) -> pd.DataFrame:
+    try:
+        raw = stock.get_market_ohlcv_by_date(start, end, ticker)
+    except Exception as e:
+        print(f"[ERR] {ticker}: pykrx-call -> {type(e).__name__}: {e}")
+        return pd.DataFrame()
+
+    try:
+        df = _normalize_df(raw, min_rows=min_rows)
+    except Exception as e:
+        print(f"[ERR] {ticker}: normalize -> {type(e).__name__}: {e}")
+        return pd.DataFrame()
+
+    if df.empty:
+        return pd.DataFrame()
+
+    if include_market_cap:
+        try:
+            df_cap = get_market_cap(ticker, start, end)
+            if not df_cap.empty:
+                df = df.join(df_cap, how="left")
+        except Exception as e:
+            print(f"[WARN] {ticker}: market_cap -> {type(e).__name__}: {e}")
+    return df
 
 def get_ohlcv(ticker, start, end):
     df = stock.get_market_ohlcv_by_date(start, end, ticker)
@@ -72,7 +130,7 @@ def _is_bad_column(col):
         pass
     return False
 
-def _normalize_df(raw):
+def _normalize_df(raw, min_rows=120):
     """pykrx 반환을 표준 DF로 정규화. 실패시 빈 DF"""
     if raw is None or not isinstance(raw, pd.DataFrame) or raw.empty:
         return pd.DataFrame()
@@ -103,7 +161,7 @@ def _normalize_df(raw):
 
     # 결측 제거 + 최소 길이
     df = df.dropna(subset=REQ_COLS)
-    if len(df) < 120:
+    if len(df) < min_rows:
         return pd.DataFrame()
 
     return df[REQ_COLS]
@@ -168,54 +226,52 @@ def get_ohlcv_one(ticker, start, end, include_market_cap=True):
             df = pd.read_parquet(fp)
             if isinstance(df, pd.DataFrame) and not df.empty:
                 # 캐시가 이상하면 여기서도 검사
-                df = _normalize_df(df)
+                df = _normalize_df(df, min_rows=1)
                 if not df.empty:
-                    # ✅ 시작 날짜와 종료 날짜 필터링 추가
-                    req_start = pd.to_datetime(start)
+                    full_df = df
+                    cached_end = full_df.index.max()
                     req_end = pd.to_datetime(end)
-                    df = df[(df.index >= req_start) & (df.index <= req_end)]
-                    
-                    if df.empty:
-                        # 필터링 후 데이터가 없으면 재다운로드
-                        pass
+                    if _is_cache_stale(cached_end, req_end):
+                        fetch_start_ts = cached_end + pd.Timedelta(days=1)
+                        fetch_start = fetch_start_ts.strftime("%Y-%m-%d")
+                        print(f"[INFO] {ticker}: cached OHLCV stale (last={cached_end.date()}, req={req_end.date()}) → incremental download from {fetch_start}")
+                        incremental = _download_ohlcv_block(
+                            ticker,
+                            fetch_start,
+                            end,
+                            include_market_cap,
+                            min_rows=1,
+                        )
+                        if incremental.empty:
+                            # pykrx에서 신데이터를 못 받은 경우 전체 재다운로드 시도
+                            full_df = pd.DataFrame()
+                        else:
+                            full_df = pd.concat([full_df, incremental])
+                            full_df = full_df[~full_df.index.duplicated(keep='last')]
+                            full_df = full_df.sort_index()
+                            try:
+                                full_df.to_parquet(fp, index=True)
+                            except Exception as e:
+                                print(f"[WARN] {ticker}: parquet-save(update) -> {type(e).__name__}: {e}")
                     else:
-                        # 시가총액이 없고 추가 요청이 있으면 시도
-                        if include_market_cap and "market_cap" not in df.columns:
+                        if include_market_cap and "market_cap" not in full_df.columns:
                             df_cap = get_market_cap(ticker, start, end)
                             if not df_cap.empty:
-                                df = df.join(df_cap, how="left")
-                                # 업데이트된 캐시 저장
+                                full_df = full_df.join(df_cap, how="left")
                                 try:
-                                    df.to_parquet(fp, index=True)
-                                except:
-                                    pass
-                        return df
+                                    full_df.to_parquet(fp, index=True)
+                                except Exception as e:
+                                    print(f"[WARN] {ticker}: parquet-save(cap) -> {type(e).__name__}: {e}")
+                    if full_df is not None and not full_df.empty:
+                        req_start = pd.to_datetime(start)
+                        trimmed = full_df[(full_df.index >= req_start) & (full_df.index <= req_end)]
+                        if not trimmed.empty:
+                            return trimmed
         except Exception:
             pass  # 손상시 재다운
 
     # 2) 다운로드
-    try:
-        raw = stock.get_market_ohlcv_by_date(start, end, ticker)
-    except Exception as e:
-        print(f"[ERR] {ticker}: pykrx-call -> {type(e).__name__}: {e}")
-        return pd.DataFrame()
-            
-    # 3) 정규화
-    try:
-        df = _normalize_df(raw)
-    except Exception as e:
-        print(f"[ERR] {ticker}: normalize -> {type(e).__name__}: {e}")
-        return pd.DataFrame()
-
-    # 4) 시가총액 추가
-    if not df.empty and include_market_cap:
-        try:
-            df_cap = get_market_cap(ticker, start, end)
-            if not df_cap.empty:
-                df = df.join(df_cap, how="left")
-        except Exception as e:
-            # 시가총액 실패해도 OHLCV는 반환
-            print(f"[WARN] {ticker}: market_cap -> {type(e).__name__}: {e}")
+    df = _download_ohlcv_block(ticker, start, end, include_market_cap)
 
     # 5) 캐시 저장 (실패해도 무시)
     if not df.empty:

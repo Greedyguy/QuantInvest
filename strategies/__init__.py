@@ -38,6 +38,8 @@ from strategies.strategy_multi_allocator_plus import MultiStrategyAllocatorPlus
 from strategies.strategy_multi_allocator_plus_v2 import MultiStrategyAllocatorPlusV2
 from strategies.hybrid_portfolio_v2_4 import HybridPortfolioStrategyV24
 from strategies.strategy_etf_defensive import ETFRiskOverlayStrategy
+from strategies.strategy_multi_allocator_plus_no_etf import MultiStrategyAllocatorPlusNoETF
+
 # 전략 레지스트리
 _strategy_registry: Dict[str, BaseStrategy] = {}
 
@@ -80,7 +82,7 @@ def _register_strategies():
         HybridPortfolioStrategyV24,
         ETFRiskOverlayStrategy,
         MultiStrategyAllocatorPlus,
-        
+        MultiStrategyAllocatorPlusNoETF
     ]
     
     for strategy_class in strategy_classes:

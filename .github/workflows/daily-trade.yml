@@ -2,7 +2,7 @@ name: Daily Multi Allocator Trade
 
 on:
   schedule:
-    - cron: "30 23 * * 0-4"
+    - cron: "5 0 * * 1-5"
   workflow_dispatch: {}
 
 jobs:
@@ -28,6 +28,15 @@ jobs:
           echo "KIS_APP_SECRET is set? ${KIS_APP_SECRET:+yes}"
           echo "TELEGRAM_BOT_TOKEN is set? ${TELEGRAM_BOT_TOKEN:+yes}"
           echo "TELEGRAM_CHAT_ID is set? ${TELEGRAM_CHAT_ID:+yes}"
+      - name: Refresh cache with previous-day data
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+          KIS_ACCOUNT: ${{ secrets.KIS_ACCOUNT }}
+        run: |
+          python multi_allocator_plus_trader.py --start-date 2024-06-01 --cache-only
       - name: Run daily trader
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

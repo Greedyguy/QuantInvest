@@ -187,6 +187,7 @@ class MultiAllocatorPlusV2Trader:
             logger.info("🚫 실행할 주문이 없습니다.")
             return
         account_no = self.kis.account
+        executed_orders = 0
         for plan in plans:
             logger.info("➡️ %s %s x %s (목표 %.2f%%)",
                         plan.action, plan.symbol, plan.quantity, plan.target_weight * 100)
@@ -194,7 +195,7 @@ class MultiAllocatorPlusV2Trader:
                 continue
             order_type = 1 if plan.action == "BUY" else 2
             try:
-                self.kis.send_order(
+                result = self.kis.send_order(
                     request_name=f"multi_alloc_{plan.action.lower()}",
                     screen_no="9000",
                     account_no=account_no,
@@ -204,6 +205,8 @@ class MultiAllocatorPlusV2Trader:
                     price=0,
                     quote_type="03"
                 )
+                if result == 0:
+                    executed_orders += 1
             except Exception as exc:
                 logger.error("주문 실패: %s (%s)", plan.symbol, exc)
         equity = account.get("total_value") or (
@@ -211,13 +214,33 @@ class MultiAllocatorPlusV2Trader:
         )
         snapshot = {"account": account, "holdings": list(holdings.values())}
         report_path = self.reporter.save_report(as_of, equity, [plan.__dict__ for plan in plans], snapshot)
-        self._notify(latest_equity=equity, plans=plans, report_path=report_path, report_date=as_of)
+        if self.dry_run:
+            logger.info("dry-run 모드이므로 텔레그램 알림을 생략합니다.")
+            return
+        if executed_orders == 0:
+            logger.info("실제 체결된 주문이 없어 텔레그램 알림을 생략합니다.")
+            return
+        self._notify(
+            latest_equity=equity,
+            plans=plans,
+            report_path=report_path,
+            report_date=as_of,
+            trade_time=datetime.now(),
+        )
 
-    def _notify(self, latest_equity: float, plans: List[OrderPlan], report_path: Path, report_date: datetime):
+    def _notify(
+        self,
+        latest_equity: float,
+        plans: List[OrderPlan],
+        report_path: Path,
+        report_date: datetime,
+        trade_time: datetime | None = None,
+    ):
         if not self.telegram.can_send():
             return
+        trade_date = trade_time.date() if trade_time else report_date.date()
         lines = [
-            f"날짜: {report_date.date()}",
+            f"날짜: {trade_date}",
             f"총자산: {latest_equity:,.0f}원",
             f"주문 수: {len(plans)}",
         ]
