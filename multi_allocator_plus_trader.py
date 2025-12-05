@@ -80,7 +80,9 @@ class MultiAllocatorPlusTrader:
         self.kis = KoreaInvestmentConnector(virtual_account=virtual_account)
         self.telegram = TelegramNotifier()
         self.reporter = DailyReporter(PROJECT_ROOT / "reports" / "daily")
-        self.strategy = get_strategy("multi_allocator_plus")
+        # 파생 ETF를 사용하지 않는 버전 사용
+        # (multi_allocator_plus_no_etf: etf_defensive 자식 전략 제거)
+        self.strategy = get_strategy("multi_allocator_plus_no_etf")
         if self.strategy is None:
             raise RuntimeError("multi_allocator_plus 전략을 찾을 수 없습니다.")
 
