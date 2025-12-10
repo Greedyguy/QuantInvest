@@ -23,6 +23,12 @@ STOP_LOSS = -0.08
 TAKE_PROFIT = 0.15
 MAX_HOLD_DAYS = 10
 
+# Execution restrictions
+# 교육/증거금 문제 등으로 실매매에서 사용할 수 없는 티커를 명시
+BLOCKED_TICKERS = {
+    "122630",  # KODEX 레버리지 (파생ETF, 선행교육+증거금 필요)
+}
+
 # Costs
 FEE_PER_SIDE = 0.000140527     # 0.0140527% per side (KIS 뱅키스) 
 VENUE_FEE_PER_SIDE = 0.000036396  # 유관기관 제비용(참고)

@@ -181,6 +181,17 @@ def load_data(use_cache=True, max_workers=8, incremental=True, start_date=None):
         if incremental_updates > 0:
             print(f"   증분 업데이트: {incremental_updates}개")
     print()
+
+    # 거래 금지 티커 제거
+    blocked = BLOCKED_TICKERS if "BLOCKED_TICKERS" in globals() else set()
+    if blocked:
+        removed = 0
+        for ticker in list(enriched.keys()):
+            if ticker in blocked:
+                enriched.pop(ticker, None)
+                removed += 1
+        if removed > 0:
+            print(f"🚫 거래 금지 티커 {removed}개 제외: {', '.join(sorted(blocked))}")
     
     # 인덱스 데이터도 함께 반환
     return enriched, idx_map

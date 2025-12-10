@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 
+from config import BLOCKED_TICKERS
+
 def filter_universe(enriched: dict,
                     min_tvalue=2_000_000_000,   # 20억
                     min_price=2000,
@@ -21,6 +23,8 @@ def filter_universe(enriched: dict,
     valid = []
 
     for ticker, df in enriched.items():
+        if ticker in BLOCKED_TICKERS:
+            continue
         if df is None or len(df) < 20:
             continue
 
