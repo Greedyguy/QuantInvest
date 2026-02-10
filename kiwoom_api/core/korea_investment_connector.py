@@ -24,6 +24,9 @@ except ImportError:
     def get_stock_name(symbol: str) -> str:
         return f"종목{symbol}"
 
+ORDER_ERR_MARKET_OPERATION_DATE_MISMATCH = -1001
+ORDER_ERR_ACCOUNT_NOT_ELIGIBLE = -1002
+
 
 class KoreaInvestmentConnector:
     """한국투자증권 OpenAPI 기반 연결 관리자"""
@@ -283,6 +286,14 @@ class KoreaInvestmentConnector:
                         if "credentials_type" in error_msg or "EGW00205" in error_code:
                             self.logger.error(f"[FAIL] 인증 오류 (재시도 안함): {error_msg}")
                             return -1
+
+                        if "장운영일자가 주문일과 상이합니다" in error_msg:
+                            self.logger.error(f"[FAIL] 휴장/영업일 불일치 (재시도 안함): {error_msg}")
+                            return ORDER_ERR_MARKET_OPERATION_DATE_MISMATCH
+
+                        if "교육이수가 등록/승인된 계좌만" in error_msg:
+                            self.logger.error(f"[FAIL] 계좌/종목 자격요건 미충족 (재시도 안함): {error_msg}")
+                            return ORDER_ERR_ACCOUNT_NOT_ELIGIBLE
                         
                         if attempt < max_retries - 1:
                             self.logger.warning(f"[RETRY] 주문 실패, 재시도 예정: {error_msg}")
@@ -337,12 +348,14 @@ class KoreaInvestmentConnector:
             
             self.logger.info(f"[DEBUG] 잔고 조회 TR 코드: {tr_code} (virtual: {self.virtual_account})")
             
-            params = {
+            # INQR_DVSN=01 이 기본값이며(대출일별), 일부 계좌에서는 02(종목별) 사용 시
+            # INPUT INVALID_CHECK_INQR_DVSN 오류가 발생한다. 기본 01로 보내고,
+            # 필요한 경우 02로 한 번 더 재시도한다.
+            base_params = {
                 "CANO": acc_no,
                 "ACNT_PRDT_CD": self.account_product_code,
                 "AFHR_FLPR_YN": "N",
-                "OFL_YN": "",
-                "INQR_DVSN": "02",
+                "OFL_YN": "N",
                 "UNPR_DVSN": "01",
                 "FUND_STTL_ICLD_YN": "N",
                 "FNCG_AMT_AUTO_RDPT_YN": "N",
@@ -350,8 +363,15 @@ class KoreaInvestmentConnector:
                 "CTX_AREA_FK100": "",
                 "CTX_AREA_NK100": ""
             }
-            
-            response = requests.get(url, headers=headers, params=params)
+
+            def _request_balance(inqr_dvsn: str):
+                params = dict(base_params)
+                params["INQR_DVSN"] = inqr_dvsn
+                return requests.get(url, headers=headers, params=params)
+
+            # 1차: INQR_DVSN=01
+            response = _request_balance("01")
+            retry_with_02 = False
             
             if response.status_code == 200:
                 result = response.json()
@@ -363,13 +383,31 @@ class KoreaInvestmentConnector:
                     for key, value in output2.items():
                         self.logger.info(f"[DEBUG]   {key}: {value}")
                     return result
+                # INQR_DVSN 관련 오류 시 02로 재시도
+                error_msg = result.get("msg1", "잔고 조회 실패")
+                if "INVALID_CHECK_INQR_DVSN" in error_msg:
+                    retry_with_02 = True
                 else:
-                    error_msg = result.get("msg1", "잔고 조회 실패")
                     self.logger.error(f"[FAIL] 잔고 조회 실패: {error_msg}")
                     return {}
             else:
                 self.logger.error(f"[FAIL] 잔고 조회 요청 실패: {response.text}")
                 return {}
+
+            if retry_with_02:
+                self.logger.warning("[RETRY] INQR_DVSN=02로 잔고 조회 재시도")
+                response = _request_balance("02")
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("rt_cd") == "0":
+                        self.logger.info("[OK] 잔고 조회 성공 (INQR_DVSN=02)")
+                        return result
+                    error_msg = result.get("msg1", "잔고 조회 실패")
+                    self.logger.error(f"[FAIL] 잔고 조회 실패(재시도): {error_msg}")
+                    return {}
+                else:
+                    self.logger.error(f"[FAIL] 잔고 조회 요청 실패(재시도): {response.text}")
+                    return {}
                 
         except Exception as e:
             self.logger.error(f"[FAIL] 잔고 조회 오류: {e}")
