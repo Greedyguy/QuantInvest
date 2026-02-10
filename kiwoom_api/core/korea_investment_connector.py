@@ -348,9 +348,7 @@ class KoreaInvestmentConnector:
             
             self.logger.info(f"[DEBUG] 잔고 조회 TR 코드: {tr_code} (virtual: {self.virtual_account})")
             
-            # INQR_DVSN=01 이 기본값이며(대출일별), 일부 계좌에서는 02(종목별) 사용 시
-            # INPUT INVALID_CHECK_INQR_DVSN 오류가 발생한다. 기본 01로 보내고,
-            # 필요한 경우 02로 한 번 더 재시도한다.
+            # 계좌/환경별로 INQR_DVSN 허용값이 다를 수 있어 01 -> 02 순으로 시도한다.
             base_params = {
                 "CANO": acc_no,
                 "ACNT_PRDT_CD": self.account_product_code,
@@ -368,46 +366,41 @@ class KoreaInvestmentConnector:
                 params = dict(base_params)
                 params["INQR_DVSN"] = inqr_dvsn
                 return requests.get(url, headers=headers, params=params)
-
-            # 1차: INQR_DVSN=01
-            response = _request_balance("01")
-            retry_with_02 = False
             
-            if response.status_code == 200:
+            last_error_msg = "잔고 조회 실패"
+            for idx, inqr_dvsn in enumerate(("01", "02")):
+                if idx > 0:
+                    self.logger.warning(f"[RETRY] INQR_DVSN={inqr_dvsn}로 잔고 조회 재시도")
+
+                response = _request_balance(inqr_dvsn)
+                if response.status_code != 200:
+                    last_error_msg = f"HTTP {response.status_code}: {response.text}"
+                    self.logger.error(f"[FAIL] 잔고 조회 요청 실패 (INQR_DVSN={inqr_dvsn}): {response.text}")
+                    continue
+
                 result = response.json()
                 if result.get("rt_cd") == "0":
-                    self.logger.info("[OK] 잔고 조회 성공")
+                    self.logger.info(f"[OK] 잔고 조회 성공 (INQR_DVSN={inqr_dvsn})")
                     # API 응답 디버깅을 위한 로깅 추가
                     output2 = result.get("output2", [{}])[0] if result.get("output2") else {}
-                    self.logger.info(f"[DEBUG] 잔고 API 응답 output2 필드들:")
+                    self.logger.info("[DEBUG] 잔고 API 응답 output2 필드들:")
                     for key, value in output2.items():
                         self.logger.info(f"[DEBUG]   {key}: {value}")
                     return result
-                # INQR_DVSN 관련 오류 시 02로 재시도
-                error_msg = result.get("msg1", "잔고 조회 실패")
-                if "INVALID_CHECK_INQR_DVSN" in error_msg:
-                    retry_with_02 = True
-                else:
-                    self.logger.error(f"[FAIL] 잔고 조회 실패: {error_msg}")
-                    return {}
-            else:
-                self.logger.error(f"[FAIL] 잔고 조회 요청 실패: {response.text}")
-                return {}
 
-            if retry_with_02:
-                self.logger.warning("[RETRY] INQR_DVSN=02로 잔고 조회 재시도")
-                response = _request_balance("02")
-                if response.status_code == 200:
-                    result = response.json()
-                    if result.get("rt_cd") == "0":
-                        self.logger.info("[OK] 잔고 조회 성공 (INQR_DVSN=02)")
-                        return result
-                    error_msg = result.get("msg1", "잔고 조회 실패")
-                    self.logger.error(f"[FAIL] 잔고 조회 실패(재시도): {error_msg}")
-                    return {}
-                else:
-                    self.logger.error(f"[FAIL] 잔고 조회 요청 실패(재시도): {response.text}")
-                    return {}
+                error_msg = result.get("msg1", "잔고 조회 실패")
+                error_cd = result.get("msg_cd", "")
+                last_error_msg = f"{error_msg} (msg_cd={error_cd})"
+                self.logger.error(
+                    f"[FAIL] 잔고 조회 실패 (INQR_DVSN={inqr_dvsn}, msg_cd={error_cd}): {error_msg}"
+                )
+
+                # INQR_DVSN 문제 아니면 두 번째 시도를 생략해 불필요한 호출을 줄인다.
+                if "INVALID_CHECK_INQR_DVSN" not in error_msg:
+                    break
+
+            self.logger.error(f"[FAIL] 잔고 조회 최종 실패: {last_error_msg}")
+            return {}
                 
         except Exception as e:
             self.logger.error(f"[FAIL] 잔고 조회 오류: {e}")
