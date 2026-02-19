@@ -22,6 +22,7 @@ from strategies import get_strategy
 from universe_filter import filter_universe
 from automation.telegram_notifier import TelegramNotifier, format_alert
 from automation.daily_reporter import DailyReporter
+from config import BLOCKED_TICKERS
 
 # .env 로컬 테스트 지원
 try:  # pragma: no cover
@@ -36,7 +37,11 @@ if CLEANED_ROOT.exists():
     sys.path.append(str(CLEANED_ROOT))
 
 try:
-    from kiwoom_api.core.korea_investment_connector import KoreaInvestmentConnector
+    from kiwoom_api.core.korea_investment_connector import (
+        KoreaInvestmentConnector,
+        ORDER_ERR_ACCOUNT_NOT_ELIGIBLE,
+        ORDER_ERR_MARKET_OPERATION_DATE_MISMATCH,
+    )
 except ImportError as exc:  # pragma: no cover
     raise RuntimeError("cleaned_stock_proj 경로에서 KoreaInvestmentConnector를 찾을 수 없습니다.") from exc
 
@@ -152,6 +157,13 @@ class MultiAllocatorPlusTrader:
         account: Dict,
         holdings: Dict,
     ) -> List[OrderPlan]:
+        blocked = set(BLOCKED_TICKERS or set())
+        if blocked:
+            targets = targets.drop(
+                [ticker for ticker in targets.index if self._normalize_symbol(ticker) in blocked],
+                errors="ignore",
+            )
+
         total_equity = account.get("total_value") or (
             account.get("available_cash", 0) + account.get("stock_value", 0)
         )
@@ -218,6 +230,9 @@ class MultiAllocatorPlusTrader:
             return
         account_no = self.kis.account
         executed_orders = 0
+        failed_orders = 0
+        not_eligible_orders = 0
+        abort_reason: str | None = None
         for plan in plans:
             logger.info(
                 "➡️ %s %s x %s (목표 %.2f%%)",
@@ -242,8 +257,16 @@ class MultiAllocatorPlusTrader:
                 )
                 if result == 0:
                     executed_orders += 1
+                else:
+                    failed_orders += 1
+                    if result == ORDER_ERR_MARKET_OPERATION_DATE_MISMATCH:
+                        abort_reason = "휴장/영업일 불일치(KIS: 장운영일자≠주문일)"
+                        break
+                    if result == ORDER_ERR_ACCOUNT_NOT_ELIGIBLE:
+                        not_eligible_orders += 1
             except Exception as exc:
                 logger.error("주문 실패: %s (%s)", plan.symbol, exc)
+                failed_orders += 1
         equity = account.get("total_value") or (
             account.get("available_cash", 0) + account.get("stock_value", 0)
         )
@@ -255,7 +278,23 @@ class MultiAllocatorPlusTrader:
             logger.info("dry-run 모드이므로 텔레그램 알림을 생략합니다.")
             return
         if executed_orders == 0:
-            logger.info("실제 체결된 주문이 없어 텔레그램 알림을 생략합니다.")
+            if failed_orders == 0:
+                logger.info("실제 체결된 주문이 없어 텔레그램 알림을 생략합니다.")
+                return
+            if self.telegram.can_send():
+                lines = [
+                    f"날짜: {datetime.now().date()}",
+                    f"총자산: {equity:,.0f}원",
+                    f"계획 주문 수: {len(plans)}",
+                    "실제 체결: 0건",
+                    f"실패: {failed_orders}건",
+                ]
+                if abort_reason:
+                    lines.append(f"중단 사유: {abort_reason}")
+                if not_eligible_orders:
+                    lines.append(f"자격요건 미충족: {not_eligible_orders}건")
+                lines.append(f"리포트: {report_path.name}")
+                self.telegram.send_message(format_alert("Multi Allocator PLUS (주문 실패)", lines))
             return
         self._notify(
             latest_equity=equity,
