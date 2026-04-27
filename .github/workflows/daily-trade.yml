@@ -45,4 +45,4 @@ jobs:
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
           KIS_ACCOUNT: ${{ secrets.KIS_ACCOUNT }}
         run: |
-          python multi_allocator_plus_trader.py --start-date 2026-01-01 --real --min-trade 50000 --cash-policy preserve
+          python multi_allocator_plus_trader.py --start-date 2026-01-01 --real --min-trade 50000
