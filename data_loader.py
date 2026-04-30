@@ -11,6 +11,9 @@ from config import DATA_STALE_TOLERANCE_BDAYS
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data", "ohlcv")
 os.makedirs(DATA_DIR, exist_ok=True)
 
+_MCAP_MARKET_MAP_CACHE = None
+_MCAP_MARKET_MAP_DATE = None
+
 def _bizdays(start, end):
     return pd.bdate_range(start, end, freq="C")
 
@@ -359,10 +362,25 @@ def get_index_close(market, start, end):
 
 def infer_market(ticker):
     # pykrx가 티커로 시장 구분 제공X → 시총표에서 유추
+    # 종목마다 반복 호출하지 않고 당일 1회만 받아 캐시 재사용
+    global _MCAP_MARKET_MAP_CACHE, _MCAP_MARKET_MAP_DATE
     try:
-        mcap = stock.get_market_cap_by_ticker(date.today().strftime("%Y%m%d"))
-        return "KOSDAQ" if ticker in mcap[mcap["시장구분"]=="KOSDAQ"].index else "KOSPI"
-    except:
+        today_str = date.today().strftime("%Y%m%d")
+        if _MCAP_MARKET_MAP_CACHE is None or _MCAP_MARKET_MAP_DATE != today_str:
+            mcap = stock.get_market_cap_by_ticker(today_str)
+            if mcap is None or mcap.empty or "시장구분" not in mcap.columns:
+                _MCAP_MARKET_MAP_CACHE = {}
+            else:
+                _MCAP_MARKET_MAP_CACHE = mcap["시장구분"].astype(str).to_dict()
+            _MCAP_MARKET_MAP_DATE = today_str
+
+        market = _MCAP_MARKET_MAP_CACHE.get(ticker)
+        if market == "KOSDAQ":
+            return "KOSDAQ"
+        if market == "KOSPI":
+            return "KOSPI"
+        return None
+    except Exception:
         return None
 
 def get_universe(markets=("KOSPI","KOSDAQ"), include_etf=True, include_index_etf=True):
