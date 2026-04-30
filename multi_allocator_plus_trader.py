@@ -7,6 +7,7 @@ multi_allocator_plus 전략 목표 비중을 계산하고 한국투자증권 API
 """
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -14,6 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
+from uuid import uuid4
 
 import pandas as pd
 
@@ -74,6 +76,12 @@ class MultiAllocatorPlusTrader:
         virtual_account: bool = True,
         min_trade_value: int = 200_000,
         cache_only: bool = False,
+        cash_policy: str = "preserve",
+        signal_mode: str = "live",
+        signal_snapshot: str | None = None,
+        prepare_signal_only: bool = False,
+        execution_recheck: bool = True,
+        recheck_price_band_pct: float = 3.0,
     ):
         self.start_date = start_date
         self.use_cache = use_cache
@@ -81,6 +89,14 @@ class MultiAllocatorPlusTrader:
         self.virtual_account = virtual_account
         self.min_trade_value = min_trade_value
         self.cache_only = cache_only
+        self.cash_policy = cash_policy
+        self.signal_mode = signal_mode
+        self.signal_snapshot = signal_snapshot
+        self.prepare_signal_only = prepare_signal_only
+        self.execution_recheck = execution_recheck
+        self.recheck_price_band_pct = recheck_price_band_pct
+        self.run_id = uuid4().hex[:12]
+        self.execution_log_path = self._execution_log_path()
 
         self.kis = KoreaInvestmentConnector(virtual_account=virtual_account)
         self.telegram = TelegramNotifier()
@@ -93,6 +109,20 @@ class MultiAllocatorPlusTrader:
 
         self.enriched = {}
         self.market_index = None
+
+    def _signal_snapshot_path(self, signal_date: datetime | pd.Timestamp | None = None) -> Path:
+        out_dir = PROJECT_ROOT / "reports" / "signals"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        if self.signal_snapshot:
+            return Path(self.signal_snapshot)
+        dt = signal_date.date() if signal_date is not None else datetime.now().date()
+        return out_dir / f"signal_{dt.isoformat()}.json"
+
+    def _execution_log_path(self) -> Path:
+        out_dir = PROJECT_ROOT / "reports" / "execution"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        mode = "A_live" if self.signal_mode == "live" else "B_eod_fixed"
+        return out_dir / f"execution_{datetime.now().date().isoformat()}_{mode}.jsonl"
 
     def load_market_data(self):
         enriched, idx_map = load_data(
@@ -113,15 +143,50 @@ class MultiAllocatorPlusTrader:
         if targets is None or targets.empty:
             raise RuntimeError("타깃 비중 계산 실패")
         latest_date = targets.index.max()
-        latest_row = targets.loc[latest_date].drop("__CASH__", errors="ignore")
-        latest_row = latest_row[latest_row > 0].sort_values(ascending=False)
-        total = latest_row.sum()
-        if total > 0:
-            latest_row = latest_row / total
+        latest_row = targets.loc[latest_date].fillna(0.0)
+        latest_row = latest_row[latest_row >= 0]
+        # compute_security_targets 단계에서 이미 총합(자산+현금)이 1로 맞춰진다.
+        # 여기서 __CASH__를 제거 후 재정규화하면 리스크-오프 신호가 무력화되므로 유지한다.
+        asset_row = latest_row.drop("__CASH__", errors="ignore")
+        asset_row = asset_row[asset_row > 0].sort_values(ascending=False)
+        cash_weight = float(latest_row.get("__CASH__", 0.0))
         logger.info("🎯 타깃 비중 산출 완료 (%s)", latest_date.date())
-        for ticker, weight in latest_row.items():
+        logger.info("  __CASH__ -> %.2f%%", cash_weight * 100)
+        for ticker, weight in asset_row.items():
             logger.info("  %s -> %.2f%%", ticker, weight * 100)
         return latest_date, latest_row
+
+    def save_signal_snapshot(self, signal_date: pd.Timestamp, targets: pd.Series):
+        ref_prices = self._latest_prices([ticker for ticker in targets.index if ticker != "__CASH__"])
+        payload = {
+            "signal_date": str(signal_date.date()),
+            "strategy": "multi_allocator_plus_no_etf",
+            "signal_mode": "eod_fixed",
+            "targets": {k: float(v) for k, v in targets.fillna(0.0).items()},
+            "ref_prices": {k: float(v) for k, v in ref_prices.items()},
+            "meta": {
+                "start_date": self.start_date,
+                "generated_at": datetime.now().isoformat(),
+            },
+        }
+        snapshot_path = self._signal_snapshot_path(signal_date)
+        snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(snapshot_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        logger.info("🧾 신호 스냅샷 저장: %s", snapshot_path)
+        return snapshot_path
+
+    def load_signal_snapshot(self) -> Tuple[pd.Timestamp, pd.Series, Dict[str, float]]:
+        snapshot_path = self._signal_snapshot_path()
+        if not snapshot_path.exists():
+            raise FileNotFoundError(f"신호 스냅샷 파일이 없습니다: {snapshot_path}")
+        with open(snapshot_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        signal_date = pd.to_datetime(payload.get("signal_date"))
+        targets = pd.Series(payload.get("targets", {}), dtype=float)
+        ref_prices = {k: float(v) for k, v in (payload.get("ref_prices") or {}).items()}
+        logger.info("🧾 신호 스냅샷 로드: %s (date=%s)", snapshot_path, signal_date.date())
+        return signal_date, targets, ref_prices
 
     def fetch_account_snapshot(self) -> Tuple[Dict, Dict]:
         # dry-run 모드에서는 KIS API를 부르지 않고 가상 계좌 스냅샷 사용
@@ -156,7 +221,21 @@ class MultiAllocatorPlusTrader:
         targets: pd.Series,
         account: Dict,
         holdings: Dict,
+        price_cache_override: Dict[str, float] | None = None,
     ) -> List[OrderPlan]:
+        targets = targets.copy()
+        raw_cash_weight = float(targets.get("__CASH__", 0.0))
+        targets = targets.drop("__CASH__", errors="ignore")
+
+        # 운영 안정성을 위해 기존 동작(100% 재정규화)과 개선 동작(현금 비중 유지)을 선택 가능하게 둔다.
+        if self.cash_policy == "legacy_renorm":
+            positive = targets[targets > 0]
+            total = positive.sum()
+            targets = (positive / total) if total > 0 else positive
+            cash_weight = 0.0
+        else:
+            cash_weight = max(raw_cash_weight, 0.0)
+
         blocked = set(BLOCKED_TICKERS or set())
         if blocked:
             targets = targets.drop(
@@ -176,7 +255,8 @@ class MultiAllocatorPlusTrader:
         if self.dry_run:
             effective_min_trade = min(self.min_trade_value, 50_000)
         plans: List[OrderPlan] = []
-        price_cache = self._latest_prices(targets.index)
+        price_cache = price_cache_override or self._latest_prices(targets.index)
+        logger.info("💼 현금 정책: %s / 목표 현금 비중: %.2f%%", self.cash_policy, cash_weight * 100)
 
         for ticker, weight in targets.items():
             price = price_cache.get(ticker)
@@ -224,6 +304,144 @@ class MultiAllocatorPlusTrader:
         plans.sort(key=lambda x: (-1 if x.action == "SELL" else 1, -x.est_value))
         return plans
 
+    def _safe_get_current_price(self, symbol: str) -> float | None:
+        code = self._normalize_symbol(symbol)
+        if self.dry_run:
+            return None
+        method_names = [
+            "get_current_price",
+            "get_stock_price",
+            "get_price",
+            "get_quote",
+        ]
+        for name in method_names:
+            method = getattr(self.kis, name, None)
+            if method is None:
+                continue
+            try:
+                raw = method(code)
+                if isinstance(raw, (int, float)):
+                    return float(raw)
+                if isinstance(raw, dict):
+                    for key in ["current_price", "price", "stck_prpr"]:
+                        val = raw.get(key)
+                        if val is not None:
+                            return float(val)
+            except Exception:
+                continue
+        return None
+
+    def _safe_get_orderable_qty(self, symbol: str, price: float) -> int | None:
+        code = self._normalize_symbol(symbol)
+        if self.dry_run:
+            return None
+        method_names = [
+            "get_orderable_quantity",
+            "get_available_buy_qty",
+            "get_buyable_quantity",
+        ]
+        for name in method_names:
+            method = getattr(self.kis, name, None)
+            if method is None:
+                continue
+            try:
+                raw = method(code, price)
+                if isinstance(raw, int):
+                    return raw
+                if isinstance(raw, dict):
+                    for key in ["orderable_qty", "quantity", "qty"]:
+                        val = raw.get(key)
+                        if val is not None:
+                            return int(val)
+            except Exception:
+                continue
+        return None
+
+    def apply_execution_recheck(self, plans: List[OrderPlan], account: Dict) -> Tuple[List[OrderPlan], List[Dict]]:
+        if not self.execution_recheck:
+            return plans, []
+        reviewed: List[OrderPlan] = []
+        logs: List[Dict] = []
+        remaining_cash = float(account.get("available_cash", 0) or 0)
+        for plan in plans:
+            recheck_price = self._safe_get_current_price(plan.symbol) or plan.est_price
+            if recheck_price <= 0:
+                logs.append({
+                    "run_id": self.run_id,
+                    "ticker": plan.symbol,
+                    "decision": "skip",
+                    "reason": "invalid_recheck_price",
+                })
+                continue
+            price_diff_pct = abs(recheck_price - plan.est_price) / plan.est_price * 100 if plan.est_price > 0 else 0.0
+            if price_diff_pct > self.recheck_price_band_pct:
+                logs.append({
+                    "run_id": self.run_id,
+                    "ticker": plan.symbol,
+                    "decision": "skip",
+                    "reason": "price_band_exceeded",
+                    "signal_price": plan.est_price,
+                    "recheck_price": recheck_price,
+                    "price_diff_pct": price_diff_pct,
+                })
+                continue
+
+            adjusted_qty = int(plan.quantity)
+            orderable_qty = self._safe_get_orderable_qty(plan.symbol, recheck_price)
+            if orderable_qty is not None:
+                adjusted_qty = min(adjusted_qty, max(orderable_qty, 0))
+            if plan.action == "BUY":
+                max_by_cash = int(remaining_cash / recheck_price) if recheck_price > 0 else 0
+                adjusted_qty = min(adjusted_qty, max(max_by_cash, 0))
+                remaining_cash -= adjusted_qty * recheck_price
+
+            if adjusted_qty <= 0:
+                logs.append({
+                    "run_id": self.run_id,
+                    "ticker": plan.symbol,
+                    "decision": "skip",
+                    "reason": "insufficient_cash_or_orderable",
+                    "signal_price": plan.est_price,
+                    "recheck_price": recheck_price,
+                    "orderable_qty": orderable_qty,
+                })
+                continue
+
+            reviewed.append(
+                OrderPlan(
+                    symbol=plan.symbol,
+                    action=plan.action,
+                    quantity=adjusted_qty,
+                    est_price=recheck_price,
+                    est_value=adjusted_qty * recheck_price,
+                    target_weight=plan.target_weight,
+                    current_qty=plan.current_qty,
+                    target_qty=plan.target_qty,
+                )
+            )
+            logs.append({
+                "run_id": self.run_id,
+                "ticker": plan.symbol,
+                "decision": "send",
+                "reason": "ok",
+                "signal_price": plan.est_price,
+                "recheck_price": recheck_price,
+                "planned_qty": plan.quantity,
+                "final_qty": adjusted_qty,
+                "orderable_qty": orderable_qty,
+            })
+        return reviewed, logs
+
+    def append_execution_logs(self, logs: List[Dict]):
+        if not logs:
+            return
+        with open(self.execution_log_path, "a", encoding="utf-8") as f:
+            for row in logs:
+                row["timestamp"] = datetime.now().isoformat()
+                row["signal_mode"] = self.signal_mode
+                row["dry_run"] = self.dry_run
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
     def execute(self, plans: List[OrderPlan], account: Dict, holdings: Dict, as_of: datetime):
         if not plans:
             logger.info("🚫 실행할 주문이 없습니다.")
@@ -233,6 +451,7 @@ class MultiAllocatorPlusTrader:
         failed_orders = 0
         not_eligible_orders = 0
         abort_reason: str | None = None
+        order_logs: List[Dict] = []
         for plan in plans:
             logger.info(
                 "➡️ %s %s x %s (목표 %.2f%%)",
@@ -242,6 +461,15 @@ class MultiAllocatorPlusTrader:
                 plan.target_weight * 100,
             )
             if self.dry_run:
+                order_logs.append({
+                    "run_id": self.run_id,
+                    "ticker": plan.symbol,
+                    "action": plan.action,
+                    "decision": "dry_run",
+                    "reason": "no_order_sent",
+                    "final_qty": int(plan.quantity),
+                    "price": float(plan.est_price),
+                })
                 continue
             order_type = 1 if plan.action == "BUY" else 2
             try:
@@ -257,8 +485,28 @@ class MultiAllocatorPlusTrader:
                 )
                 if result == 0:
                     executed_orders += 1
+                    order_logs.append({
+                        "run_id": self.run_id,
+                        "ticker": plan.symbol,
+                        "action": plan.action,
+                        "decision": "sent",
+                        "reason": "ok",
+                        "final_qty": int(plan.quantity),
+                        "price": float(plan.est_price),
+                        "order_result_code": int(result),
+                    })
                 else:
                     failed_orders += 1
+                    order_logs.append({
+                        "run_id": self.run_id,
+                        "ticker": plan.symbol,
+                        "action": plan.action,
+                        "decision": "failed",
+                        "reason": "send_order_nonzero",
+                        "final_qty": int(plan.quantity),
+                        "price": float(plan.est_price),
+                        "order_result_code": int(result),
+                    })
                     if result == ORDER_ERR_MARKET_OPERATION_DATE_MISMATCH:
                         abort_reason = "휴장/영업일 불일치(KIS: 장운영일자≠주문일)"
                         break
@@ -267,6 +515,15 @@ class MultiAllocatorPlusTrader:
             except Exception as exc:
                 logger.error("주문 실패: %s (%s)", plan.symbol, exc)
                 failed_orders += 1
+                order_logs.append({
+                    "run_id": self.run_id,
+                    "ticker": plan.symbol,
+                    "action": plan.action,
+                    "decision": "failed",
+                    "reason": str(exc),
+                    "final_qty": int(plan.quantity),
+                    "price": float(plan.est_price),
+                })
         equity = account.get("total_value") or (
             account.get("available_cash", 0) + account.get("stock_value", 0)
         )
@@ -274,6 +531,7 @@ class MultiAllocatorPlusTrader:
             equity = 1_000_000
         snapshot = {"account": account, "holdings": list(holdings.values())}
         report_path = self.reporter.save_report(as_of, equity, [plan.__dict__ for plan in plans], snapshot)
+        self.append_execution_logs(order_logs)
         if self.dry_run:
             logger.info("dry-run 모드이므로 텔레그램 알림을 생략합니다.")
             return
@@ -328,13 +586,26 @@ class MultiAllocatorPlusTrader:
         self.telegram.send_message(format_alert("Multi Allocator PLUS", lines))
 
     def run(self):
-        self.load_market_data()
+        price_cache_override = None
+        if self.signal_mode == "live":
+            self.load_market_data()
+            last_date, targets = self.compute_target_weights()
+            snapshot_path = self.save_signal_snapshot(last_date, targets)
+            if self.prepare_signal_only:
+                logger.info("🧾 신호 준비 전용 실행 완료: %s", snapshot_path)
+                return
+        else:
+            last_date, targets, ref_prices = self.load_signal_snapshot()
+            price_cache_override = ref_prices
+            if self.prepare_signal_only:
+                logger.warning("eod_fixed 모드에서는 --prepare-signal-only를 무시합니다.")
         if self.cache_only:
             logger.info("🗂️ 캐시 리프레시 전용 실행이 완료되었습니다. 트레이딩 루틴은 건너뜁니다.")
             return
-        last_date, targets = self.compute_target_weights()
         account, holdings = self.fetch_account_snapshot()
-        plans = self.build_order_plan(targets, account, holdings)
+        plans = self.build_order_plan(targets, account, holdings, price_cache_override=price_cache_override)
+        plans, recheck_logs = self.apply_execution_recheck(plans, account)
+        self.append_execution_logs(recheck_logs)
         if plans:
             logger.info("📋 주문 계획 (%s):", last_date.date())
             for plan in plans:
@@ -376,6 +647,41 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="주문 미전송, 계획만 출력")
     parser.add_argument("--min-trade", type=int, default=200_000, help="최소 매매 금액 기준")
     parser.add_argument("--cache-only", action="store_true", help="캐시 업데이트만 수행하고 주문 단계 생략")
+    parser.add_argument(
+        "--cash-policy",
+        type=str,
+        default="preserve",
+        choices=["preserve", "legacy_renorm"],
+        help="현금 비중 처리 방식 (preserve: 전략 현금 비중 유지, legacy_renorm: 기존 100%% 재정규화)",
+    )
+    parser.add_argument(
+        "--signal-mode",
+        type=str,
+        default="live",
+        choices=["live", "eod_fixed"],
+        help="신호 생성 방식 (live: 실행 시 계산, eod_fixed: 저장된 전일 신호 사용)",
+    )
+    parser.add_argument("--signal-snapshot", type=str, default=None, help="신호 스냅샷 파일 경로(JSON)")
+    parser.add_argument("--prepare-signal-only", action="store_true", help="신호 스냅샷만 생성하고 주문 단계 생략")
+    parser.add_argument(
+        "--execution-recheck",
+        dest="execution_recheck",
+        action="store_true",
+        help="주문 직전 가격/현금/주문가능수량 재검증 활성화",
+    )
+    parser.add_argument(
+        "--no-execution-recheck",
+        dest="execution_recheck",
+        action="store_false",
+        help="주문 직전 재검증 비활성화",
+    )
+    parser.set_defaults(execution_recheck=True)
+    parser.add_argument(
+        "--recheck-price-band-pct",
+        type=float,
+        default=3.0,
+        help="신호 기준가 대비 허용 가격 괴리(%%)",
+    )
     args = parser.parse_args()
 
     trader = MultiAllocatorPlusTrader(
@@ -385,6 +691,12 @@ def main():
         virtual_account=not args.real,
         min_trade_value=args.min_trade,
         cache_only=args.cache_only,
+        cash_policy=args.cash_policy,
+        signal_mode=args.signal_mode,
+        signal_snapshot=args.signal_snapshot,
+        prepare_signal_only=args.prepare_signal_only,
+        execution_recheck=args.execution_recheck,
+        recheck_price_band_pct=args.recheck_price_band_pct,
     )
     trader.run()
 

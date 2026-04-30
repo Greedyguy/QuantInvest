@@ -1,0 +1,41 @@
+name: Daily Open Exec A (Live)
+
+on:
+  schedule:
+    - cron: "30 22 * * 0-4"
+  workflow_dispatch: {}
+
+jobs:
+  run-live:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run open execution A (live)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+          KIS_ACCOUNT: ${{ secrets.KIS_ACCOUNT }}
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+        run: |
+          python multi_allocator_plus_trader.py \
+            --start-date 2026-01-01 \
+            --real \
+            --min-trade 50000 \
+            --signal-mode live \
+            --execution-recheck \
+            --recheck-price-band-pct 3.0
