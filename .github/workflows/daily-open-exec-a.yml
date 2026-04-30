@@ -2,7 +2,7 @@ name: Daily Open Exec A (Live)
 
 on:
   schedule:
-    - cron: "30 22 * * 0-4"
+    - cron: "40 23 * * 0-4"
   workflow_dispatch: {}
 
 jobs:
