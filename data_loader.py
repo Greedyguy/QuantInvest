@@ -3,13 +3,17 @@ pd.set_option('future.no_silent_downcasting', True)
 from datetime import datetime, date, timedelta
 from pykrx import stock
 import os
+import io
+import contextlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 
 from config import DATA_STALE_TOLERANCE_BDAYS
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data", "ohlcv")
+US_DATA_DIR = os.path.join(os.path.dirname(__file__), "data", "ohlcv_us")
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(US_DATA_DIR, exist_ok=True)
 
 _MCAP_MARKET_MAP_CACHE = None
 _MCAP_MARKET_MAP_DATE = None
@@ -301,6 +305,8 @@ def get_index_close(market, start, end):
         symbol = "^KS11"
     elif m == "KOSDAQ":
         symbol = "^KQ11"
+    elif m in ("US", "SP500", "S&P500"):
+        symbol = "^GSPC"
     else:
         print(f"[WARN] get_index_close: 지원하지 않는 market={market}")
         return pd.DataFrame()
@@ -367,7 +373,12 @@ def infer_market(ticker):
     try:
         today_str = date.today().strftime("%Y%m%d")
         if _MCAP_MARKET_MAP_CACHE is None or _MCAP_MARKET_MAP_DATE != today_str:
-            mcap = stock.get_market_cap_by_ticker(today_str)
+            # pykrx 내부에서 stderr/stdout으로 JSON 파싱 오류를 출력하는 경우가 있어 억제
+            try:
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    mcap = stock.get_market_cap_by_ticker(today_str)
+            except Exception:
+                mcap = pd.DataFrame()
             if mcap is None or mcap.empty or "시장구분" not in mcap.columns:
                 _MCAP_MARKET_MAP_CACHE = {}
             else:
@@ -382,6 +393,35 @@ def infer_market(ticker):
         return None
     except Exception:
         return None
+
+
+def infer_market_us(ticker):
+    return "US"
+
+
+_DEFAULT_US_UNIVERSE = [
+    "AAPL","MSFT","NVDA","AMZN","GOOGL","META","TSLA","BRK-B","JPM","V",
+    "UNH","XOM","LLY","AVGO","COST","WMT","PG","HD","MA","JNJ",
+    "NFLX","ORCL","ABBV","BAC","KO","MRK","AMD","PEP","CVX","ADBE",
+    "CRM","TMO","LIN","MCD","QCOM","ACN","CSCO","GE","ABT","INTU",
+    "DHR","WFC","AMAT","TXN","PFE","PM","IBM","CAT","NOW","GS"
+]
+_DEFAULT_US_ETF_UNIVERSE = ["SPY", "QQQ", "IWM", "DIA", "TLT", "SH", "PSQ", "SQQQ"]
+
+
+def get_universe_us(limit=200):
+    """
+    US Universe 조회. 네트워크/소스 실패 시 대형주 기본 리스트 fallback.
+    """
+    try:
+        import yfinance as yf
+        # 대표 ETF 보유종목 페이지에서 상위 티커 추출 시도 (환경 제한 시 fallback)
+        # yfinance는 보유종목 추출 API가 제한적이라 안정적으로는 fallback 사용
+        _ = yf.Ticker("SPY").history(period="5d")
+    except Exception:
+        pass
+    merged = _DEFAULT_US_UNIVERSE + [t for t in _DEFAULT_US_ETF_UNIVERSE if t not in _DEFAULT_US_UNIVERSE]
+    return merged[:max(1, int(limit))]
 
 def get_universe(markets=("KOSPI","KOSDAQ"), include_etf=True, include_index_etf=True):
     """
@@ -443,7 +483,7 @@ def get_universe(markets=("KOSPI","KOSDAQ"), include_etf=True, include_index_etf
         if os.path.exists(enriched_dir):
             cache_files = glob.glob(f"{enriched_dir}/*.parquet")
             if len(cache_files) > 0:
-                cached_tickers = list(set([
+                cached_tickers = sorted(set([
                     os.path.basename(f).split("_")[0] 
                     for f in cache_files
                 ]))
@@ -515,6 +555,77 @@ def get_universe(markets=("KOSPI","KOSDAQ"), include_etf=True, include_index_etf
     return result
 
 
+def get_ohlcv_one_us(ticker, start, end, min_rows=120):
+    """
+    US 종목 OHLCV 로더(yfinance). 캐시 우선 + 증분 업데이트.
+    """
+    import yfinance as yf
+
+    safe_ticker = ticker.replace("/", "_")
+    fp = os.path.join(US_DATA_DIR, f"{safe_ticker}.parquet")
+
+    if os.path.exists(fp):
+        try:
+            cached = pd.read_parquet(fp)
+            if isinstance(cached, pd.DataFrame) and not cached.empty:
+                req_start = pd.to_datetime(start)
+                req_end = pd.to_datetime(end)
+                cached = cached.sort_index()
+                cache_end = cached.index.max()
+                if not _is_cache_stale(cache_end, req_end):
+                    trimmed = cached[(cached.index >= req_start) & (cached.index <= req_end)]
+                    if len(trimmed) >= min_rows:
+                        return trimmed
+        except Exception:
+            pass
+
+    try:
+        raw = yf.download(
+            ticker,
+            start=pd.to_datetime(start),
+            end=pd.to_datetime(end) + pd.Timedelta(days=1),
+            auto_adjust=False,
+            progress=False,
+        )
+    except Exception as e:
+        print(f"[ERR] {ticker}: yfinance-call -> {type(e).__name__}: {e}")
+        return pd.DataFrame()
+
+    if raw is None or raw.empty:
+        return pd.DataFrame()
+
+    if isinstance(raw.columns, pd.MultiIndex):
+        raw.columns = raw.columns.get_level_values(0)
+    raw.columns = [str(c).lower() for c in raw.columns]
+    col_map = {"adj close": "adj_close"}
+    raw = raw.rename(columns=col_map)
+
+    need = {"open", "high", "low", "close", "volume"}
+    if not need.issubset(set(raw.columns)):
+        return pd.DataFrame()
+
+    def _to_series(frame: pd.DataFrame, col: str) -> pd.Series:
+        obj = frame[col]
+        if isinstance(obj, pd.DataFrame):
+            # 중복 컬럼이 생기면 첫 번째 컬럼 사용
+            obj = obj.iloc[:, 0]
+        return pd.to_numeric(obj, errors="coerce")
+
+    df = pd.DataFrame(index=raw.index)
+    for c in ["open", "high", "low", "close", "volume"]:
+        df[c] = _to_series(raw, c)
+    df = df.dropna(subset=["open", "high", "low", "close", "volume"])
+    df["value"] = df["close"] * df["volume"]
+    if len(df) < min_rows:
+        return pd.DataFrame()
+    df = df.sort_index()
+    try:
+        df.to_parquet(fp, index=True)
+    except Exception as e:
+        print(f"[WARN] {ticker}: parquet-save(us) -> {type(e).__name__}: {e}")
+    return df
+
+
 def load_panel(universe, start, end, max_workers=6, include_market_cap=True):
     """
     전체 종목 패널 데이터 로드
@@ -565,4 +676,35 @@ def load_panel(universe, start, end, max_workers=6, include_market_cap=True):
         print(f"[WARN] Market cap requested but no data loaded")
 
     print(f"[INFO] Loaded {len(datas)} tickers in {time.time()-t0:.1f}s")
+    return datas
+
+
+def load_panel_us(universe, start, end, max_workers=6):
+    datas = {}
+    print(f"[INFO] Loading US {len(universe)} tickers (parallel={max_workers})")
+    t0 = time.time()
+
+    def _safe_one(t):
+        df = get_ohlcv_one_us(t, start, end, min_rows=120)
+        if not isinstance(df, pd.DataFrame) or df.empty:
+            return None, None
+        if any(col not in df.columns for col in REQ_COLS):
+            return None, None
+        return t, df
+
+    with ThreadPoolExecutor(max_workers=max_workers) as ex:
+        futs = {ex.submit(_safe_one, t): t for t in universe}
+        for i, f in enumerate(as_completed(futs), 1):
+            t = futs[f]
+            try:
+                k, df = f.result()
+                if k is not None:
+                    df["ticker"] = k
+                    datas[k] = df
+            except Exception as e:
+                print(f"[WARN] {t}: load(us) -> {type(e).__name__}: {e}")
+            if i % 50 == 0 or i == len(futs):
+                print(f"  Progress: {i}/{len(futs)} ({i/len(futs)*100:.1f}%)")
+
+    print(f"[INFO] Loaded US {len(datas)} tickers in {time.time()-t0:.1f}s")
     return datas
