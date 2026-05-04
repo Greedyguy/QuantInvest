@@ -6,7 +6,7 @@ import pandas as pd
 from typing import Dict
 
 from strategies.base_strategy import BaseStrategy
-from config import FEE_PER_SIDE, TAX_RATE_SELL
+from config import FEE_PER_SIDE, TAX_RATE_SELL, FEE_PER_SIDE_US, US_TAX_RATE_SELL
 
 
 class ETFRiskOverlayStrategy(BaseStrategy):
@@ -43,6 +43,7 @@ class ETFRiskOverlayStrategy(BaseStrategy):
             "bear": 0.4,
             "ultra_bear": 0.25,
         }
+        self._market_profile_set = False
 
     def get_name(self) -> str:
         return "etf_defensive"
@@ -62,6 +63,26 @@ class ETFRiskOverlayStrategy(BaseStrategy):
                 "role": meta.get("role", "beta"),
             }
         return universe
+
+    def _is_us_market(self, tickers):
+        sample = list(tickers)[:30]
+        if not sample:
+            return False
+        return any((not str(t).isdigit()) for t in sample)
+
+    def _set_market_profile(self, enriched):
+        if self._market_profile_set:
+            return
+        if self._is_us_market(enriched.keys()):
+            self.etf_universe = {
+                "SPY": {"role": "beta"},
+                "QQQ": {"role": "growth"},
+                "TLT": {"role": "balanced"},
+                "SH": {"role": "hedge"},
+            }
+            self.fee = FEE_PER_SIDE_US
+            self.tax = US_TAX_RATE_SELL
+        self._market_profile_set = True
 
     def _get_price(self, df, date):
         if date in df.index:
@@ -169,6 +190,7 @@ class ETFRiskOverlayStrategy(BaseStrategy):
 
     # ------------------------------------------------------------------
     def run_backtest(self, enriched, market_index=None, weights=None, silent=False):
+        self._set_market_profile(enriched)
         self._reset_weight_history()
         universe = self._prepare_universe(enriched)
         if not universe:

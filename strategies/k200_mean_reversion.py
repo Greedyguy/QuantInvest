@@ -17,7 +17,7 @@ import numpy as np
 from tqdm import tqdm
 
 from strategies.base_strategy import BaseStrategy
-from config import FEE_PER_SIDE, TAX_RATE_SELL
+from config import FEE_PER_SIDE, TAX_RATE_SELL, FEE_PER_SIDE_US, US_TAX_RATE_SELL
 
 
 class K200MeanReversion(BaseStrategy):
@@ -49,6 +49,7 @@ class K200MeanReversion(BaseStrategy):
 
         self.fee = FEE_PER_SIDE
         self.tax = TAX_RATE_SELL
+        self._market_profile_set = False
 
     def get_name(self):
         return "k200_mean_rev"
@@ -89,6 +90,22 @@ class K200MeanReversion(BaseStrategy):
 
         return out
 
+    def _is_us_market(self, tickers):
+        sample = list(tickers)[:30]
+        if not sample:
+            return False
+        return any((not str(t).isdigit()) for t in sample)
+
+    def _set_market_profile(self, enriched):
+        if self._market_profile_set:
+            return
+        if self._is_us_market(enriched.keys()):
+            if self.ticker == "069500":
+                self.ticker = "SPY"
+            self.fee = FEE_PER_SIDE_US
+            self.tax = US_TAX_RATE_SELL
+        self._market_profile_set = True
+
     # ---------------------------
     # 백테스트 본체
     # ---------------------------
@@ -109,6 +126,7 @@ class K200MeanReversion(BaseStrategy):
             print("📈 K200 Mean Reversion 백테스트 시작")
             print("=" * 60)
 
+        self._set_market_profile(enriched)
         df = enriched.get(self.ticker)
         if df is None or len(df) < 60:
             if not silent:

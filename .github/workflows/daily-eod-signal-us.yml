@@ -1,0 +1,36 @@
+name: Daily EOD Signal Prep (US)
+
+on:
+  schedule:
+    # 03:00 UTC = 23:00 ET (after US market close at 16:00 ET)
+    - cron: "0 3 * * 2-6"
+  workflow_dispatch: {}
+
+jobs:
+  prep-signal-us:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Prepare EOD signal snapshot (US)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python multi_allocator_plus_trader.py \
+            --start-date 2020-01-01 \
+            --market us \
+            --us-universe-limit 50 \
+            --prepare-signal-only \
+            --signal-mode live

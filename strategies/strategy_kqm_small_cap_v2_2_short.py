@@ -6,7 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from strategies.base_strategy import BaseStrategy
-from config import TAX_RATE_SELL, FEE_PER_SIDE
+from config import TAX_RATE_SELL, FEE_PER_SIDE, FEE_PER_SIDE_US, US_TAX_RATE_SELL
 
 
 class KQMSmallCapStrategyV22Short(BaseStrategy):
@@ -61,6 +61,7 @@ class KQMSmallCapStrategyV22Short(BaseStrategy):
 
         self.fee = FEE_PER_SIDE
         self.tax = TAX_RATE_SELL
+        self._market_profile_set = False
 
         self.factor_weights = {
             "mom3": 0.40,
@@ -138,6 +139,24 @@ class KQMSmallCapStrategyV22Short(BaseStrategy):
             "vcp": vcp,
             "rs_raw": rs_raw,
         }
+
+    def _is_us_market(self, tickers):
+        sample = list(tickers)[:30]
+        if not sample:
+            return False
+        return any((not str(t).isdigit()) for t in sample)
+
+    def _set_market_profile(self, enriched):
+        if self._market_profile_set:
+            return
+        if self._is_us_market(enriched.keys()):
+            self.max_price = 1000
+            self.min_price = 2
+            self.min_vol20 = 1e7
+            self.min_vol5 = 5e6
+            self.fee = FEE_PER_SIDE_US
+            self.tax = US_TAX_RATE_SELL
+        self._market_profile_set = True
 
     # ---------------------------------------------------------
     # 레짐 파악
@@ -343,6 +362,7 @@ class KQMSmallCapStrategyV22Short(BaseStrategy):
     # ---------------------------------------------------------
     def run_backtest(self, enriched, market_index=None, weights=None, silent=False):
         self._reset_weight_history()
+        self._set_market_profile(enriched)
         if not silent:
             print("\n===========================================================")
             print("📈 KQM Small Cap v2.2 Short-term 백테스트 시작...")

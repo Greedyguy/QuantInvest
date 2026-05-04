@@ -1,0 +1,40 @@
+name: Daily Open Exec (US)
+
+on:
+  schedule:
+    # 14:35 UTC = 09:35 ET (5 min after NYSE open)
+    - cron: "35 14 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  run-live-us:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run open execution (US, eod_fixed)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Add US broker credentials here when ready (e.g. ALPACA_API_KEY, ALPACA_SECRET_KEY)
+        run: |
+          python multi_allocator_plus_trader.py \
+            --start-date 2020-01-01 \
+            --market us \
+            --us-universe-limit 50 \
+            --dry-run \
+            --min-trade 50000 \
+            --signal-mode eod_fixed \
+            --execution-recheck \
+            --recheck-price-band-pct 3.0

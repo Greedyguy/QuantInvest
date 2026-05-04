@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple, Optional
 from .base_strategy import BaseStrategy
-from config import FEE_PER_SIDE, TAX_RATE_SELL, VENUE_FEE_PER_SIDE
+from config import FEE_PER_SIDE, TAX_RATE_SELL, VENUE_FEE_PER_SIDE, FEE_PER_SIDE_US, US_TAX_RATE_SELL
 
 
 class HybridPortfolioStrategyV24(BaseStrategy):
@@ -49,6 +49,50 @@ class HybridPortfolioStrategyV24(BaseStrategy):
         self.tax = TAX_RATE_SELL
         self.slippage = 0.001
         self.risk_on_buffer_days = 3
+        self._market_profile_set = False
+        self._is_us = False
+
+        # KR 기본 필터
+        self.korean_price_min = 1000
+        self.korean_price_max = 100000
+        self.korean_min_volume = 10000
+        self.korean_rsi_min = 35
+        self.korean_rsi_max = 80
+        self.korean_ma5_ratio = 0.995
+        self.korean_min_gap_pct = 0.1
+
+        self.portfolio_price_min = 3000
+        self.portfolio_price_max = 500000
+        self.portfolio_min_volume = 10000
+        self.portfolio_rsi_min = 30
+        self.portfolio_rsi_max = 80
+        self.portfolio_ma20_ratio = 0.99
+        self.portfolio_extra_price_floor = 5000
+
+    def _detect_us_market(self, tickers):
+        sample = list(tickers)[:30]
+        if not sample:
+            return False
+        return any((not str(t).isdigit()) for t in sample)
+
+    def _set_market_profile(self, enriched):
+        if self._market_profile_set:
+            return
+        self._is_us = self._detect_us_market(enriched.keys())
+        if self._is_us:
+            self.korean_price_min = 5
+            self.korean_price_max = 1500
+            self.korean_min_volume = 200000
+            self.korean_min_gap_pct = 0.05
+
+            self.portfolio_price_min = 5
+            self.portfolio_price_max = 1500
+            self.portfolio_min_volume = 200000
+            self.portfolio_extra_price_floor = 5
+            self.max_single_stock_ratio = max(self.max_single_stock_ratio, 0.40)
+            self.fee = FEE_PER_SIDE_US
+            self.tax = US_TAX_RATE_SELL
+        self._market_profile_set = True
 
     def _compute_market_regime(self, market_index):
         if market_index is None or "close" not in market_index.columns:
@@ -73,6 +117,7 @@ class HybridPortfolioStrategyV24(BaseStrategy):
     # ------------------------------------------------------------------
     def run_backtest(self, enriched: dict, market_index=None, weights: dict = None, silent: bool = False) -> tuple:
         """백테스트 실행"""
+        self._set_market_profile(enriched)
         
         self._reset_weight_history()
         if not silent:
@@ -342,24 +387,24 @@ class HybridPortfolioStrategyV24(BaseStrategy):
             ma5 = row.get('ma5', close_price)
             
             # 1) 가격 필터 (원래 범위 유지)
-            if not (1000 <= close_price <= 100000):
+            if not (self.korean_price_min <= close_price <= self.korean_price_max):
                 continue
             
             # 2) 거래량 필터 (완화: 50,000 → 10,000)
-            if volume < 10000:
+            if volume < self.korean_min_volume:
                 continue
             
             # 3) RSI 필터 (완화: 40~85 → 35~80)
-            if not (35 < rsi < 80):
+            if not (self.korean_rsi_min < rsi < self.korean_rsi_max):
                 continue
             
             # 4) MA5 상방 (완화: close > ma5 → close > ma5 * 0.995)
-            if close_price <= ma5 * 0.995:
+            if close_price <= ma5 * self.korean_ma5_ratio:
                 continue
             
             # 5) 전일 대비 변동성 (완화: 0.5% → 0.1%)
             gap_pct = abs(returns) * 100
-            if gap_pct <= 0.1:
+            if gap_pct <= self.korean_min_gap_pct:
                 continue
             
             # 후보 추가
@@ -464,23 +509,23 @@ class HybridPortfolioStrategyV24(BaseStrategy):
             ma20 = row.get('ma20', close_price)
             
             # 1) 가격 필터 (그대로 유지)
-            if not (3000 <= close_price <= 500000):
+            if not (self.portfolio_price_min <= close_price <= self.portfolio_price_max):
                 continue
             
             # 2) 거래량 필터 (완화: 30,000 → 10,000)
-            if volume < 10000:
+            if volume < self.portfolio_min_volume:
                 continue
             
             # 3) RSI 필터 (완화: 35~75 → 30~80)
-            if not (30 < rsi < 80):
+            if not (self.portfolio_rsi_min < rsi < self.portfolio_rsi_max):
                 continue
             
             # 4) MA20 위 (완화: close > ma20*0.98 → close > ma20*0.99)
-            if close_price <= ma20 * 0.99:
+            if close_price <= ma20 * self.portfolio_ma20_ratio:
                 continue
             
             # 5) 가격 하한 (완화: 8,000 → 5,000)
-            if close_price <= 5000:
+            if close_price <= self.portfolio_extra_price_floor:
                 continue
             
             candidates.append({

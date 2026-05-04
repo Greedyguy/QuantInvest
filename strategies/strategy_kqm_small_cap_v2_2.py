@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from strategies.base_strategy import BaseStrategy
-from config import TAX_RATE_SELL, FEE_PER_SIDE
+from config import TAX_RATE_SELL, FEE_PER_SIDE, FEE_PER_SIDE_US, US_TAX_RATE_SELL
 
 
 class KQMSmallCapStrategyV22(BaseStrategy):
@@ -43,6 +43,7 @@ class KQMSmallCapStrategyV22(BaseStrategy):
         self.tax = TAX_RATE_SELL
         self.slippage = slippage
         self.regime_buffer_days = regime_buffer_days
+        self._market_profile_set = False
 
         # 개선된 팩터 가중치
         self.factor_weights = {
@@ -118,6 +119,25 @@ class KQMSmallCapStrategyV22(BaseStrategy):
             "price": price,
         }
 
+    def _is_us_market(self, tickers):
+        # KR 티커는 보통 숫자 6자리
+        sample = list(tickers)[:30]
+        if not sample:
+            return False
+        return any((not str(t).isdigit()) for t in sample)
+
+    def _set_market_profile(self, enriched):
+        if self._market_profile_set:
+            return
+        if self._is_us_market(enriched.keys()):
+            self.max_price = 1000
+            self.min_price = 2
+            self.min_vol20 = 1e7
+            self.min_vol5 = 5e6
+            self.fee = FEE_PER_SIDE_US
+            self.tax = US_TAX_RATE_SELL
+        self._market_profile_set = True
+
     # ---------------------------------------------------------
     # Equity 계산 (NaN 보정 포함)
     # ---------------------------------------------------------
@@ -176,6 +196,7 @@ class KQMSmallCapStrategyV22(BaseStrategy):
     # ---------------------------------------------------------
     def run_backtest(self, enriched, market_index=None, weights=None, silent=False):
         self._reset_weight_history()
+        self._set_market_profile(enriched)
         if not silent:
             print("\n===========================================================")
             print("📈 KQM Small Cap v2.2 백테스트 시작...")

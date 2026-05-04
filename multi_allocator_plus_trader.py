@@ -25,6 +25,8 @@ from universe_filter import filter_universe
 from automation.telegram_notifier import TelegramNotifier, format_alert
 from automation.daily_reporter import DailyReporter
 from config import BLOCKED_TICKERS
+from data_loader import get_universe_us, load_panel_us, get_index_close
+from signals import compute_indicators, add_rel_strength
 
 # .env 로컬 테스트 지원
 try:  # pragma: no cover
@@ -82,6 +84,8 @@ class MultiAllocatorPlusTrader:
         prepare_signal_only: bool = False,
         execution_recheck: bool = True,
         recheck_price_band_pct: float = 3.0,
+        market: str = "kr",
+        us_universe_limit: int = 50,
     ):
         self.start_date = start_date
         self.use_cache = use_cache
@@ -95,14 +99,14 @@ class MultiAllocatorPlusTrader:
         self.prepare_signal_only = prepare_signal_only
         self.execution_recheck = execution_recheck
         self.recheck_price_band_pct = recheck_price_band_pct
+        self.market = market.lower().strip()
+        self.us_universe_limit = us_universe_limit
         self.run_id = uuid4().hex[:12]
         self.execution_log_path = self._execution_log_path()
 
         self.kis = KoreaInvestmentConnector(virtual_account=virtual_account)
         self.telegram = TelegramNotifier()
         self.reporter = DailyReporter(PROJECT_ROOT / "reports" / "daily")
-        # 파생 ETF를 사용하지 않는 버전 사용
-        # (multi_allocator_plus_no_etf: etf_defensive 자식 전략 제거)
         self.strategy = get_strategy("multi_allocator_plus_no_etf")
         if self.strategy is None:
             raise RuntimeError("multi_allocator_plus 전략을 찾을 수 없습니다.")
@@ -115,15 +119,15 @@ class MultiAllocatorPlusTrader:
         out_dir.mkdir(parents=True, exist_ok=True)
         if self.signal_snapshot:
             return Path(self.signal_snapshot)
+        mkt = self.market.lower()
         if signal_date is not None:
             dt = signal_date.date() if hasattr(signal_date, "date") else signal_date
-            return out_dir / f"signal_{dt.isoformat()}.json"
-        # 저장 시점에 signal_date가 없으면 오늘 날짜 사용.
-        # 로드 시점(eod_fixed)에는 오늘 파일이 없을 수 있으므로 가장 최근 파일로 fallback.
-        today_path = out_dir / f"signal_{datetime.now().date().isoformat()}.json"
+            return out_dir / f"signal_{mkt}_{dt.isoformat()}.json"
+        # 로드 시점(eod_fixed): 오늘 파일 → 가장 최근 파일 순으로 fallback
+        today_path = out_dir / f"signal_{mkt}_{datetime.now().date().isoformat()}.json"
         if today_path.exists():
             return today_path
-        existing = sorted(out_dir.glob("signal_*.json"))
+        existing = sorted(out_dir.glob(f"signal_{mkt}_*.json"))
         if existing:
             return existing[-1]
         return today_path
@@ -132,9 +136,16 @@ class MultiAllocatorPlusTrader:
         out_dir = PROJECT_ROOT / "reports" / "execution"
         out_dir.mkdir(parents=True, exist_ok=True)
         mode = "A_live" if self.signal_mode == "live" else "B_eod_fixed"
-        return out_dir / f"execution_{datetime.now().date().isoformat()}_{mode}.jsonl"
+        mkt = getattr(self, "market", "kr")
+        return out_dir / f"execution_{datetime.now().date().isoformat()}_{mkt}_{mode}.jsonl"
 
     def load_market_data(self):
+        if self.market == "us":
+            self._load_market_data_us()
+        else:
+            self._load_market_data_kr()
+
+    def _load_market_data_kr(self):
         enriched, idx_map = load_data(
             use_cache=self.use_cache,
             start_date=self.start_date,
@@ -142,7 +153,26 @@ class MultiAllocatorPlusTrader:
         self.enriched = enriched
         self.market_index = idx_map.get("KOSDAQ")
         universe = filter_universe(enriched)
-        logger.info("✅ 데이터 로드 완료 - 유니버스 %d개", len(universe))
+        logger.info("✅ [KR] 데이터 로드 완료 - 유니버스 %d개", len(universe))
+
+    def _load_market_data_us(self):
+        start = self.start_date or "2020-01-01"
+        from datetime import date as _date
+        end = _date.today().strftime("%Y-%m-%d")
+        universe = get_universe_us(limit=self.us_universe_limit)
+        logger.info("🌐 [US] 유니버스 %d개 로드 중 ...", len(universe))
+        panel = load_panel_us(universe, start, end, max_workers=6)
+        idx = get_index_close("US", start, end)
+        enriched = {}
+        for ticker, df in panel.items():
+            df = compute_indicators(df)
+            if df is None or df.empty:
+                continue
+            df = add_rel_strength(df, idx)
+            enriched[ticker] = df
+        self.enriched = enriched
+        self.market_index = idx
+        logger.info("✅ [US] 데이터 로드 완료 - %d개 종목", len(enriched))
 
     def compute_target_weights(self) -> Tuple[pd.Timestamp, pd.Series]:
         targets = self.strategy.compute_security_targets(
@@ -643,10 +673,16 @@ class MultiAllocatorPlusTrader:
         return prices
 
     @staticmethod
-    def _normalize_symbol(symbol: str) -> str:
+    def _normalize_symbol(self, symbol: str) -> str:
         if symbol is None:
             return ""
-        return symbol.replace("A", "").strip()
+        s = symbol.strip()
+        if getattr(self, "market", "kr") == "us":
+            return s
+        # KR: pykrx 접두사 'A' 제거 (예: 'A005930' → '005930')
+        if s.startswith("A") and s[1:].isdigit():
+            return s[1:]
+        return s
 
 
 def main():
@@ -692,6 +728,19 @@ def main():
         default=3.0,
         help="신호 기준가 대비 허용 가격 괴리(%%)",
     )
+    parser.add_argument(
+        "--market",
+        type=str,
+        default="kr",
+        choices=["kr", "us"],
+        help="마켓 선택 (kr: 한국, us: 미국)",
+    )
+    parser.add_argument(
+        "--us-universe-limit",
+        type=int,
+        default=50,
+        help="US 유니버스 종목 수",
+    )
     args = parser.parse_args()
 
     trader = MultiAllocatorPlusTrader(
@@ -707,6 +756,8 @@ def main():
         prepare_signal_only=args.prepare_signal_only,
         execution_recheck=args.execution_recheck,
         recheck_price_band_pct=args.recheck_price_band_pct,
+        market=args.market,
+        us_universe_limit=args.us_universe_limit,
     )
     trader.run()
 
