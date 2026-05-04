@@ -186,8 +186,11 @@ def get_market_cap(ticker, start, end):
         DataFrame with market_cap column
     """
     try:
-        # pykrx에서 시가총액 조회
-        df_cap = stock.get_market_cap_by_date(start, end, ticker)
+        # pykrx 내부 파서가 간헐적으로 stdout/stderr에 에러 문자열을 직접 출력한다.
+        # (예: "Error occurred in get_market_cap_by_date: Expecting value ...")
+        # 전략 실행 로그 오염을 막기 위해 여기서 무음 처리하고, 실패 시 빈 DF로 폴백한다.
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            df_cap = stock.get_market_cap_by_date(start, end, ticker)
         
         if df_cap is None or df_cap.empty:
             return pd.DataFrame()
