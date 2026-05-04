@@ -17,6 +17,7 @@ os.makedirs(US_DATA_DIR, exist_ok=True)
 
 _MCAP_MARKET_MAP_CACHE = None
 _MCAP_MARKET_MAP_DATE = None
+_MCAP_DATE_ERR_COUNT = 0
 
 def _bizdays(start, end):
     return pd.bdate_range(start, end, freq="C")
@@ -185,6 +186,7 @@ def get_market_cap(ticker, start, end):
     Returns:
         DataFrame with market_cap column
     """
+    global _MCAP_DATE_ERR_COUNT
     try:
         # pykrx 내부 파서가 간헐적으로 stdout/stderr에 에러 문자열을 직접 출력한다.
         # (예: "Error occurred in get_market_cap_by_date: Expecting value ...")
@@ -214,7 +216,14 @@ def get_market_cap(ticker, start, end):
         return pd.DataFrame()
     
     except Exception as e:
-        # pykrx API 오류 시 조용히 무시 (시가총액 없이 진행)
+        # 원문 스팸은 숨기되 관측성은 유지: 샘플 + 누적 카운트 로그를 남긴다.
+        _MCAP_DATE_ERR_COUNT += 1
+        if _MCAP_DATE_ERR_COUNT <= 3 or _MCAP_DATE_ERR_COUNT % 100 == 0:
+            print(
+                f"[WARN] market_cap_by_date failed "
+                f"(count={_MCAP_DATE_ERR_COUNT}, ticker={ticker}, range={start}~{end}) "
+                f"-> {type(e).__name__}: {e}"
+            )
         return pd.DataFrame()
 
 
