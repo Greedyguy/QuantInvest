@@ -34,10 +34,6 @@ jobs:
         run: |
           python multi_allocator_plus_trader.py \
             --start-date 2026-01-01 \
-            --prepare-signal-only \
-            --signal-mode live
-          python multi_allocator_plus_trader.py \
-            --start-date 2026-01-01 \
             --dry-run \
             --min-trade 50000 \
             --signal-mode eod_fixed \

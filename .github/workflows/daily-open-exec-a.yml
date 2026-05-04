@@ -22,7 +22,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run open execution A (live)
+      - name: Run open execution A (eod_fixed)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -36,6 +36,6 @@ jobs:
             --start-date 2026-01-01 \
             --real \
             --min-trade 50000 \
-            --signal-mode live \
+            --signal-mode eod_fixed \
             --execution-recheck \
             --recheck-price-band-pct 3.0

@@ -115,8 +115,18 @@ class MultiAllocatorPlusTrader:
         out_dir.mkdir(parents=True, exist_ok=True)
         if self.signal_snapshot:
             return Path(self.signal_snapshot)
-        dt = signal_date.date() if signal_date is not None else datetime.now().date()
-        return out_dir / f"signal_{dt.isoformat()}.json"
+        if signal_date is not None:
+            dt = signal_date.date() if hasattr(signal_date, "date") else signal_date
+            return out_dir / f"signal_{dt.isoformat()}.json"
+        # 저장 시점에 signal_date가 없으면 오늘 날짜 사용.
+        # 로드 시점(eod_fixed)에는 오늘 파일이 없을 수 있으므로 가장 최근 파일로 fallback.
+        today_path = out_dir / f"signal_{datetime.now().date().isoformat()}.json"
+        if today_path.exists():
+            return today_path
+        existing = sorted(out_dir.glob("signal_*.json"))
+        if existing:
+            return existing[-1]
+        return today_path
 
     def _execution_log_path(self) -> Path:
         out_dir = PROJECT_ROOT / "reports" / "execution"
