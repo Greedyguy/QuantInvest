@@ -672,7 +672,6 @@ class MultiAllocatorPlusTrader:
                 prices[ticker] = float(close_series.iloc[-1])
         return prices
 
-    @staticmethod
     def _normalize_symbol(self, symbol: str) -> str:
         if symbol is None:
             return ""
