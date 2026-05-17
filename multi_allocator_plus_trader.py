@@ -185,11 +185,13 @@ class MultiAllocatorPlusTrader:
         latest_date = targets.index.max()
         latest_row = targets.loc[latest_date].fillna(0.0)
         latest_row = latest_row[latest_row >= 0]
-        # compute_security_targets 단계에서 이미 총합(자산+현금)이 1로 맞춰진다.
-        # 여기서 __CASH__를 제거 후 재정규화하면 리스크-오프 신호가 무력화되므로 유지한다.
+        # __CASH__ 비중은 리스크-오프 신호를 살리기 위해 보존하지만,
+        # 자산 측 weight==0 종목은 drop 해야 보유 중일 때 매도 주문이 정상 생성된다.
+        # (build_order_plan의 고아 정리 루프가 target_set 비교를 하므로 weight=0이 남아 있으면 매도가 누락됨)
+        cash_weight = float(latest_row.get("__CASH__", 0.0))
         asset_row = latest_row.drop("__CASH__", errors="ignore")
         asset_row = asset_row[asset_row > 0].sort_values(ascending=False)
-        cash_weight = float(latest_row.get("__CASH__", 0.0))
+        latest_row = pd.concat([asset_row, pd.Series({"__CASH__": cash_weight})])
         logger.info("🎯 타깃 비중 산출 완료 (%s)", latest_date.date())
         logger.info("  __CASH__ -> %.2f%%", cash_weight * 100)
         for ticker, weight in asset_row.items():
@@ -223,7 +225,13 @@ class MultiAllocatorPlusTrader:
         with open(snapshot_path, "r", encoding="utf-8") as f:
             payload = json.load(f)
         signal_date = pd.to_datetime(payload.get("signal_date"))
-        targets = pd.Series(payload.get("targets", {}), dtype=float)
+        targets = pd.Series(payload.get("targets", {}), dtype=float).fillna(0.0)
+        # 자산 측 weight==0 종목은 compute_target_weights와 동일하게 drop (cash는 보존).
+        # 과거 스냅샷 호환을 위해 load 시점에서도 가드.
+        cash_weight = float(targets.get("__CASH__", 0.0))
+        asset_targets = targets.drop("__CASH__", errors="ignore")
+        asset_targets = asset_targets[asset_targets > 0]
+        targets = pd.concat([asset_targets, pd.Series({"__CASH__": cash_weight})])
         ref_prices = {k: float(v) for k, v in (payload.get("ref_prices") or {}).items()}
         logger.info("🧾 신호 스냅샷 로드: %s (date=%s)", snapshot_path, signal_date.date())
         return signal_date, targets, ref_prices
