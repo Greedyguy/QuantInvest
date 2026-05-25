@@ -2,11 +2,16 @@ name: Daily Open Exec A (Live)
 
 on:
   schedule:
-    - cron: "40 23 * * 0-4"
+    # KST 09:00 (장 시작) = UTC 00:00, 월~금
+    # ※ ubuntu-latest 큐 지연 ~1.5h → 실제 실행 10:30~11:00
+    #   Oracle 셋업 후 즉시 실행(지연 없음)으로 전환 예정
+    - cron: "0 0 * * 1-5"
   workflow_dispatch: {}
 
 jobs:
   run-live:
+    # Oracle Cloud 셋업 완료 후 아래 줄을 교체:
+    #   runs-on: [self-hosted, oracle-kr-trader]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

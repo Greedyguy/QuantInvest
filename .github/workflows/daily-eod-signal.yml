@@ -2,11 +2,14 @@ name: Daily EOD Signal Prep
 
 on:
   schedule:
+    # KST 16:10 (장 마감 40분 후) = UTC 07:10, 월~금
     - cron: "10 7 * * 1-5"
   workflow_dispatch: {}
 
 jobs:
   prep-signal:
+    # Oracle Cloud 셋업 완료 후 아래 줄을 교체:
+    #   runs-on: [self-hosted, oracle-kr-trader]
     runs-on: ubuntu-latest
     permissions:
       contents: write
