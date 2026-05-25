@@ -107,7 +107,7 @@ class MultiAllocatorPlusTrader:
         self.kis = KoreaInvestmentConnector(virtual_account=virtual_account)
         self.telegram = TelegramNotifier()
         self.reporter = DailyReporter(PROJECT_ROOT / "reports" / "daily")
-        self.strategy = get_strategy("multi_allocator_plus_no_etf")
+        self.strategy = get_strategy("multi_allocator_plus_safe_etf_kqm")
         if self.strategy is None:
             raise RuntimeError("multi_allocator_plus 전략을 찾을 수 없습니다.")
 

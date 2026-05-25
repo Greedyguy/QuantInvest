@@ -38,7 +38,11 @@ from strategies.strategy_multi_allocator_plus import MultiStrategyAllocatorPlus
 from strategies.strategy_multi_allocator_plus_v2 import MultiStrategyAllocatorPlusV2
 from strategies.hybrid_portfolio_v2_4 import HybridPortfolioStrategyV24
 from strategies.strategy_etf_defensive import ETFRiskOverlayStrategy
+from strategies.strategy_etf_defensive_safe import ETFDefensiveSafeStrategy
 from strategies.strategy_multi_allocator_plus_no_etf import MultiStrategyAllocatorPlusNoETF
+from strategies.strategy_multi_allocator_plus_safe_etf import MultiStrategyAllocatorPlusSafeETF
+from strategies.strategy_multi_allocator_plus_midcap import MultiStrategyAllocatorPlusMidcap
+from strategies.strategy_multi_allocator_plus_safe_etf_kqm import MultiStrategyAllocatorPlusSafeETFKQM
 
 # 전략 레지스트리
 _strategy_registry: Dict[str, BaseStrategy] = {}
@@ -81,8 +85,12 @@ def _register_strategies():
         ProductionPortfolioStrategy,
         HybridPortfolioStrategyV24,
         ETFRiskOverlayStrategy,
+        ETFDefensiveSafeStrategy,
         MultiStrategyAllocatorPlus,
-        MultiStrategyAllocatorPlusNoETF
+        MultiStrategyAllocatorPlusNoETF,
+        MultiStrategyAllocatorPlusSafeETF,
+        MultiStrategyAllocatorPlusMidcap,
+        MultiStrategyAllocatorPlusSafeETFKQM
     ]
     
     for strategy_class in strategy_classes:

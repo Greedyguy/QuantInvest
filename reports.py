@@ -80,15 +80,21 @@ def build_signal_for_one(ticker, df, idx_map, infer_market_fn, start_date, end_d
         return ticker, None, False
 
 
-def load_data(use_cache=True, max_workers=8, incremental=True, start_date=None):
-    """데이터 로드 및 인디케이터 계산 (캐싱 + 병렬 처리 + 증분 업데이트)"""
+def load_data(use_cache=True, max_workers=8, incremental=True, start_date=None,
+              include_market_cap=True):
+    """데이터 로드 및 인디케이터 계산 (캐싱 + 병렬 처리 + 증분 업데이트)
+
+    Args:
+        include_market_cap: 시가총액 데이터 포함 여부. False로 설정하면 로딩 속도가 빨라짐.
+                            백테스트 전용 실행 시 False 권장.
+    """
     print("\n" + "="*60)
     print("📂 데이터 로드 중...")
     print("="*60)
-    
+
     start = start_date or START
     end = date.today().strftime("%Y-%m-%d") if END is None else END
-    
+
     # 증분 업데이트 확인
     last_calc_date = None
     if use_cache and incremental:
@@ -102,13 +108,14 @@ def load_data(use_cache=True, max_workers=8, incremental=True, start_date=None):
                 print("📦 캐시에서 데이터 로드 중...")
             else:
                 print(f"📅 증분 업데이트 모드 (마지막 계산일: {last_calc_date} → {end})")
-    
+
     # 전체 유니버스 로드 (ETF 포함)
     universe = get_universe(MARKETS, include_etf=True, include_index_etf=True)
     print(f"✅ 유니버스: {len(universe)}개 종목")
-    
+
     # OHLCV 데이터 로드
-    panel = load_panel(universe, start, end, max_workers=6)
+    panel = load_panel(universe, start, end, max_workers=6,
+                       include_market_cap=include_market_cap)
     print(f"✅ 데이터 로드 완료: {len(panel)}개 종목")
     
     # 지수 데이터 (캐시 우선)
@@ -719,7 +726,7 @@ def main(strategies=None, use_cache=True, use_backtest_cache=True, custom_weight
         print("="*60)
         # 최적화된 가중치가 있으면 사용, 없으면 기본 가중치
         weights_to_use = custom_weights if custom_weights else None
-        if strategy_name == "multi_allocator":
+        if strategy_name.startswith("multi_allocator"):
             enriched_for_strategy = enriched
         else:
             enriched_for_strategy = filtered_enriched
