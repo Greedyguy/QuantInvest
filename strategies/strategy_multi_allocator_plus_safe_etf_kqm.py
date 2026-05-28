@@ -62,7 +62,7 @@ class MultiStrategyAllocatorPlusSafeETFKQM(MultiStrategyAllocatorPlus):
             "bear":       0.28,   # 0.46 → 0.28 (현금 72%)
             "ultra_bear": 0.28,   # 동일
         }
-        self.exposure_floor = 0.10  # 0.22 → 0.10 (최대 90% 현금 허용)
+        self.exposure_floor = 0.15  # 0.10 → 0.15 (최대 85% 현금, 최소 15% 투자)
 
     def get_name(self):
         return "multi_allocator_plus_safe_etf_kqm"

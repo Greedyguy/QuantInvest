@@ -103,11 +103,23 @@ class MultiStrategyAllocator(BaseStrategy):
     # ---------------------------------------------------------
     # Helper functions
     # ---------------------------------------------------------
-    def _prepare_regime(self, market_index):
+    def _prepare_regime(self, market_index, secondary_index=None, blend_weight=0.5):
         if market_index is None or "close" not in market_index.columns:
             return None
-        idx = market_index.copy().sort_index()
-        idx = idx[["close"]].astype(float)
+        primary = market_index[["close"]].astype(float).sort_index()
+        if secondary_index is not None and "close" in secondary_index.columns:
+            sec = secondary_index[["close"]].astype(float).sort_index()
+            common = primary.index.intersection(sec.index)
+            if len(common) > 0:
+                # 공통 시작일에 1로 정규화한 뒤 블렌드
+                p_norm = primary.loc[common, "close"] / primary.loc[common[0], "close"]
+                s_norm = sec.loc[common, "close"] / sec.loc[common[0], "close"]
+                blended_close = (1 - blend_weight) * p_norm + blend_weight * s_norm
+                idx = pd.DataFrame({"close": blended_close})
+            else:
+                idx = primary.copy()
+        else:
+            idx = primary.copy()
         idx["ma60"] = idx["close"].rolling(60).mean()
         close = idx["close"]
         idx["mom20"] = close.pct_change(20)
@@ -153,6 +165,8 @@ class MultiStrategyAllocator(BaseStrategy):
                 expo = 0.6
             elif mom1 > -0.03:
                 expo = 0.4
+            elif mom1 > -0.06:  # 절벽 완화: -3%~-6% 구간
+                expo = 0.30
             else:
                 expo = 0.18
             if not np.isnan(vol) and vol > 0.45:
@@ -757,7 +771,7 @@ class MultiStrategyAllocator(BaseStrategy):
     # ---------------------------------------------------------
     # Main entry
     # ---------------------------------------------------------
-    def run_backtest(self, enriched, market_index=None, weights=None, silent=False):
+    def run_backtest(self, enriched, market_index=None, secondary_index=None, weights=None, silent=False):
         if not enriched:
             return pd.DataFrame(), []
 
@@ -776,7 +790,7 @@ class MultiStrategyAllocator(BaseStrategy):
         if not silent:
             print(f"[multi_allocator] ret_df shape: {ret_df.shape}, dates {ret_df.index.min()} ~ {ret_df.index.max()}")
 
-        regime_df = self._prepare_regime(market_index)
+        regime_df = self._prepare_regime(market_index, secondary_index=secondary_index)
         expos = self._dynamic_exposure(regime_df, ret_df.index)
         expos = expos.shift(1).fillna(self.regime_exposure.get("neutral", 0.7))
         expos = expos.clip(lower=self.exposure_floor, upper=1.0)

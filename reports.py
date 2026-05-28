@@ -709,9 +709,10 @@ def main(strategies=None, use_cache=True, use_backtest_cache=True, custom_weight
     # 필터링된 enriched 딕셔너리 생성 (전략에 전달용)
     filtered_enriched = {ticker: enriched[ticker] for ticker in valid_universe if ticker in enriched}
     
-    # KOSDAQ 인덱스 추출
+    # KOSDAQ / KOSPI 인덱스 추출
     idx_kosdaq = idx_map.get("KOSDAQ", None)
-    
+    idx_kospi  = idx_map.get("KOSPI", None)
+
     if idx_kosdaq is not None and len(idx_kosdaq) > 0:
         print(f"\n✅ KOSDAQ 인덱스: {len(idx_kosdaq)}개 데이터 (날짜: {idx_kosdaq.index[0]} ~ {idx_kosdaq.index[-1]})")
     else:
@@ -730,7 +731,12 @@ def main(strategies=None, use_cache=True, use_backtest_cache=True, custom_weight
             enriched_for_strategy = enriched
         else:
             enriched_for_strategy = filtered_enriched
-        equity_curve, trade_log = strategy.run_backtest(enriched_for_strategy, market_index=idx_kosdaq, weights=weights_to_use)
+        equity_curve, trade_log = strategy.run_backtest(
+            enriched_for_strategy,
+            market_index=idx_kosdaq,
+            secondary_index=idx_kospi,
+            weights=weights_to_use,
+        )
         results.append((strategy_name, equity_curve, trade_log))
     
     # 3. 결과 출력

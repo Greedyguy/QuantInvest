@@ -113,6 +113,7 @@ class MultiAllocatorPlusTrader:
 
         self.enriched = {}
         self.market_index = None
+        self.secondary_index = None
 
     def _signal_snapshot_path(self, signal_date: datetime | pd.Timestamp | None = None) -> Path:
         out_dir = PROJECT_ROOT / "reports" / "signals"
@@ -152,6 +153,7 @@ class MultiAllocatorPlusTrader:
         )
         self.enriched = enriched
         self.market_index = idx_map.get("KOSDAQ")
+        self.secondary_index = idx_map.get("KOSPI")
         universe = filter_universe(enriched)
         logger.info("✅ [KR] 데이터 로드 완료 - 유니버스 %d개", len(universe))
 
@@ -178,6 +180,7 @@ class MultiAllocatorPlusTrader:
         targets = self.strategy.compute_security_targets(
             self.enriched,
             market_index=self.market_index,
+            secondary_index=self.secondary_index,
             silent=True,
         )
         if targets is None or targets.empty:

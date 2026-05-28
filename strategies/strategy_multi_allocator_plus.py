@@ -150,19 +150,24 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
             return super()._performance_stress(exposures, blended_ret)
         blended = blended_ret.reindex(exposures.index).fillna(0.0)
         eq = (1.0 + blended).cumprod()
-        running_max = eq.cummax().replace(0, pd.NA)
+        # rolling 252일 고점 기준 — start_date 길이에 무관하게 일정한 stress 판단
+        rolling_max = eq.rolling(252, min_periods=20).max().replace(0, pd.NA)
+        running_max = rolling_max.fillna(eq.cummax().replace(0, pd.NA))
         dd = eq / running_max - 1.0
         min_periods = max(15, self.protection_window // 2)
         roll = (1.0 + blended).rolling(self.protection_window, min_periods=min_periods).apply(lambda x: np.prod(x) - 1.0, raw=True)
         roll = roll.fillna(0.0)
+        # warmup 감쇠: 데이터가 252일 미만이면 stress 신호를 비례 축소
+        # (live에서 start_date가 짧을 때 과잉 방어 방지)
+        warmup = min(1.0, len(exposures) / 252)
         stress_levels = pd.Series(0, index=exposures.index)
         adj = exposures.copy()
         for date in exposures.index:
             expo = exposures.loc[date]
             f = 1.0
             level = 0
-            r = roll.loc[date] if date in roll.index else 0.0
-            d = dd.loc[date] if date in dd.index else 0.0
+            r = (roll.loc[date] if date in roll.index else 0.0) * warmup
+            d = (dd.loc[date] if date in dd.index else 0.0) * warmup
             if r < -0.01 or d < -0.015:
                 f *= 0.88
                 level = max(level, 1)
@@ -202,7 +207,7 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
             stress_levels.loc[date] = level
         return adj.clip(lower=self.exposure_floor), stress_levels
 
-    def compute_security_targets(self, enriched, market_index=None, weights_override=None, silent=True):
+    def compute_security_targets(self, enriched, market_index=None, secondary_index=None, weights_override=None, silent=True):
         """자식 전략 결합 신호를 기반으로 티커별 목표 비중 계산"""
         child_results = self._run_child_strategies(enriched, market_index, weights_override=weights_override, silent=silent)
         if not child_results:
@@ -215,7 +220,7 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
         if shared_index.empty:
             return pd.DataFrame()
 
-        regime_df = self._prepare_regime(market_index)
+        regime_df = self._prepare_regime(market_index, secondary_index=secondary_index)
         expos = self._dynamic_exposure(regime_df, ret_df.index)
         expos = expos.shift(1).fillna(self.regime_exposure.get("neutral", 0.7))
         expos = expos.clip(lower=self.exposure_floor, upper=1.2)
