@@ -9,9 +9,13 @@ on:
 jobs:
   prep-signal-us:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,3 +38,11 @@ jobs:
             --us-universe-limit 50 \
             --prepare-signal-only \
             --signal-mode live
+
+      - name: Commit and push US signal snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add reports/signals/
+          git diff --cached --quiet || git commit -m "chore: US EOD signal snapshot $(date -u +%Y-%m-%d)"
+          git push
