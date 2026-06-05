@@ -24,7 +24,15 @@ from strategies import get_strategy
 from universe_filter import filter_universe
 from automation.telegram_notifier import TelegramNotifier, format_alert
 from automation.daily_reporter import DailyReporter
-from config import BLOCKED_TICKERS
+from config import (
+    BLOCKED_TICKERS,
+    FEE_PER_SIDE,
+    FEE_PER_SIDE_US,
+    SLIPPAGE_ENTRY,
+    SLIPPAGE_ENTRY_US,
+    TAX_RATE_SELL,
+    US_TAX_RATE_SELL,
+)
 from data_loader import get_universe_us, load_panel_us, get_index_close
 from signals import compute_indicators, add_rel_strength
 
@@ -203,9 +211,14 @@ class MultiAllocatorPlusTrader:
 
     def save_signal_snapshot(self, signal_date: pd.Timestamp, targets: pd.Series):
         ref_prices = self._latest_prices([ticker for ticker in targets.index if ticker != "__CASH__"])
+        strategy_name = (
+            self.strategy.get_name()
+            if hasattr(self.strategy, "get_name")
+            else self.strategy.__class__.__name__
+        )
         payload = {
             "signal_date": str(signal_date.date()),
-            "strategy": "multi_allocator_plus_no_etf",
+            "strategy": strategy_name,
             "signal_mode": "eod_fixed",
             "targets": {k: float(v) for k, v in targets.fillna(0.0).items()},
             "ref_prices": {k: float(v) for k, v in ref_prices.items()},
@@ -254,18 +267,96 @@ class MultiAllocatorPlusTrader:
             return account, holdings
 
         balance_raw = self.kis.get_account_balance()
+        if not balance_raw:
+            raise RuntimeError("계좌 잔고 조회 실패: 빈 응답을 받아 실거래를 중단합니다.")
+
         account = self.kis.parse_account_balance_data(balance_raw)
-        holdings_list = self.kis.get_account_stocks()
-        holdings: Dict[str, Dict] = {}
-        for item in holdings_list:
-            symbol = self._normalize_symbol(item.get("symbol", ""))
-            holdings[symbol] = item
+        if not account or not account.get("total_value"):
+            raise RuntimeError("계좌 잔고 파싱 실패: 총자산을 확인할 수 없어 실거래를 중단합니다.")
+
+        holdings = self._parse_holdings_from_balance(balance_raw)
+        stock_value = float(account.get("stock_value", 0) or 0)
+        if stock_value > 1_000 and not holdings:
+            raise RuntimeError(
+                "보유 종목 조회 실패: 주식 평가금액은 있으나 보유 목록이 비어 있어 실거래를 중단합니다."
+            )
         logger.info(
             "💰 계좌 총자산: %s원 / 매수가능: %s원",
             f"{account.get('total_value', 0):,.0f}",
             f"{account.get('available_cash', 0):,.0f}",
         )
+        if holdings:
+            holding_summary = ", ".join(
+                f"{symbol}:{int(pos.get('quantity', 0))}주"
+                for symbol, pos in sorted(holdings.items())
+            )
+            logger.info("📦 보유 종목: %s", holding_summary)
+        else:
+            logger.info("📦 보유 종목: 없음")
         return account, holdings
+
+    def _parse_holdings_from_balance(self, balance_raw: Dict) -> Dict[str, Dict]:
+        holdings: Dict[str, Dict] = {}
+        for stock_data in balance_raw.get("output1") or []:
+            quantity = self._safe_int(stock_data.get("hldg_qty", "0"))
+            if quantity <= 0:
+                continue
+
+            symbol = self._normalize_symbol(stock_data.get("pdno", ""))
+            if not symbol:
+                continue
+
+            current_price = self._safe_float(stock_data.get("prpr", "0"))
+            avg_price = self._safe_float(stock_data.get("pchs_avg_pric", "0"))
+            market_value = self._safe_float(stock_data.get("evlu_amt", "0"))
+            if market_value <= 0 and current_price > 0:
+                market_value = current_price * quantity
+            unrealized_pnl = self._safe_float(stock_data.get("evlu_pfls_amt", "0"))
+            invested = avg_price * quantity
+            unrealized_pnl_rate = (
+                unrealized_pnl / invested * 100
+                if invested > 0
+                else self._safe_float(stock_data.get("evlu_pfls_rt", "0"))
+            )
+
+            holdings[symbol] = {
+                "symbol": symbol,
+                "name": stock_data.get("prdt_name", ""),
+                "quantity": quantity,
+                "avg_price": avg_price,
+                "current_price": current_price,
+                "market_value": market_value,
+                "unrealized_pnl": unrealized_pnl,
+                "unrealized_pnl_rate": unrealized_pnl_rate,
+                "purchase_date": stock_data.get("ord_dt", ""),
+            }
+
+        logger.info("📦 보유 종목 파싱 완료: %d개", len(holdings))
+        return holdings
+
+    @staticmethod
+    def _safe_int(value) -> int:
+        try:
+            if value is None or value == "":
+                return 0
+            cleaned = "".join(c for c in str(value) if c.isdigit() or c in "-.")
+            if not cleaned or cleaned in {".", "-", "-."}:
+                return 0
+            return int(float(cleaned))
+        except (TypeError, ValueError):
+            return 0
+
+    @staticmethod
+    def _safe_float(value) -> float:
+        try:
+            if value is None or value == "":
+                return 0.0
+            cleaned = "".join(c for c in str(value) if c.isdigit() or c in "-.")
+            if not cleaned or cleaned in {".", "-", "-."}:
+                return 0.0
+            return float(cleaned)
+        except (TypeError, ValueError):
+            return 0.0
 
     def build_order_plan(
         self,
@@ -312,16 +403,40 @@ class MultiAllocatorPlusTrader:
         for ticker, weight in targets.items():
             price = price_cache.get(ticker)
             if price is None or price <= 0:
+                logger.warning("계획 제외: %s 기준가 없음", ticker)
                 continue
             target_value = total_equity * weight
             if target_value < effective_min_trade:
+                logger.info(
+                    "계획 제외: %s 목표금액 %.0f원 < 최소매매 %.0f원",
+                    ticker,
+                    target_value,
+                    effective_min_trade,
+                )
                 continue
             target_qty = int(target_value / price)
             current_qty = holdings.get(self._normalize_symbol(ticker), {}).get("quantity", 0)
             delta = target_qty - current_qty
             if delta == 0:
+                logger.info(
+                    "계획 제외: %s 보유 %s주 = 목표 %s주 (목표 %.2f%%, 기준가 %.0f원)",
+                    ticker,
+                    current_qty,
+                    target_qty,
+                    weight * 100,
+                    price,
+                )
                 continue
             action = "BUY" if delta > 0 else "SELL"
+            logger.info(
+                "계획 생성: %s %s %s주 (보유 %s주 -> 목표 %s주, 목표 %.2f%%)",
+                action,
+                ticker,
+                abs(delta),
+                current_qty,
+                target_qty,
+                weight * 100,
+            )
             plans.append(
                 OrderPlan(
                     symbol=ticker,
@@ -374,10 +489,15 @@ class MultiAllocatorPlusTrader:
                 if isinstance(raw, (int, float)):
                     return float(raw)
                 if isinstance(raw, dict):
-                    for key in ["current_price", "price", "stck_prpr"]:
-                        val = raw.get(key)
-                        if val is not None:
-                            return float(val)
+                    containers = [raw]
+                    output = raw.get("output")
+                    if isinstance(output, dict):
+                        containers.append(output)
+                    for data in containers:
+                        for key in ["current_price", "price", "stck_prpr", "prpr"]:
+                            price = self._safe_float(data.get(key))
+                            if price > 0:
+                                return price
             except Exception:
                 continue
         return None
@@ -400,13 +520,23 @@ class MultiAllocatorPlusTrader:
                 if isinstance(raw, int):
                     return raw
                 if isinstance(raw, dict):
-                    for key in ["orderable_qty", "quantity", "qty"]:
-                        val = raw.get(key)
-                        if val is not None:
-                            return int(val)
+                    containers = [raw]
+                    output = raw.get("output")
+                    if isinstance(output, dict):
+                        containers.append(output)
+                    for data in containers:
+                        for key in ["orderable_qty", "quantity", "qty", "ord_psbl_qty"]:
+                            val = data.get(key)
+                            if val is not None:
+                                return self._safe_int(val)
             except Exception:
                 continue
         return None
+
+    def _execution_cost_rates(self) -> Tuple[float, float, float]:
+        if self.market == "us":
+            return FEE_PER_SIDE_US, US_TAX_RATE_SELL, SLIPPAGE_ENTRY_US
+        return FEE_PER_SIDE, TAX_RATE_SELL, SLIPPAGE_ENTRY
 
     def apply_execution_recheck(self, plans: List[OrderPlan], account: Dict) -> Tuple[List[OrderPlan], List[Dict]]:
         if not self.execution_recheck:
@@ -414,47 +544,80 @@ class MultiAllocatorPlusTrader:
         reviewed: List[OrderPlan] = []
         logs: List[Dict] = []
         remaining_cash = float(account.get("available_cash", 0) or 0)
+        fee_rate, sell_tax_rate, entry_slippage = self._execution_cost_rates()
         for plan in plans:
+            cash_before = remaining_cash
             recheck_price = self._safe_get_current_price(plan.symbol) or plan.est_price
             if recheck_price <= 0:
+                logger.warning("재검증 제외: %s %s - 현재가 확인 실패", plan.action, plan.symbol)
                 logs.append({
                     "run_id": self.run_id,
                     "ticker": plan.symbol,
+                    "action": plan.action,
                     "decision": "skip",
                     "reason": "invalid_recheck_price",
+                    "cash_before": cash_before,
                 })
                 continue
             price_diff_pct = abs(recheck_price - plan.est_price) / plan.est_price * 100 if plan.est_price > 0 else 0.0
             if price_diff_pct > self.recheck_price_band_pct:
+                logger.warning(
+                    "재검증 제외: %s %s - 가격 괴리 %.2f%% > %.2f%% (신호 %.0f원, 현재 %.0f원)",
+                    plan.action,
+                    plan.symbol,
+                    price_diff_pct,
+                    self.recheck_price_band_pct,
+                    plan.est_price,
+                    recheck_price,
+                )
                 logs.append({
                     "run_id": self.run_id,
                     "ticker": plan.symbol,
+                    "action": plan.action,
                     "decision": "skip",
                     "reason": "price_band_exceeded",
                     "signal_price": plan.est_price,
                     "recheck_price": recheck_price,
                     "price_diff_pct": price_diff_pct,
+                    "cash_before": cash_before,
                 })
                 continue
 
             adjusted_qty = int(plan.quantity)
-            orderable_qty = self._safe_get_orderable_qty(plan.symbol, recheck_price)
-            if orderable_qty is not None:
-                adjusted_qty = min(adjusted_qty, max(orderable_qty, 0))
+            orderable_qty = None
             if plan.action == "BUY":
-                max_by_cash = int(remaining_cash / recheck_price) if recheck_price > 0 else 0
+                orderable_qty = self._safe_get_orderable_qty(plan.symbol, recheck_price)
+                if orderable_qty is not None:
+                    adjusted_qty = min(adjusted_qty, max(orderable_qty, 0))
+                cash_per_share = recheck_price * (1 + fee_rate + entry_slippage)
+                max_by_cash = int(remaining_cash / cash_per_share) if cash_per_share > 0 else 0
                 adjusted_qty = min(adjusted_qty, max(max_by_cash, 0))
-                remaining_cash -= adjusted_qty * recheck_price
+                remaining_cash -= adjusted_qty * cash_per_share
+            else:
+                cash_per_share = recheck_price * max(1 - fee_rate - sell_tax_rate, 0)
+                remaining_cash += adjusted_qty * cash_per_share
 
             if adjusted_qty <= 0:
+                logger.warning(
+                    "재검증 제외: %s %s - 현금/주문가능 부족 (계획 %s주, 현금 %.0f원 -> %.0f원)",
+                    plan.action,
+                    plan.symbol,
+                    plan.quantity,
+                    cash_before,
+                    remaining_cash,
+                )
                 logs.append({
                     "run_id": self.run_id,
                     "ticker": plan.symbol,
+                    "action": plan.action,
                     "decision": "skip",
                     "reason": "insufficient_cash_or_orderable",
                     "signal_price": plan.est_price,
                     "recheck_price": recheck_price,
                     "orderable_qty": orderable_qty,
+                    "cash_before": cash_before,
+                    "cash_after": remaining_cash,
+                    "cash_per_share": cash_per_share,
                 })
                 continue
 
@@ -470,9 +633,20 @@ class MultiAllocatorPlusTrader:
                     target_qty=plan.target_qty,
                 )
             )
+            if adjusted_qty != int(plan.quantity):
+                logger.info(
+                    "재검증 수량 조정: %s %s %s주 -> %s주 (현금 %.0f원 -> %.0f원)",
+                    plan.action,
+                    plan.symbol,
+                    plan.quantity,
+                    adjusted_qty,
+                    cash_before,
+                    remaining_cash,
+                )
             logs.append({
                 "run_id": self.run_id,
                 "ticker": plan.symbol,
+                "action": plan.action,
                 "decision": "send",
                 "reason": "ok",
                 "signal_price": plan.est_price,
@@ -480,6 +654,9 @@ class MultiAllocatorPlusTrader:
                 "planned_qty": plan.quantity,
                 "final_qty": adjusted_qty,
                 "orderable_qty": orderable_qty,
+                "cash_before": cash_before,
+                "cash_after": remaining_cash,
+                "cash_per_share": cash_per_share,
             })
         return reviewed, logs
 
@@ -636,6 +813,28 @@ class MultiAllocatorPlusTrader:
         lines.append(f"리포트: {report_path.name}")
         self.telegram.send_message(format_alert("Multi Allocator PLUS", lines))
 
+    def _notify_recheck_filtered(
+        self,
+        raw_plans: List[OrderPlan],
+        recheck_logs: List[Dict],
+        as_of: datetime,
+    ):
+        if self.dry_run or not self.telegram.can_send():
+            return
+        skipped = [row for row in recheck_logs if row.get("decision") == "skip"]
+        lines = [
+            f"신호일: {as_of.date()}",
+            f"원 주문 계획: {len(raw_plans)}건",
+            f"재검증 스킵: {len(skipped)}건",
+        ]
+        for row in skipped[:5]:
+            lines.append(
+                f"- {row.get('action')} {row.get('ticker')}: {row.get('reason')}"
+            )
+        if len(skipped) > 5:
+            lines.append(f"...외 {len(skipped) - 5}건")
+        self.telegram.send_message(format_alert("Multi Allocator PLUS (재검증 스킵)", lines))
+
     def run(self):
         price_cache_override = None
         if self.signal_mode == "live":
@@ -654,9 +853,12 @@ class MultiAllocatorPlusTrader:
             logger.info("🗂️ 캐시 리프레시 전용 실행이 완료되었습니다. 트레이딩 루틴은 건너뜁니다.")
             return
         account, holdings = self.fetch_account_snapshot()
-        plans = self.build_order_plan(targets, account, holdings, price_cache_override=price_cache_override)
-        plans, recheck_logs = self.apply_execution_recheck(plans, account)
+        raw_plans = self.build_order_plan(targets, account, holdings, price_cache_override=price_cache_override)
+        plans, recheck_logs = self.apply_execution_recheck(raw_plans, account)
         self.append_execution_logs(recheck_logs)
+        if raw_plans and not plans:
+            logger.warning("재검증 후 모든 주문이 스킵되었습니다.")
+            self._notify_recheck_filtered(raw_plans, recheck_logs, last_date)
         if plans:
             logger.info("📋 주문 계획 (%s):", last_date.date())
             for plan in plans:

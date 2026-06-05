@@ -365,7 +365,8 @@ class KoreaInvestmentConnector:
             def _request_balance(inqr_dvsn: str):
                 params = dict(base_params)
                 params["INQR_DVSN"] = inqr_dvsn
-                return requests.get(url, headers=headers, params=params)
+                self._wait_for_api_limit()
+                return requests.get(url, headers=headers, params=params, timeout=10)
             
             last_error_msg = "잔고 조회 실패"
             for idx, inqr_dvsn in enumerate(("01", "02")):
@@ -394,6 +395,10 @@ class KoreaInvestmentConnector:
                 self.logger.error(
                     f"[FAIL] 잔고 조회 실패 (INQR_DVSN={inqr_dvsn}, msg_cd={error_cd}): {error_msg}"
                 )
+
+                if error_cd == "EGW00201" and idx < 1:
+                    self.logger.warning("[RETRY] KIS 초당 거래건수 제한으로 잔고 조회를 재시도합니다.")
+                    continue
 
                 # INQR_DVSN 문제 아니면 두 번째 시도를 생략해 불필요한 호출을 줄인다.
                 if "INVALID_CHECK_INQR_DVSN" not in error_msg:
@@ -480,15 +485,16 @@ class KoreaInvestmentConnector:
             
             output2 = balance_result.get("output2", [{}])[0]  # 계좌 요약 정보
             
-            # 🔧 현금 잔고 계산 로직 개선 - 실제 현금 잔고 우선 사용
+            # 🔧 현금 잔고 계산 로직 개선
             total_cash = self._safe_float(output2.get("dnca_tot_amt", "0"))  # 예수금총액
             
-            # 매수가능금액 - 실제 현금 잔고 필드 우선 사용
+            # 매수가능금액은 주문 가능 현금(ord_psbl_cash)을 우선 사용한다.
+            # prvs_rcdl_excc_amt는 전일정산/정산 관련 금액이라 실시간 주문가능액보다 낮을 수 있다.
             available_cash = 0.0
             possible_cash_fields = [
-                "prvs_rcdl_excc_amt",  # 🆕 전일정산금액 (실제 현금 잔고) - 최우선
-                "ord_psbl_cash",       # 주문가능현금 (일반적으로 매수가능금액)
+                "ord_psbl_cash",       # 주문가능현금 - 최우선
                 "dnca_tot_amt",        # 예수금총액 (fallback)
+                "prvs_rcdl_excc_amt",  # 전일정산금액 (fallback)
                 "nxdy_excc_amt",       # 익일정산금액 (실제 현금과 다를 수 있음)
                 "dncl_amt"             # 예수금 (최종 fallback)
             ]
