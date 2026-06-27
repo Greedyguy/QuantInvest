@@ -94,6 +94,7 @@ class MultiAllocatorPlusTrader:
         recheck_price_band_pct: float = 3.0,
         market: str = "kr",
         us_universe_limit: int = 50,
+        skip_if_executed: bool = True,
     ):
         self.start_date = start_date
         self.use_cache = use_cache
@@ -109,6 +110,7 @@ class MultiAllocatorPlusTrader:
         self.recheck_price_band_pct = recheck_price_band_pct
         self.market = market.lower().strip()
         self.us_universe_limit = us_universe_limit
+        self.skip_if_executed = skip_if_executed
         self.run_id = uuid4().hex[:12]
         self.execution_log_path = self._execution_log_path()
 
@@ -147,6 +149,32 @@ class MultiAllocatorPlusTrader:
         mode = "A_live" if self.signal_mode == "live" else "B_eod_fixed"
         mkt = getattr(self, "market", "kr")
         return out_dir / f"execution_{datetime.now().date().isoformat()}_{mkt}_{mode}.jsonl"
+
+    def _execution_summary_path(self, signal_date: datetime | pd.Timestamp) -> Path:
+        out_dir = PROJECT_ROOT / "reports" / "execution"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        sig_day = signal_date.date() if hasattr(signal_date, "date") else signal_date
+        trade_day = datetime.now().date()
+        return out_dir / (
+            f"summary_{trade_day.isoformat()}_{self.market}_"
+            f"{sig_day.isoformat()}_{self.run_id}.json"
+        )
+
+    def _completed_execution_for_signal(self, signal_date: datetime | pd.Timestamp) -> Dict | None:
+        if self.dry_run or not self.skip_if_executed or self.signal_mode != "eod_fixed":
+            return None
+        sig_day = signal_date.date() if hasattr(signal_date, "date") else signal_date
+        trade_day = datetime.now().date().isoformat()
+        pattern = f"summary_{trade_day}_{self.market}_{sig_day.isoformat()}_*.json"
+        for path in sorted((PROJECT_ROOT / "reports" / "execution").glob(pattern)):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+            except Exception:
+                continue
+            if payload.get("completed_for_signal") and not payload.get("dry_run"):
+                return payload
+        return None
 
     def load_market_data(self):
         if self.market == "us":
@@ -225,6 +253,8 @@ class MultiAllocatorPlusTrader:
             "meta": {
                 "start_date": self.start_date,
                 "generated_at": datetime.now().isoformat(),
+                "max_security_weight": getattr(self.strategy, "max_security_weight", None),
+                "target_turnover_cap": getattr(self.strategy, "target_turnover_cap", None),
             },
         }
         snapshot_path = self._signal_snapshot_path(signal_date)
@@ -406,6 +436,7 @@ class MultiAllocatorPlusTrader:
                 logger.warning("계획 제외: %s 기준가 없음", ticker)
                 continue
             target_value = total_equity * weight
+            current_qty = holdings.get(self._normalize_symbol(ticker), {}).get("quantity", 0)
             if target_value < effective_min_trade:
                 logger.info(
                     "계획 제외: %s 목표금액 %.0f원 < 최소매매 %.0f원",
@@ -413,9 +444,26 @@ class MultiAllocatorPlusTrader:
                     target_value,
                     effective_min_trade,
                 )
+                if current_qty > 0:
+                    logger.info(
+                        "계획 생성: SELL %s %s주 (목표금액이 최소매매 미만이라 잔량 정리)",
+                        ticker,
+                        current_qty,
+                    )
+                    plans.append(
+                        OrderPlan(
+                            symbol=ticker,
+                            action="SELL",
+                            quantity=current_qty,
+                            est_price=price,
+                            est_value=current_qty * price,
+                            target_weight=0.0,
+                            current_qty=current_qty,
+                            target_qty=0,
+                        )
+                    )
                 continue
             target_qty = int(target_value / price)
-            current_qty = holdings.get(self._normalize_symbol(ticker), {}).get("quantity", 0)
             delta = target_qty - current_qty
             if delta == 0:
                 logger.info(
@@ -670,10 +718,54 @@ class MultiAllocatorPlusTrader:
                 row["dry_run"] = self.dry_run
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    def execute(self, plans: List[OrderPlan], account: Dict, holdings: Dict, as_of: datetime):
+    def save_execution_summary(
+        self,
+        signal_date: datetime | pd.Timestamp,
+        targets: pd.Series,
+        account: Dict | None,
+        holdings: Dict | None,
+        raw_plans: List[OrderPlan],
+        plans: List[OrderPlan],
+        recheck_logs: List[Dict],
+        execution_result: Dict,
+        completed_for_signal: bool,
+    ) -> Path:
+        summary_path = self._execution_summary_path(signal_date)
+        payload = {
+            "run_id": self.run_id,
+            "timestamp": datetime.now().isoformat(),
+            "trade_date": datetime.now().date().isoformat(),
+            "signal_date": str(signal_date.date() if hasattr(signal_date, "date") else signal_date),
+            "market": self.market,
+            "signal_mode": self.signal_mode,
+            "dry_run": self.dry_run,
+            "virtual_account": self.virtual_account,
+            "completed_for_signal": bool(completed_for_signal),
+            "targets": {k: float(v) for k, v in targets.fillna(0.0).items()},
+            "account": account or {},
+            "holdings": list((holdings or {}).values()),
+            "raw_plans": [plan.__dict__ for plan in raw_plans],
+            "final_plans": [plan.__dict__ for plan in plans],
+            "recheck_logs": recheck_logs,
+            "execution": execution_result,
+        }
+        with open(summary_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        logger.info("🧾 실행 요약 저장: %s", summary_path)
+        return summary_path
+
+    def execute(self, plans: List[OrderPlan], account: Dict, holdings: Dict, as_of: datetime) -> Dict:
+        result_summary = {
+            "executed_orders": 0,
+            "failed_orders": 0,
+            "not_eligible_orders": 0,
+            "abort_reason": None,
+            "order_logs": [],
+            "report_path": None,
+        }
         if not plans:
             logger.info("🚫 실행할 주문이 없습니다.")
-            return
+            return result_summary
         account_no = self.kis.account
         executed_orders = 0
         failed_orders = 0
@@ -760,13 +852,23 @@ class MultiAllocatorPlusTrader:
         snapshot = {"account": account, "holdings": list(holdings.values())}
         report_path = self.reporter.save_report(as_of, equity, [plan.__dict__ for plan in plans], snapshot)
         self.append_execution_logs(order_logs)
+        result_summary.update(
+            {
+                "executed_orders": executed_orders,
+                "failed_orders": failed_orders,
+                "not_eligible_orders": not_eligible_orders,
+                "abort_reason": abort_reason,
+                "order_logs": order_logs,
+                "report_path": str(report_path),
+            }
+        )
         if self.dry_run:
             logger.info("dry-run 모드이므로 텔레그램 알림을 생략합니다.")
-            return
+            return result_summary
         if executed_orders == 0:
             if failed_orders == 0:
                 logger.info("실제 체결된 주문이 없어 텔레그램 알림을 생략합니다.")
-                return
+                return result_summary
             if self.telegram.can_send():
                 lines = [
                     f"날짜: {datetime.now().date()}",
@@ -781,7 +883,7 @@ class MultiAllocatorPlusTrader:
                     lines.append(f"자격요건 미충족: {not_eligible_orders}건")
                 lines.append(f"리포트: {report_path.name}")
                 self.telegram.send_message(format_alert("Multi Allocator PLUS (주문 실패)", lines))
-            return
+            return result_summary
         self._notify(
             latest_equity=equity,
             plans=plans,
@@ -789,6 +891,7 @@ class MultiAllocatorPlusTrader:
             report_date=as_of,
             trade_time=datetime.now(),
         )
+        return result_summary
 
     def _notify(
         self,
@@ -849,30 +952,95 @@ class MultiAllocatorPlusTrader:
             price_cache_override = ref_prices
             if self.prepare_signal_only:
                 logger.warning("eod_fixed 모드에서는 --prepare-signal-only를 무시합니다.")
+        prior_execution = self._completed_execution_for_signal(last_date)
+        if prior_execution is not None:
+            logger.info(
+                "이미 완료된 실행이 있어 스킵합니다: signal_date=%s prior_run_id=%s",
+                last_date.date(),
+                prior_execution.get("run_id"),
+            )
+            self.save_execution_summary(
+                signal_date=last_date,
+                targets=targets,
+                account=None,
+                holdings=None,
+                raw_plans=[],
+                plans=[],
+                recheck_logs=[],
+                execution_result={
+                    "status": "skipped_already_executed",
+                    "prior_run_id": prior_execution.get("run_id"),
+                },
+                completed_for_signal=False,
+            )
+            return
         if self.cache_only:
             logger.info("🗂️ 캐시 리프레시 전용 실행이 완료되었습니다. 트레이딩 루틴은 건너뜁니다.")
             return
-        account, holdings = self.fetch_account_snapshot()
-        raw_plans = self.build_order_plan(targets, account, holdings, price_cache_override=price_cache_override)
-        plans, recheck_logs = self.apply_execution_recheck(raw_plans, account)
-        self.append_execution_logs(recheck_logs)
-        if raw_plans and not plans:
-            logger.warning("재검증 후 모든 주문이 스킵되었습니다.")
-            self._notify_recheck_filtered(raw_plans, recheck_logs, last_date)
-        if plans:
-            logger.info("📋 주문 계획 (%s):", last_date.date())
-            for plan in plans:
-                logger.info(
-                    "  %s %s주 @ %.0f원 (보유 %s주 → 목표 %s주)",
-                    plan.action,
-                    plan.quantity,
-                    plan.est_price,
-                    plan.current_qty,
-                    plan.target_qty,
+        account = None
+        holdings = None
+        raw_plans: List[OrderPlan] = []
+        plans: List[OrderPlan] = []
+        recheck_logs: List[Dict] = []
+        try:
+            account, holdings = self.fetch_account_snapshot()
+            raw_plans = self.build_order_plan(targets, account, holdings, price_cache_override=price_cache_override)
+            plans, recheck_logs = self.apply_execution_recheck(raw_plans, account)
+            self.append_execution_logs(recheck_logs)
+            if raw_plans and not plans:
+                logger.warning("재검증 후 모든 주문이 스킵되었습니다.")
+                self._notify_recheck_filtered(raw_plans, recheck_logs, last_date)
+            if plans:
+                logger.info("📋 주문 계획 (%s):", last_date.date())
+                for plan in plans:
+                    logger.info(
+                        "  %s %s주 @ %.0f원 (보유 %s주 → 목표 %s주)",
+                        plan.action,
+                        plan.quantity,
+                        plan.est_price,
+                        plan.current_qty,
+                        plan.target_qty,
+                    )
+            else:
+                logger.info("📋 주문 계획 없음")
+            execution_result = self.execute(plans, account, holdings, last_date)
+            completed_for_signal = (
+                not self.dry_run
+                and execution_result.get("failed_orders", 0) == 0
+                and execution_result.get("abort_reason") is None
+                and (
+                    execution_result.get("executed_orders", 0) > 0
+                    or len(raw_plans) == 0
                 )
-        else:
-            logger.info("📋 주문 계획 없음")
-        self.execute(plans, account, holdings, last_date)
+            )
+            self.save_execution_summary(
+                signal_date=last_date,
+                targets=targets,
+                account=account,
+                holdings=holdings,
+                raw_plans=raw_plans,
+                plans=plans,
+                recheck_logs=recheck_logs,
+                execution_result=execution_result,
+                completed_for_signal=completed_for_signal,
+            )
+        except Exception as exc:
+            logger.exception("실행 중 예외 발생: %s", exc)
+            self.save_execution_summary(
+                signal_date=last_date,
+                targets=targets,
+                account=account,
+                holdings=holdings,
+                raw_plans=raw_plans,
+                plans=plans,
+                recheck_logs=recheck_logs,
+                execution_result={
+                    "status": "failed_exception",
+                    "reason": str(exc),
+                },
+                completed_for_signal=False,
+            )
+            raise
 
     def _latest_prices(self, tickers: List[str]) -> Dict[str, float]:
         prices = {}
@@ -953,6 +1121,19 @@ def main():
         default=50,
         help="US 유니버스 종목 수",
     )
+    parser.add_argument(
+        "--skip-if-executed",
+        dest="skip_if_executed",
+        action="store_true",
+        help="같은 거래일/신호일의 완료된 실행 요약이 있으면 주문을 스킵",
+    )
+    parser.add_argument(
+        "--no-skip-if-executed",
+        dest="skip_if_executed",
+        action="store_false",
+        help="완료된 실행 요약이 있어도 강제 실행",
+    )
+    parser.set_defaults(skip_if_executed=True)
     args = parser.parse_args()
 
     trader = MultiAllocatorPlusTrader(
@@ -970,6 +1151,7 @@ def main():
         recheck_price_band_pct=args.recheck_price_band_pct,
         market=args.market,
         us_universe_limit=args.us_universe_limit,
+        skip_if_executed=args.skip_if_executed,
     )
     trader.run()
 

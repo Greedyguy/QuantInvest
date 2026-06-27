@@ -38,6 +38,8 @@ class MultiStrategyAllocator(BaseStrategy):
         fast_momentum_window=21,
         role_floor_stress=None,
         regime_role_targets=None,
+        max_security_weight=0.30,
+        target_turnover_cap=None,
     ):
         """
         strategy_names: list of strategy identifiers to combine
@@ -82,6 +84,8 @@ class MultiStrategyAllocator(BaseStrategy):
         self.protection_window = protection_window
         self.role_target_blend = role_target_blend
         self.fast_momentum_window = fast_momentum_window
+        self.max_security_weight = max_security_weight
+        self.target_turnover_cap = target_turnover_cap if target_turnover_cap is not None else max_turnover
         self.role_floor_stress = role_floor_stress or {
             1: {"short": 0.22, "defensive": 0.28},
             2: {"short": 0.32, "defensive": 0.35},
@@ -657,7 +661,69 @@ class MultiStrategyAllocator(BaseStrategy):
                 row = row * 0.0
             target.loc[date, row.index] = row
             target.loc[date, "__CASH__"] = max(1 - expo, 0.0)
-        return target
+        return self._apply_live_target_constraints(target)
+
+    def _cap_security_weights(self, target_weights):
+        max_weight = getattr(self, "max_security_weight", None)
+        if not max_weight or max_weight <= 0 or target_weights.empty:
+            return target_weights
+        capped = target_weights.copy().fillna(0.0)
+        asset_cols = [c for c in capped.columns if c != "__CASH__"]
+        if not asset_cols:
+            return capped
+        capped[asset_cols] = capped[asset_cols].clip(lower=0.0, upper=float(max_weight))
+        asset_sum = capped[asset_cols].sum(axis=1)
+        capped["__CASH__"] = (1.0 - asset_sum).clip(lower=0.0)
+        return capped
+
+    def _turnover_cap_for_exposure(self, exposure):
+        cap = getattr(self, "target_turnover_cap", None)
+        if cap is None or cap <= 0:
+            return None
+        cap = float(cap)
+        if exposure < 0.2:
+            cap = min(cap, 0.05)
+        elif exposure < 0.35:
+            cap = min(cap, 0.08)
+        elif exposure < 0.5:
+            cap = min(cap, 0.12)
+        elif exposure < 0.7:
+            cap = min(cap, 0.18)
+        return cap
+
+    def _apply_target_turnover_cap(self, target_weights):
+        if target_weights.empty:
+            return target_weights
+        first = target_weights.iloc[0].fillna(0.0)
+        rows = [first]
+        columns = target_weights.columns
+        for date in target_weights.index[1:]:
+            desired = target_weights.loc[date].reindex(columns).fillna(0.0)
+            prev = rows[-1].reindex(columns).fillna(0.0)
+            exposure = desired.drop("__CASH__", errors="ignore").clip(lower=0.0).sum()
+            cap = self._turnover_cap_for_exposure(exposure)
+            if cap is None:
+                rows.append(desired)
+                continue
+            delta = desired - prev
+            turnover = 0.5 * float(delta.abs().sum())
+            if turnover > cap and turnover > 0:
+                desired = prev + delta * (cap / turnover)
+                desired = desired.clip(lower=0.0)
+                total = float(desired.sum())
+                if total > 1.0:
+                    desired = desired / total
+            rows.append(desired)
+        constrained = pd.DataFrame(rows, index=target_weights.index, columns=columns).fillna(0.0)
+        if "__CASH__" not in constrained.columns:
+            constrained["__CASH__"] = 0.0
+        return constrained
+
+    def _apply_live_target_constraints(self, target_weights):
+        constrained = self._cap_security_weights(target_weights)
+        constrained = self._apply_target_turnover_cap(constrained)
+        constrained = self._cap_security_weights(constrained)
+        return constrained
 
     def _simulate_portfolio(self, target_weights, enriched, exposure_series=None):
         if target_weights.empty:

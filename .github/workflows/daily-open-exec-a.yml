@@ -13,9 +13,13 @@ jobs:
     # Oracle Cloud 셋업 완료 후 아래 줄을 교체:
     #   runs-on: [self-hosted, oracle-kr-trader]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -44,3 +48,17 @@ jobs:
             --signal-mode eod_fixed \
             --execution-recheck \
             --recheck-price-band-pct 3.0
+
+      - name: Commit execution report
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p reports/execution reports/daily
+          git add reports/execution/ reports/daily/
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore: open execution report $(date -u +%Y-%m-%d)"
+          git pull --rebase
+          git push
