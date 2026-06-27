@@ -9,11 +9,12 @@ MultiStrategyAllocatorPlus SafeETF + KQM (이중 그리드 서치 최적)
 
 서브전략 비중 (기본값, rolling Sharpe로 동적 조정):
   kqm                      0.250  offensive  ← 전체 유니버스 Quality-Momentum
-  kqm_small_cap_v22_short  0.225  short
-  kqm_small_cap_v22        0.165  offensive
-  hybrid_portfolio_v2_4    0.150  offensive
-  etf_defensive_safe       0.135  defensive  ← 일반 ETF 방어 레이어
-  k200_mean_rev            0.075  offensive
+  k200_trend_sleeve        0.200  offensive  ← KOSPI200 대형주 추세 sleeve
+  kqm_small_cap_v22_short  0.160  short
+  kqm_small_cap_v22        0.110  offensive
+  hybrid_portfolio_v2_4    0.140  offensive
+  etf_defensive_safe       0.120  defensive  ← 일반 ETF 방어 레이어
+  k200_mean_rev            0.070  offensive
 
 레짐별 포트폴리오 노출 (현금 보유):
   bull       1.12  (현금   0% — 약간 레버리지)
@@ -39,12 +40,13 @@ class MultiStrategyAllocatorPlusSafeETFKQM(MultiStrategyAllocatorPlus):
 
         # ── 서브전략 비중 (kqm=25% 최적) ───────────────────
         self.strategy_configs = [
-            {"name": "kqm_small_cap_v22_short", "weight": 0.225, "role": "short"},
-            {"name": "hybrid_portfolio_v2_4",   "weight": 0.150, "role": "offensive"},
-            {"name": "kqm_small_cap_v22",       "weight": 0.165, "role": "offensive"},
-            {"name": "etf_defensive_safe",      "weight": 0.135, "role": "defensive"},
-            {"name": "k200_mean_rev",           "weight": 0.075, "role": "offensive"},
-            {"name": "kqm",                     "weight": 0.250, "role": "offensive"},
+            {"name": "k200_trend_sleeve",       "weight": 0.200, "role": "offensive"},
+            {"name": "kqm_small_cap_v22_short", "weight": 0.160, "role": "short"},
+            {"name": "hybrid_portfolio_v2_4",   "weight": 0.140, "role": "offensive"},
+            {"name": "kqm_small_cap_v22",       "weight": 0.110, "role": "offensive"},
+            {"name": "etf_defensive_safe",      "weight": 0.120, "role": "defensive"},
+            {"name": "k200_mean_rev",           "weight": 0.070, "role": "offensive"},
+            {"name": "kqm",                     "weight": 0.200, "role": "offensive"},
         ]
 
         self.strategy_names = [cfg["name"] for cfg in self.strategy_configs]
@@ -70,5 +72,5 @@ class MultiStrategyAllocatorPlusSafeETFKQM(MultiStrategyAllocatorPlus):
     def get_description(self):
         return (
             "Multi-allocator PLUS SafeETF+KQM 25% | "
-            "노출 최적: neutral=0.65 bear=0.28 floor=0.10 (그리드 서치, 2026-05-25)"
+            "KOSPI200 trend sleeve + small-cap relative-strength cap"
         )

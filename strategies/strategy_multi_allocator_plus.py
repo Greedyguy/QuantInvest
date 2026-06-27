@@ -236,6 +236,9 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
         strategy_weights = self._apply_performance_filter(strategy_weights, ret_df)
         strategy_weights = self._apply_fast_momentum_boost(strategy_weights, ret_df)
         strategy_weights = self._apply_recent_acceleration(strategy_weights, fast_signal)
+        style_context = self._prepare_style_context(market_index, secondary_index=secondary_index, dates=shared_index)
+        strategy_weights = self._apply_style_rotation(strategy_weights, style_context)
+        self.latest_style_context = style_context
         self.latest_target_weights = strategy_weights
 
         weight_frames = {}
@@ -250,10 +253,14 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
                 )
             weight_frames[strat] = frame
 
+        security_style_map = self._build_security_style_map(enriched)
         security_targets = self._combine_strategy_targets(
             weight_frames,
             strategy_weights,
             expos.reindex(shared_index),
+            style_context=style_context,
+            security_style_map=security_style_map,
         )
+        self.latest_security_style_map = security_style_map
         self.latest_security_weights = security_targets
         return security_targets

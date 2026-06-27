@@ -124,6 +124,7 @@ class MultiAllocatorPlusTrader:
         self.enriched = {}
         self.market_index = None
         self.secondary_index = None
+        self.loaded_signal_snapshot_payload = None
 
     def _signal_snapshot_path(self, signal_date: datetime | pd.Timestamp | None = None) -> Path:
         out_dir = PROJECT_ROOT / "reports" / "signals"
@@ -237,6 +238,113 @@ class MultiAllocatorPlusTrader:
             logger.info("  %s -> %.2f%%", ticker, weight * 100)
         return latest_date, latest_row
 
+    @staticmethod
+    def _json_scalar(value):
+        if value is None:
+            return None
+        try:
+            if pd.isna(value):
+                return None
+        except Exception:
+            pass
+        if isinstance(value, bool):
+            return bool(value)
+        if isinstance(value, (int, float, str)):
+            if isinstance(value, float) and not pd.notna(value):
+                return None
+            return value
+        if hasattr(value, "item"):
+            try:
+                return MultiAllocatorPlusTrader._json_scalar(value.item())
+            except Exception:
+                return str(value)
+        return str(value)
+
+    def _row_asof(self, frame, as_of):
+        if frame is None or getattr(frame, "empty", True):
+            return None
+        ts = pd.to_datetime(as_of)
+        valid = frame.index[frame.index <= ts]
+        if len(valid) == 0:
+            return None
+        return frame.loc[valid.max()]
+
+    def _build_style_attribution(self, signal_date: pd.Timestamp, targets: pd.Series) -> Dict:
+        fallback = (self.loaded_signal_snapshot_payload or {}).get("style_attribution")
+        style_context = getattr(self.strategy, "latest_style_context", None)
+        strategy_weights = getattr(self.strategy, "latest_target_weights", None)
+        security_style_map = getattr(self.strategy, "latest_security_style_map", {}) or {}
+
+        if (
+            fallback
+            and (style_context is None or getattr(style_context, "empty", True))
+            and (strategy_weights is None or getattr(strategy_weights, "empty", True))
+        ):
+            return fallback
+
+        style_row = self._row_asof(style_context, signal_date)
+        strategy_row = self._row_asof(strategy_weights, signal_date)
+
+        style_payload = {}
+        if style_row is not None:
+            for key, value in style_row.to_dict().items():
+                style_payload[key] = self._json_scalar(value)
+
+        strategy_payload = {}
+        if strategy_row is not None:
+            strategy_payload = {
+                str(k): float(v)
+                for k, v in strategy_row.fillna(0.0).sort_values(ascending=False).items()
+            }
+
+        target_rows = []
+        style_sums: Dict[str, float] = {}
+        for ticker, weight in targets.drop("__CASH__", errors="ignore").fillna(0.0).items():
+            if weight <= 0:
+                continue
+            info = dict(security_style_map.get(ticker, {}))
+            if not info:
+                df = self.enriched.get(ticker)
+                price = None
+                market_cap = None
+                avg_value20 = None
+                if df is not None and not df.empty:
+                    if "close" in df.columns:
+                        close = pd.to_numeric(df["close"], errors="coerce").dropna()
+                        price = float(close.iloc[-1]) if not close.empty else None
+                    if "market_cap" in df.columns:
+                        mcap = pd.to_numeric(df["market_cap"], errors="coerce").dropna()
+                        market_cap = float(mcap.iloc[-1]) if not mcap.empty else None
+                    if "value" in df.columns:
+                        value = pd.to_numeric(df["value"], errors="coerce").tail(20).dropna()
+                        avg_value20 = float(value.mean()) if not value.empty else None
+                info = {
+                    "style": "unknown",
+                    "price": price,
+                    "market_cap": market_cap,
+                    "avg_value20": avg_value20,
+                }
+            style = str(info.get("style") or "unknown")
+            style_sums[style] = style_sums.get(style, 0.0) + float(weight)
+            target_rows.append({
+                "ticker": str(ticker),
+                "weight": float(weight),
+                "style": style,
+                "price": self._json_scalar(info.get("price")),
+                "market_cap": self._json_scalar(info.get("market_cap")),
+                "avg_value20": self._json_scalar(info.get("avg_value20")),
+            })
+
+        target_rows.sort(key=lambda row: row["weight"], reverse=True)
+        return {
+            "signal_date": str(signal_date.date() if hasattr(signal_date, "date") else signal_date),
+            "style_context": style_payload,
+            "strategy_weights": strategy_payload,
+            "target_style_sums": {k: float(v) for k, v in sorted(style_sums.items())},
+            "cash_weight": float(targets.get("__CASH__", 0.0)),
+            "targets": target_rows,
+        }
+
     def save_signal_snapshot(self, signal_date: pd.Timestamp, targets: pd.Series):
         ref_prices = self._latest_prices([ticker for ticker in targets.index if ticker != "__CASH__"])
         strategy_name = (
@@ -250,6 +358,7 @@ class MultiAllocatorPlusTrader:
             "signal_mode": "eod_fixed",
             "targets": {k: float(v) for k, v in targets.fillna(0.0).items()},
             "ref_prices": {k: float(v) for k, v in ref_prices.items()},
+            "style_attribution": self._build_style_attribution(signal_date, targets),
             "meta": {
                 "start_date": self.start_date,
                 "generated_at": datetime.now().isoformat(),
@@ -270,6 +379,7 @@ class MultiAllocatorPlusTrader:
             raise FileNotFoundError(f"신호 스냅샷 파일이 없습니다: {snapshot_path}")
         with open(snapshot_path, "r", encoding="utf-8") as f:
             payload = json.load(f)
+        self.loaded_signal_snapshot_payload = payload
         signal_date = pd.to_datetime(payload.get("signal_date"))
         targets = pd.Series(payload.get("targets", {}), dtype=float).fillna(0.0)
         # 자산 측 weight==0 종목은 compute_target_weights와 동일하게 drop (cash는 보존).
@@ -437,6 +547,18 @@ class MultiAllocatorPlusTrader:
                 continue
             target_value = total_equity * weight
             current_qty = holdings.get(self._normalize_symbol(ticker), {}).get("quantity", 0)
+            required_buy_value = max(float(effective_min_trade), float(price))
+            if current_qty <= 0 and target_value < required_buy_value:
+                logger.info(
+                    "계획 제외: %s 목표금액 %.0f원 < 신규매수 필요금액 %.0f원 "
+                    "(최소매매 %.0f원, 1주 %.0f원)",
+                    ticker,
+                    target_value,
+                    required_buy_value,
+                    effective_min_trade,
+                    price,
+                )
+                continue
             if target_value < effective_min_trade:
                 logger.info(
                     "계획 제외: %s 목표금액 %.0f원 < 최소매매 %.0f원",
@@ -742,6 +864,7 @@ class MultiAllocatorPlusTrader:
             "virtual_account": self.virtual_account,
             "completed_for_signal": bool(completed_for_signal),
             "targets": {k: float(v) for k, v in targets.fillna(0.0).items()},
+            "style_attribution": self._build_style_attribution(pd.to_datetime(signal_date), targets),
             "account": account or {},
             "holdings": list((holdings or {}).values()),
             "raw_plans": [plan.__dict__ for plan in raw_plans],

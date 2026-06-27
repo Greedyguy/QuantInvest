@@ -40,6 +40,12 @@ class MultiStrategyAllocator(BaseStrategy):
         regime_role_targets=None,
         max_security_weight=0.30,
         target_turnover_cap=None,
+        style_rotation_enabled=True,
+        small_cap_strategy_cap=0.20,
+        small_cap_strategy_cap_severe=0.12,
+        small_cap_security_cap=0.25,
+        small_cap_security_cap_severe=0.15,
+        large_trend_floor=0.20,
     ):
         """
         strategy_names: list of strategy identifiers to combine
@@ -86,6 +92,14 @@ class MultiStrategyAllocator(BaseStrategy):
         self.fast_momentum_window = fast_momentum_window
         self.max_security_weight = max_security_weight
         self.target_turnover_cap = target_turnover_cap if target_turnover_cap is not None else max_turnover
+        self.style_rotation_enabled = style_rotation_enabled
+        self.small_cap_strategy_cap = small_cap_strategy_cap
+        self.small_cap_strategy_cap_severe = small_cap_strategy_cap_severe
+        self.small_cap_security_cap = small_cap_security_cap
+        self.small_cap_security_cap_severe = small_cap_security_cap_severe
+        self.large_trend_floor = large_trend_floor
+        self.latest_style_context = None
+        self.latest_security_style_map = {}
         self.role_floor_stress = role_floor_stress or {
             1: {"short": 0.22, "defensive": 0.28},
             2: {"short": 0.32, "defensive": 0.35},
@@ -133,6 +147,141 @@ class MultiStrategyAllocator(BaseStrategy):
         idx["mom10d"] = close.pct_change(10)
         idx["vol20"] = close.pct_change().rolling(20).std() * np.sqrt(252)
         return idx
+
+    def _prepare_style_context(self, market_index, secondary_index=None, dates=None):
+        if not self.style_rotation_enabled or market_index is None or secondary_index is None:
+            return pd.DataFrame()
+        if "close" not in market_index.columns or "close" not in secondary_index.columns:
+            return pd.DataFrame()
+        small = market_index[["close"]].astype(float).sort_index().rename(columns={"close": "small_close"})
+        large = secondary_index[["close"]].astype(float).sort_index().rename(columns={"close": "large_close"})
+        common = small.index.intersection(large.index)
+        if len(common) < 80:
+            return pd.DataFrame()
+        ctx = pd.concat([small.loc[common], large.loc[common]], axis=1).dropna()
+        if ctx.empty:
+            return pd.DataFrame()
+        ctx["small_ret20"] = ctx["small_close"].pct_change(20)
+        ctx["small_ret60"] = ctx["small_close"].pct_change(60)
+        ctx["large_ret20"] = ctx["large_close"].pct_change(20)
+        ctx["large_ret60"] = ctx["large_close"].pct_change(60)
+        ctx["relative_ret20"] = ctx["small_ret20"] - ctx["large_ret20"]
+        ctx["relative_ret60"] = ctx["small_ret60"] - ctx["large_ret60"]
+        ctx["small_ma60"] = ctx["small_close"].rolling(60).mean()
+        ctx["large_ma60"] = ctx["large_close"].rolling(60).mean()
+        ctx["large_trend"] = (
+            (ctx["large_close"] > ctx["large_ma60"])
+            & (ctx["large_ret20"] > 0)
+            & (ctx["large_ret60"] > 0)
+        )
+        ctx["small_bear"] = (ctx["small_close"] < ctx["small_ma60"]) | (ctx["small_ret20"] < 0)
+        ctx["small_underperform"] = (
+            (ctx["relative_ret60"] < -0.15)
+            | ((ctx["relative_ret20"] < -0.08) & ctx["small_bear"])
+        )
+        ctx["small_underperform_severe"] = (
+            (ctx["relative_ret60"] < -0.20)
+            | ((ctx["small_ret60"] < -0.12) & (ctx["large_ret60"] > 0))
+        )
+        if dates is not None:
+            ctx = ctx.reindex(dates).ffill()
+        return ctx.fillna({
+            "large_trend": False,
+            "small_bear": False,
+            "small_underperform": False,
+            "small_underperform_severe": False,
+        })
+
+    def _strategy_names_by_style(self, style):
+        if style == "small_cap":
+            return [
+                name for name in self.strategy_names
+                if "small_cap" in name or name.startswith("ksmicro")
+            ]
+        if style == "large_trend":
+            return [
+                name for name in self.strategy_names
+                if name in {"k200_trend_sleeve", "k200_mean_rev"} or name.startswith("k200_")
+            ]
+        if style == "defensive":
+            return [name for name, role in self.strategy_roles.items() if role == "defensive"]
+        return []
+
+    def _cap_strategy_group(self, row, members, cap, preferred_receivers):
+        members = [m for m in members if m in row.index]
+        if not members or cap is None or cap <= 0:
+            return row
+        group_sum = float(row.loc[members].sum())
+        if group_sum <= cap:
+            return row
+        excess = group_sum - cap
+        row.loc[members] *= cap / group_sum
+        receivers = [r for r in preferred_receivers if r in row.index and r not in members]
+        if receivers:
+            current = float(row.loc[receivers].sum())
+            if current > 0:
+                row.loc[receivers] += excess * (row.loc[receivers] / current)
+            else:
+                row.loc[receivers] += excess / len(receivers)
+        else:
+            other = [c for c in row.index if c not in members]
+            if other:
+                other_sum = float(row.loc[other].sum())
+                if other_sum > 0:
+                    row.loc[other] += excess * (row.loc[other] / other_sum)
+                else:
+                    row.loc[other] += excess / len(other)
+        return row
+
+    def _ensure_strategy_floor(self, row, members, floor):
+        members = [m for m in members if m in row.index]
+        if not members or floor is None or floor <= 0:
+            return row
+        current = float(row.loc[members].sum())
+        if current >= floor:
+            return row
+        need = floor - current
+        donors = [c for c in row.index if c not in members]
+        donor_sum = float(row.loc[donors].sum()) if donors else 0.0
+        if donor_sum <= need or donor_sum <= 0:
+            return row
+        row.loc[donors] *= (donor_sum - need) / donor_sum
+        receiver_sum = current
+        if receiver_sum > 0:
+            row.loc[members] += need * (row.loc[members] / receiver_sum)
+        else:
+            row.loc[members] += need / len(members)
+        return row
+
+    def _apply_style_rotation(self, weights, style_context):
+        if not self.style_rotation_enabled or weights.empty or style_context is None or style_context.empty:
+            return weights
+        ctx = style_context.reindex(weights.index).ffill().fillna(False)
+        rotated = weights.copy()
+        small_members = self._strategy_names_by_style("small_cap")
+        large_members = self._strategy_names_by_style("large_trend")
+        defensive_members = self._strategy_names_by_style("defensive")
+
+        for date in rotated.index:
+            row = rotated.loc[date].copy()
+            info = ctx.loc[date] if date in ctx.index else pd.Series(dtype=object)
+            receivers = large_members if bool(info.get("large_trend", False)) else defensive_members
+            if bool(info.get("small_underperform_severe", False)):
+                row = self._cap_strategy_group(row, small_members, self.small_cap_strategy_cap_severe, receivers)
+            elif bool(info.get("small_underperform", False)):
+                row = self._cap_strategy_group(row, small_members, self.small_cap_strategy_cap, receivers)
+            elif bool(info.get("small_bear", False)):
+                row = self._cap_strategy_group(row, small_members, max(self.small_cap_strategy_cap, 0.30), defensive_members)
+            if bool(info.get("large_trend", False)):
+                floor = self.large_trend_floor
+                if bool(info.get("small_underperform", False)):
+                    floor = max(floor, 0.25)
+                row = self._ensure_strategy_floor(row, large_members, floor)
+            total = float(row.sum())
+            if total > 0:
+                row = row / total
+            rotated.loc[date] = row
+        return rotated.fillna(weights)
 
     def _classify_regime(self, row):
         close, ma60, mom20, mom5 = row.close, row.ma60, row.mom20, row.mom5
@@ -628,7 +777,107 @@ class MultiStrategyAllocator(BaseStrategy):
         df = df.reindex(dates).ffill().fillna(0.0)
         return df
 
-    def _combine_strategy_targets(self, weight_frames, sharpe_weights, exposures):
+    def _build_security_style_map(self, enriched):
+        style_map = {}
+        index_etfs = {
+            "069500",  # KODEX 200
+            "102110",  # TIGER 200
+            "152100",  # ARIRANG 200
+            "229200",  # KODEX 코스닥150
+            "091160",  # KODEX 반도체
+            "091180",  # TIGER 은행
+            "305720",  # TIGER 미국채10년
+            "233740",  # KODEX 코스닥150 레버리지
+            "114800",  # KODEX 인버스
+            "122630",  # KODEX 레버리지
+        }
+        for ticker, df in (enriched or {}).items():
+            style = "unknown"
+            latest_market_cap = np.nan
+            latest_price = np.nan
+            latest_value20 = np.nan
+            if df is not None and not df.empty:
+                if "close" in df.columns:
+                    close = pd.to_numeric(df["close"], errors="coerce").dropna()
+                    if not close.empty:
+                        latest_price = float(close.iloc[-1])
+                if "market_cap" in df.columns:
+                    mcap = pd.to_numeric(df["market_cap"], errors="coerce").dropna()
+                    if not mcap.empty:
+                        latest_market_cap = float(mcap.iloc[-1])
+                if "value" in df.columns:
+                    value = pd.to_numeric(df["value"], errors="coerce").tail(20).dropna()
+                    if not value.empty:
+                        latest_value20 = float(value.mean())
+
+            if ticker in index_etfs:
+                style = "index_etf"
+            elif np.isfinite(latest_market_cap):
+                if latest_market_cap >= 10_000_000_000_000:
+                    style = "large_cap"
+                elif latest_market_cap >= 1_000_000_000_000:
+                    style = "mid_cap"
+                else:
+                    style = "small_cap"
+            elif np.isfinite(latest_price) and latest_price <= 50_000:
+                style = "small_cap"
+
+            style_map[ticker] = {
+                "style": style,
+                "market_cap": latest_market_cap if np.isfinite(latest_market_cap) else None,
+                "price": latest_price if np.isfinite(latest_price) else None,
+                "avg_value20": latest_value20 if np.isfinite(latest_value20) else None,
+            }
+        return style_map
+
+    def _small_security_cap_for_date(self, info):
+        if info is None or len(info) == 0:
+            return None
+        if bool(info.get("small_underperform_severe", False)):
+            return self.small_cap_security_cap_severe
+        if bool(info.get("small_underperform", False)):
+            return self.small_cap_security_cap
+        return None
+
+    def _apply_security_style_caps(self, target_weights, style_context=None, security_style_map=None):
+        if target_weights.empty or not security_style_map or style_context is None or style_context.empty:
+            return target_weights
+        capped = target_weights.copy().fillna(0.0)
+        small_cols = [
+            col for col in capped.columns
+            if col != "__CASH__" and security_style_map.get(col, {}).get("style") == "small_cap"
+        ]
+        if not small_cols:
+            return capped
+        ctx = style_context.reindex(capped.index).ffill().fillna(False)
+        receiver_cols = [
+            col for col in capped.columns
+            if security_style_map.get(col, {}).get("style") in {"index_etf", "large_cap"}
+        ]
+        for date in capped.index:
+            info = ctx.loc[date] if date in ctx.index else pd.Series(dtype=object)
+            cap = self._small_security_cap_for_date(info)
+            if cap is None or cap <= 0:
+                continue
+            row = capped.loc[date].copy()
+            small_sum = float(row.loc[small_cols].sum())
+            if small_sum <= cap or small_sum <= 0:
+                continue
+            excess = small_sum - cap
+            row.loc[small_cols] *= cap / small_sum
+            receivers = [c for c in receiver_cols if c in row.index and row.get(c, 0.0) > 0]
+            if receivers and bool(info.get("large_trend", False)):
+                receiver_sum = float(row.loc[receivers].sum())
+                row.loc[receivers] += excess * (row.loc[receivers] / receiver_sum)
+            else:
+                row["__CASH__"] = row.get("__CASH__", 0.0) + excess
+            total = float(row.sum())
+            if total > 1.0:
+                row = row / total
+            capped.loc[date] = row
+        return capped
+
+    def _combine_strategy_targets(self, weight_frames, sharpe_weights, exposures, style_context=None, security_style_map=None):
         all_dates = sharpe_weights.index
         columns = sorted(set().union(*[df.columns for df in weight_frames.values()])) if weight_frames else []
         combined = pd.DataFrame(0.0, index=all_dates, columns=columns)
@@ -661,6 +910,7 @@ class MultiStrategyAllocator(BaseStrategy):
                 row = row * 0.0
             target.loc[date, row.index] = row
             target.loc[date, "__CASH__"] = max(1 - expo, 0.0)
+        target = self._apply_security_style_caps(target, style_context, security_style_map)
         return self._apply_live_target_constraints(target)
 
     def _cap_security_weights(self, target_weights):
@@ -874,6 +1124,9 @@ class MultiStrategyAllocator(BaseStrategy):
         strategy_weights = self._apply_performance_filter(strategy_weights, ret_df)
         strategy_weights = self._apply_fast_momentum_boost(strategy_weights, ret_df)
         strategy_weights = self._apply_recent_acceleration(strategy_weights, fast_signal)
+        style_context = self._prepare_style_context(market_index, secondary_index=secondary_index, dates=shared_index)
+        strategy_weights = self._apply_style_rotation(strategy_weights, style_context)
+        self.latest_style_context = style_context
 
         # Signal-level blending: use strategy weights & exposures to build meta return
         self.latest_target_weights = strategy_weights
