@@ -1,0 +1,81 @@
+{
+  "signal_date": "2026-06-29",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "069500": 0.3,
+    "229200": 0.0010771183581726248,
+    "475150": 0.001074325112879139,
+    "__CASH__": 0.6978485565289483
+  },
+  "ref_prices": {
+    "069500": 136415.0,
+    "229200": 16710.0,
+    "475150": 50000.0
+  },
+  "style_attribution": {
+    "signal_date": "2026-06-29",
+    "style_context": {
+      "small_close": 851.3699951171875,
+      "large_close": 8411.2099609375,
+      "small_ret20": -0.22908290194328074,
+      "small_ret60": -0.23095618303941112,
+      "large_ret20": 0.02760072285732651,
+      "large_ret60": 0.5938472840724986,
+      "relative_ret20": -0.25668362480060725,
+      "relative_ret60": -0.8248034671119098,
+      "small_ma60": 1089.5211690266926,
+      "large_ma60": 7301.1684977213545,
+      "large_trend": true,
+      "small_bear": true,
+      "small_underperform": true,
+      "small_underperform_severe": true
+    },
+    "strategy_weights": {
+      "k200_trend_sleeve": 0.3735132105427957,
+      "etf_defensive_safe": 0.3277396970087631,
+      "kqm_small_cap_v22_short": 0.10156858073197327,
+      "kqm": 0.09642747920991293,
+      "k200_mean_rev": 0.06979374002678336,
+      "kqm_small_cap_v22": 0.018431419268026775,
+      "hybrid_portfolio_v2_4": 0.012525873211745007
+    },
+    "target_style_sums": {
+      "index_etf": 0.30107711835817264,
+      "small_cap": 0.001074325112879139
+    },
+    "cash_weight": 0.6978485565289483,
+    "targets": [
+      {
+        "ticker": "069500",
+        "weight": 0.3,
+        "style": "index_etf",
+        "price": 136415.0,
+        "market_cap": null,
+        "avg_value20": 3060695267784.5
+      },
+      {
+        "ticker": "229200",
+        "weight": 0.0010771183581726248,
+        "style": "index_etf",
+        "price": 16710.0,
+        "market_cap": null,
+        "avg_value20": 596732124532.0
+      },
+      {
+        "ticker": "475150",
+        "weight": 0.001074325112879139,
+        "style": "small_cap",
+        "price": 50000.0,
+        "market_cap": null,
+        "avg_value20": 220820834675.0
+      }
+    ]
+  },
+  "meta": {
+    "start_date": "2026-01-01",
+    "generated_at": "2026-06-29T12:16:15.517196",
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25
+  }
+}
