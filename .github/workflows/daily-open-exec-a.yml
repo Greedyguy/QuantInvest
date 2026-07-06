@@ -60,5 +60,6 @@ jobs:
             exit 0
           fi
           git commit -m "chore: open execution report $(date -u +%Y-%m-%d)"
-          git pull --rebase
-          git push
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
