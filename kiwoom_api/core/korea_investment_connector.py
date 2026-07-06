@@ -483,7 +483,20 @@ class KoreaInvestmentConnector:
             if not balance_result:
                 return {}
             
-            output2 = balance_result.get("output2", [{}])[0]  # 계좌 요약 정보
+            output2_raw = balance_result.get("output2") or [{}]
+            if isinstance(output2_raw, list):
+                output2 = output2_raw[0] if output2_raw else {}
+            elif isinstance(output2_raw, dict):
+                output2 = output2_raw
+            else:
+                output2 = {}
+            output1_raw = balance_result.get("output1") or []
+            if isinstance(output1_raw, dict):
+                output1 = [output1_raw]
+            elif isinstance(output1_raw, list):
+                output1 = output1_raw
+            else:
+                output1 = []
             
             # 🔧 현금 잔고 계산 로직 개선
             total_cash = self._safe_float(output2.get("dnca_tot_amt", "0"))  # 예수금총액
@@ -516,12 +529,16 @@ class KoreaInvestmentConnector:
             total_value = self._safe_float(output2.get("tot_evlu_amt", "0"))  # 총평가금액
             total_profit_loss = self._safe_float(output2.get("evlu_pfls_smtl_amt", "0"))  # 평가손익합계금액
             profit_loss_rate = self._safe_float(output2.get("tot_evlu_pfls_rt", "0"))  # 총평가손익률
+            stock_value, stock_value_source = self._parse_stock_value_from_balance(output2, output1)
             
             # 추가 정보 로깅
             self.logger.info(f"[DEBUG] 계좌 정보 파싱:")
             self.logger.info(f"[DEBUG]   예수금총액(dnca_tot_amt): {total_cash:,.0f}원")
             self.logger.info(f"[DEBUG]   매수가능금액: {available_cash:,.0f}원")
             self.logger.info(f"[DEBUG]   총평가금액(tot_evlu_amt): {total_value:,.0f}원")
+            self.logger.info(
+                f"[DEBUG]   주식평가금액({stock_value_source}): {stock_value:,.0f}원"
+            )
             
             account_info = {
                 "account_no": self.account,
@@ -530,7 +547,8 @@ class KoreaInvestmentConnector:
                 "total_value": total_value,
                 "total_profit_loss": total_profit_loss,
                 "profit_loss_rate": profit_loss_rate,
-                "stock_value": total_value - total_cash  # 주식 평가금액
+                "stock_value": stock_value,
+                "stock_value_source": stock_value_source,
             }
             
             return account_info
@@ -538,6 +556,39 @@ class KoreaInvestmentConnector:
         except Exception as e:
             self.logger.error(f"계좌 잔고 데이터 파싱 오류: {e}")
             return {}
+
+    def _parse_stock_value_from_balance(
+        self,
+        output2: Dict[str, Any],
+        output1: List[Dict[str, Any]],
+    ) -> tuple[float, str]:
+        """KIS 잔고 응답에서 실제 보유 주식 평가금액만 추출한다."""
+        direct_source = ""
+        for field in ("scts_evlu_amt", "evlu_amt_smtl_amt"):
+            if field not in output2:
+                continue
+            direct_source = field
+            value = self._safe_float(output2.get(field, "0"))
+            if value > 0:
+                return value, field
+
+        holdings_value = 0.0
+        for stock_data in output1:
+            quantity = self._safe_int(stock_data.get("hldg_qty", "0"))
+            if quantity <= 0:
+                continue
+            market_value = self._safe_float(stock_data.get("evlu_amt", "0"))
+            if market_value <= 0:
+                current_price = self._safe_float(stock_data.get("prpr", "0"))
+                market_value = current_price * quantity
+            if market_value > 0:
+                holdings_value += market_value
+
+        if holdings_value > 0:
+            return holdings_value, "output1_sum"
+        if direct_source:
+            return 0.0, direct_source
+        return 0.0, "empty_holdings"
     
     def _safe_int(self, value: str) -> int:
         """문자열을 안전하게 정수로 변환"""
