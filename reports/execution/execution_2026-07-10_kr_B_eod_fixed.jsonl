@@ -1,0 +1,1 @@
+{"run_id": "8f4c37270a99", "ticker": "069500", "action": "SELL", "decision": "skip", "reason": "price_band_exceeded", "signal_price": 117700.0, "recheck_price": 121490.0, "price_diff_pct": 3.220050977060323, "cash_before": 1971322.0, "timestamp": "2026-07-10T00:05:23.161020", "signal_mode": "eod_fixed", "dry_run": false}

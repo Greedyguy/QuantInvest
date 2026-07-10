@@ -1,0 +1,190 @@
+{
+  "run_id": "8f4c37270a99",
+  "timestamp": "2026-07-10T00:05:25.313120",
+  "trade_date": "2026-07-10",
+  "signal_date": "2026-07-09",
+  "market": "kr",
+  "signal_mode": "eod_fixed",
+  "dry_run": false,
+  "virtual_account": false,
+  "completed_for_signal": false,
+  "targets": {
+    "069500": 0.13237773712429565,
+    "002990": 0.020935667984580724,
+    "058730": 0.010437657778883763,
+    "073240": 0.010021464302852022,
+    "114800": 0.009943531705690439,
+    "006340": 0.00014206973850026944,
+    "079650": 0.0001233663876423978,
+    "276730": 9.472100638638585e-05,
+    "228340": 7.002893413584497e-05,
+    "__CASH__": 0.8158537550370325
+  },
+  "style_attribution": {
+    "signal_date": "2026-07-09",
+    "style_context": {
+      "small_close": 785.0,
+      "large_close": 7246.7900390625,
+      "small_ret20": -0.17509957024036038,
+      "small_ret60": -0.2704460966542751,
+      "large_ret20": -0.06261040823120778,
+      "large_ret60": 0.25420176375880943,
+      "relative_ret20": -0.1124891620091526,
+      "relative_ret60": -0.5246478604130845,
+      "small_ma60": 1063.2865010579428,
+      "large_ma60": 7636.6256917317705,
+      "large_trend": false,
+      "small_bear": true,
+      "small_underperform": true,
+      "small_underperform_severe": true
+    },
+    "strategy_weights": {
+      "etf_defensive_safe": 0.7710321500054045,
+      "kqm_small_cap_v22_short": 0.11727035585851249,
+      "k200_trend_sleeve": 0.06478009252620479,
+      "kqm": 0.030137781650566357,
+      "hybrid_portfolio_v2_4": 0.007894742607765069,
+      "k200_mean_rev": 0.006155233210059307,
+      "kqm_small_cap_v22": 0.0027296441414875147
+    },
+    "target_style_sums": {
+      "index_etf": 0.14232126882998608,
+      "small_cap": 0.041824976132981403
+    },
+    "cash_weight": 0.8158537550370325,
+    "targets": [
+      {
+        "ticker": "069500",
+        "weight": 0.13237773712429565,
+        "style": "index_etf",
+        "price": 117700.0,
+        "market_cap": null,
+        "avg_value20": 3079437663921.75
+      },
+      {
+        "ticker": "002990",
+        "weight": 0.020935667984580724,
+        "style": "small_cap",
+        "price": 17310.0,
+        "market_cap": null,
+        "avg_value20": 115818314296.25
+      },
+      {
+        "ticker": "058730",
+        "weight": 0.010437657778883763,
+        "style": "small_cap",
+        "price": 4960.0,
+        "market_cap": null,
+        "avg_value20": 49136261067.0
+      },
+      {
+        "ticker": "073240",
+        "weight": 0.010021464302852022,
+        "style": "small_cap",
+        "price": 6000.0,
+        "market_cap": null,
+        "avg_value20": 37623318834.5
+      },
+      {
+        "ticker": "114800",
+        "weight": 0.009943531705690439,
+        "style": "index_etf",
+        "price": 1043.0,
+        "market_cap": null,
+        "avg_value20": 1054801426166.1
+      },
+      {
+        "ticker": "006340",
+        "weight": 0.00014206973850026944,
+        "style": "small_cap",
+        "price": 9630.0,
+        "market_cap": null,
+        "avg_value20": 169729065092.0
+      },
+      {
+        "ticker": "079650",
+        "weight": 0.0001233663876423978,
+        "style": "small_cap",
+        "price": 5150.0,
+        "market_cap": null,
+        "avg_value20": 53210338842.25
+      },
+      {
+        "ticker": "276730",
+        "weight": 9.472100638638585e-05,
+        "style": "small_cap",
+        "price": 19960.0,
+        "market_cap": null,
+        "avg_value20": 579879181.5
+      },
+      {
+        "ticker": "228340",
+        "weight": 7.002893413584497e-05,
+        "style": "small_cap",
+        "price": 3770.0,
+        "market_cap": null,
+        "avg_value20": 10157797421.5
+      }
+    ]
+  },
+  "account": {
+    "account_no": "43098306",
+    "total_cash": 1971322.0,
+    "available_cash": 1971322.0,
+    "total_value": 2100358.0,
+    "total_profit_loss": -200.0,
+    "profit_loss_rate": 0.0,
+    "stock_value": 364800.0,
+    "stock_value_source": "scts_evlu_amt"
+  },
+  "holdings": [
+    {
+      "symbol": "069500",
+      "name": "KODEX 200",
+      "quantity": 3,
+      "avg_price": 121666.6667,
+      "current_price": 121600.0,
+      "market_value": 364800.0,
+      "unrealized_pnl": -200.0,
+      "unrealized_pnl_rate": -0.054794520532933,
+      "purchase_date": ""
+    }
+  ],
+  "raw_plans": [
+    {
+      "symbol": "069500",
+      "action": "SELL",
+      "quantity": 1,
+      "est_price": 117700.0,
+      "est_value": 117700.0,
+      "target_weight": 0.13237773712429565,
+      "current_qty": 3,
+      "target_qty": 2
+    }
+  ],
+  "final_plans": [],
+  "recheck_logs": [
+    {
+      "run_id": "8f4c37270a99",
+      "ticker": "069500",
+      "action": "SELL",
+      "decision": "skip",
+      "reason": "price_band_exceeded",
+      "signal_price": 117700.0,
+      "recheck_price": 121490.0,
+      "price_diff_pct": 3.220050977060323,
+      "cash_before": 1971322.0,
+      "timestamp": "2026-07-10T00:05:23.161020",
+      "signal_mode": "eod_fixed",
+      "dry_run": false
+    }
+  ],
+  "execution": {
+    "executed_orders": 0,
+    "failed_orders": 0,
+    "not_eligible_orders": 0,
+    "abort_reason": null,
+    "order_logs": [],
+    "report_path": null
+  }
+}
