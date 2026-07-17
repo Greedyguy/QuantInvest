@@ -1,0 +1,52 @@
+{
+  "date": "20260716",
+  "equity": 2070465.0,
+  "orders": [
+    {
+      "symbol": "006340",
+      "action": "SELL",
+      "quantity": 4,
+      "est_price": 12230.0,
+      "est_value": 48920.0,
+      "target_weight": 0.0,
+      "current_qty": 4,
+      "target_qty": 0
+    }
+  ],
+  "portfolio": {
+    "account": {
+      "account_no": "43098306",
+      "total_cash": 1855865.0,
+      "available_cash": 1855865.0,
+      "total_value": 2070465.0,
+      "total_profit_loss": -28733.0,
+      "profit_loss_rate": 0.0,
+      "stock_value": 266920.0,
+      "stock_value_source": "scts_evlu_amt"
+    },
+    "holdings": [
+      {
+        "symbol": "006340",
+        "name": "대원전선",
+        "quantity": 4,
+        "avg_price": 13080.0,
+        "current_price": 12230.0,
+        "market_value": 48920.0,
+        "unrealized_pnl": -3400.0,
+        "unrealized_pnl_rate": -6.498470948012232,
+        "purchase_date": ""
+      },
+      {
+        "symbol": "069500",
+        "name": "KODEX 200",
+        "quantity": 2,
+        "avg_price": 121666.5,
+        "current_price": 109000.0,
+        "market_value": 218000.0,
+        "unrealized_pnl": -25333.0,
+        "unrealized_pnl_rate": -10.410836179227642,
+        "purchase_date": ""
+      }
+    ]
+  }
+}
