@@ -1,0 +1,236 @@
+{
+  "run_id": "8f2c42e2610c",
+  "timestamp": "2026-07-21T00:13:55.255503",
+  "trade_date": "2026-07-21",
+  "signal_date": "2026-07-20",
+  "market": "kr",
+  "signal_mode": "eod_fixed",
+  "dry_run": false,
+  "virtual_account": false,
+  "completed_for_signal": true,
+  "targets": {
+    "069500": 0.11913085215415435,
+    "003680": 0.0358432628143484,
+    "114800": 0.014256407400651842,
+    "006340": 0.00031046046670085107,
+    "004310": 0.0003031713002708929,
+    "002070": 9.550057377690903e-05,
+    "002990": 6.0345290096713537e-05,
+    "__CASH__": 0.8300000000000001
+  },
+  "style_attribution": {
+    "signal_date": "2026-07-20",
+    "style_context": {
+      "small_close": 791.8400268554688,
+      "large_close": 6820.60009765625,
+      "small_ret20": -0.20889569435456057,
+      "small_ret60": -0.32323681205821453,
+      "large_ret20": -0.24749331241113925,
+      "large_ret60": 0.10153234920888266,
+      "relative_ret20": 0.038597618056578686,
+      "relative_ret60": -0.4247691612670972,
+      "small_ma60": 1030.5406667073569,
+      "large_ma60": 7743.159366861979,
+      "large_trend": false,
+      "small_bear": true,
+      "small_underperform": true,
+      "small_underperform_severe": true
+    },
+    "strategy_weights": {
+      "etf_defensive_safe": 0.7759020050697578,
+      "kqm_small_cap_v22_short": 0.1172202647568287,
+      "k200_trend_sleeve": 0.04424899426386363,
+      "kqm": 0.04016919588788443,
+      "hybrid_portfolio_v2_4": 0.015691243024978214,
+      "k200_mean_rev": 0.003988561753515944,
+      "kqm_small_cap_v22": 0.002779735243171323
+    },
+    "target_style_sums": {
+      "index_etf": 0.13338725955480618,
+      "small_cap": 0.03661274044519377
+    },
+    "cash_weight": 0.8300000000000001,
+    "targets": [
+      {
+        "ticker": "069500",
+        "weight": 0.11913085215415435,
+        "style": "index_etf",
+        "price": 104095.0,
+        "market_cap": null,
+        "avg_value20": 3038478850971.75
+      },
+      {
+        "ticker": "003680",
+        "weight": 0.0358432628143484,
+        "style": "small_cap",
+        "price": 10170.0,
+        "market_cap": null,
+        "avg_value20": 22271652401.75
+      },
+      {
+        "ticker": "114800",
+        "weight": 0.014256407400651842,
+        "style": "index_etf",
+        "price": 1158.0,
+        "market_cap": null,
+        "avg_value20": 1173850271791.8
+      },
+      {
+        "ticker": "006340",
+        "weight": 0.00031046046670085107,
+        "style": "small_cap",
+        "price": 10940.0,
+        "market_cap": null,
+        "avg_value20": 163276762929.0
+      },
+      {
+        "ticker": "004310",
+        "weight": 0.0003031713002708929,
+        "style": "small_cap",
+        "price": 6220.0,
+        "market_cap": null,
+        "avg_value20": 27869401868.5
+      },
+      {
+        "ticker": "002070",
+        "weight": 9.550057377690903e-05,
+        "style": "small_cap",
+        "price": 9660.0,
+        "market_cap": null,
+        "avg_value20": 2054049249.5
+      },
+      {
+        "ticker": "002990",
+        "weight": 6.0345290096713537e-05,
+        "style": "small_cap",
+        "price": 10860.0,
+        "market_cap": null,
+        "avg_value20": 163456978287.5
+      }
+    ]
+  },
+  "account": {
+    "account_no": "43098306",
+    "total_cash": 1803545.0,
+    "available_cash": 1803545.0,
+    "total_value": 2056135.0,
+    "total_profit_loss": -43063.0,
+    "profit_loss_rate": 0.0,
+    "stock_value": 252590.0,
+    "stock_value_source": "scts_evlu_amt"
+  },
+  "holdings": [
+    {
+      "symbol": "006340",
+      "name": "대원전선",
+      "quantity": 4,
+      "avg_price": 13080.0,
+      "current_price": 11050.0,
+      "market_value": 44200.0,
+      "unrealized_pnl": -8120.0,
+      "unrealized_pnl_rate": -15.519877675840979,
+      "purchase_date": ""
+    },
+    {
+      "symbol": "069500",
+      "name": "KODEX 200",
+      "quantity": 2,
+      "avg_price": 121666.5,
+      "current_price": 104195.0,
+      "market_value": 208390.0,
+      "unrealized_pnl": -34943.0,
+      "unrealized_pnl_rate": -14.360156657748846,
+      "purchase_date": ""
+    }
+  ],
+  "raw_plans": [
+    {
+      "symbol": "006340",
+      "action": "SELL",
+      "quantity": 4,
+      "est_price": 10940.0,
+      "est_value": 43760.0,
+      "target_weight": 0.0,
+      "current_qty": 4,
+      "target_qty": 0
+    },
+    {
+      "symbol": "003680",
+      "action": "BUY",
+      "quantity": 7,
+      "est_price": 10170.0,
+      "est_value": 71190.0,
+      "target_weight": 0.0358432628143484,
+      "current_qty": 0,
+      "target_qty": 7
+    }
+  ],
+  "final_plans": [
+    {
+      "symbol": "006340",
+      "action": "SELL",
+      "quantity": 4,
+      "est_price": 11050.0,
+      "est_value": 44200.0,
+      "target_weight": 0.0,
+      "current_qty": 4,
+      "target_qty": 0
+    }
+  ],
+  "recheck_logs": [
+    {
+      "run_id": "8f2c42e2610c",
+      "ticker": "006340",
+      "action": "SELL",
+      "decision": "send",
+      "reason": "ok",
+      "signal_price": 10940.0,
+      "recheck_price": 11050.0,
+      "planned_qty": 4,
+      "final_qty": 4,
+      "orderable_qty": null,
+      "cash_before": 1803545.0,
+      "cash_after": 1847672.4887066,
+      "cash_per_share": 11031.87217665,
+      "timestamp": "2026-07-21T00:13:51.020402",
+      "signal_mode": "eod_fixed",
+      "dry_run": false
+    },
+    {
+      "run_id": "8f2c42e2610c",
+      "ticker": "003680",
+      "action": "BUY",
+      "decision": "skip",
+      "reason": "price_band_exceeded",
+      "signal_price": 10170.0,
+      "recheck_price": 9110.0,
+      "price_diff_pct": 10.422812192723697,
+      "cash_before": 1847672.4887066,
+      "timestamp": "2026-07-21T00:13:51.020448",
+      "signal_mode": "eod_fixed",
+      "dry_run": false
+    }
+  ],
+  "execution": {
+    "executed_orders": 1,
+    "failed_orders": 0,
+    "not_eligible_orders": 0,
+    "abort_reason": null,
+    "order_logs": [
+      {
+        "run_id": "8f2c42e2610c",
+        "ticker": "006340",
+        "action": "SELL",
+        "decision": "sent",
+        "reason": "ok",
+        "final_qty": 4,
+        "price": 11050.0,
+        "order_result_code": 0,
+        "timestamp": "2026-07-21T00:13:52.631172",
+        "signal_mode": "eod_fixed",
+        "dry_run": false
+      }
+    ],
+    "report_path": "/home/runner/work/QuantInvest/QuantInvest/reports/daily/daily_report_20260720.csv"
+  }
+}
