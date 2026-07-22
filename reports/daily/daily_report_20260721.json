@@ -1,0 +1,41 @@
+{
+  "date": "20260721",
+  "equity": 2076487.0,
+  "orders": [
+    {
+      "symbol": "004310",
+      "action": "BUY",
+      "quantity": 10,
+      "est_price": 6830.0,
+      "est_value": 68300.0,
+      "target_weight": 0.035269737492029565,
+      "current_qty": 0,
+      "target_qty": 10
+    }
+  ],
+  "portfolio": {
+    "account": {
+      "account_no": "43098306",
+      "total_cash": 1803545.0,
+      "available_cash": 1803545.0,
+      "total_value": 2076487.0,
+      "total_profit_loss": -14543.0,
+      "profit_loss_rate": 0.0,
+      "stock_value": 228790.0,
+      "stock_value_source": "scts_evlu_amt"
+    },
+    "holdings": [
+      {
+        "symbol": "069500",
+        "name": "KODEX 200",
+        "quantity": 2,
+        "avg_price": 121666.5,
+        "current_price": 114395.0,
+        "market_value": 228790.0,
+        "unrealized_pnl": -14543.0,
+        "unrealized_pnl_rate": -5.976583529566478,
+        "purchase_date": ""
+      }
+    ]
+  }
+}
