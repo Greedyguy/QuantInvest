@@ -1,0 +1,52 @@
+{
+  "date": "20260722",
+  "equity": 2069117.0,
+  "orders": [
+    {
+      "symbol": "004310",
+      "action": "SELL",
+      "quantity": 10,
+      "est_price": 6570.0,
+      "est_value": 65700.0,
+      "target_weight": 0.0,
+      "current_qty": 10,
+      "target_qty": 0
+    }
+  ],
+  "portfolio": {
+    "account": {
+      "account_no": "43098306",
+      "total_cash": 1847697.0,
+      "available_cash": 1847697.0,
+      "total_value": 2069117.0,
+      "total_profit_loss": -21913.0,
+      "profit_loss_rate": 0.0,
+      "stock_value": 290120.0,
+      "stock_value_source": "scts_evlu_amt"
+    },
+    "holdings": [
+      {
+        "symbol": "004310",
+        "name": "현대약품",
+        "quantity": 10,
+        "avg_price": 6870.0,
+        "current_price": 6570.0,
+        "market_value": 65700.0,
+        "unrealized_pnl": -3000.0,
+        "unrealized_pnl_rate": -4.366812227074235,
+        "purchase_date": ""
+      },
+      {
+        "symbol": "069500",
+        "name": "KODEX 200",
+        "quantity": 2,
+        "avg_price": 121666.5,
+        "current_price": 112210.0,
+        "market_value": 224420.0,
+        "unrealized_pnl": -18913.0,
+        "unrealized_pnl_rate": -7.772476400652603,
+        "purchase_date": ""
+      }
+    ]
+  }
+}
