@@ -1,0 +1,148 @@
+{
+  "run_id": "329c54bcee9d",
+  "timestamp": "2026-07-27T01:57:32.667619",
+  "trade_date": "2026-07-27",
+  "signal_date": "2026-07-24",
+  "market": "kr",
+  "signal_mode": "eod_fixed",
+  "dry_run": false,
+  "virtual_account": false,
+  "completed_for_signal": false,
+  "targets": {
+    "069500": 0.11630961407563573,
+    "004310": 0.017870614790930363,
+    "006340": 0.013430472218689909,
+    "114800": 0.010480554683587478,
+    "100090": 0.008962835009633827,
+    "222040": 0.0017320634864524047,
+    "317400": 0.0007821304741780152,
+    "002990": 0.00038795287873115924,
+    "002070": 2.416830465684768e-05,
+    "003680": 1.9594077504280462e-05,
+    "__CASH__": 0.83
+  },
+  "style_attribution": {
+    "signal_date": "2026-07-24",
+    "style_context": {
+      "small_close": 790.280029296875,
+      "large_close": 7096.89013671875,
+      "small_ret20": -0.1309014181976469,
+      "small_ret60": -0.32702609203292987,
+      "large_ret20": -0.16221534957652028,
+      "large_ret60": 0.09590770459686238,
+      "relative_ret20": 0.031313931378873394,
+      "relative_ret60": -0.42293379662979225,
+      "small_ma60": 1002.7913340250651,
+      "large_ma60": 7770.784537760416,
+      "large_trend": false,
+      "small_bear": true,
+      "small_underperform": true,
+      "small_underperform_severe": true
+    },
+    "strategy_weights": {
+      "etf_defensive_safe": 0.7676192585818256,
+      "kqm_small_cap_v22_short": 0.11886827912091999,
+      "k200_trend_sleeve": 0.06362429689707112,
+      "kqm": 0.03533673150376885,
+      "hybrid_portfolio_v2_4": 0.00681071880886499,
+      "k200_mean_rev": 0.006608994208469474,
+      "kqm_small_cap_v22": 0.001131720879080033
+    },
+    "target_style_sums": {
+      "index_etf": 0.1267901687592232,
+      "small_cap": 0.0432098312407768
+    },
+    "cash_weight": 0.83,
+    "targets": [
+      {
+        "ticker": "069500",
+        "weight": 0.11630961407563573,
+        "style": "index_etf",
+        "price": 106365.0,
+        "market_cap": null,
+        "avg_value20": 2706350971129.0
+      },
+      {
+        "ticker": "004310",
+        "weight": 0.017870614790930363,
+        "style": "small_cap",
+        "price": 6110.0,
+        "market_cap": null,
+        "avg_value20": 29042701067.5
+      },
+      {
+        "ticker": "006340",
+        "weight": 0.013430472218689909,
+        "style": "small_cap",
+        "price": 13730.0,
+        "market_cap": null,
+        "avg_value20": 188464391079.0
+      },
+      {
+        "ticker": "114800",
+        "weight": 0.010480554683587478,
+        "style": "index_etf",
+        "price": 1125.0,
+        "market_cap": null,
+        "avg_value20": 1081601117603.1
+      },
+      {
+        "ticker": "100090",
+        "weight": 0.008962835009633827,
+        "style": "small_cap",
+        "price": 18350.0,
+        "market_cap": null,
+        "avg_value20": 41838928276.0
+      },
+      {
+        "ticker": "222040",
+        "weight": 0.0017320634864524047,
+        "style": "small_cap",
+        "price": 7470.0,
+        "market_cap": null,
+        "avg_value20": 1694312590.5
+      },
+      {
+        "ticker": "317400",
+        "weight": 0.0007821304741780152,
+        "style": "small_cap",
+        "price": 7560.0,
+        "market_cap": null,
+        "avg_value20": 6197136984.0
+      },
+      {
+        "ticker": "002990",
+        "weight": 0.00038795287873115924,
+        "style": "small_cap",
+        "price": 10150.0,
+        "market_cap": null,
+        "avg_value20": 171257463967.5
+      },
+      {
+        "ticker": "002070",
+        "weight": 2.416830465684768e-05,
+        "style": "small_cap",
+        "price": 7910.0,
+        "market_cap": null,
+        "avg_value20": 1466882118.0
+      },
+      {
+        "ticker": "003680",
+        "weight": 1.9594077504280462e-05,
+        "style": "small_cap",
+        "price": 7570.0,
+        "market_cap": null,
+        "avg_value20": 26456926596.0
+      }
+    ]
+  },
+  "account": {},
+  "holdings": [],
+  "raw_plans": [],
+  "final_plans": [],
+  "recheck_logs": [],
+  "execution": {
+    "status": "skipped_already_executed",
+    "prior_run_id": "fa94aee06b33"
+  }
+}
