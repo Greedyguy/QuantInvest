@@ -1,0 +1,1 @@
+{"run_id": "de98b00902f4", "ticker": "332570", "action": "BUY", "decision": "skip", "reason": "price_band_exceeded", "signal_price": 6200.0, "recheck_price": 6860.0, "price_diff_pct": 10.64516129032258, "cash_before": 1844467.0, "timestamp": "2026-07-31T00:03:42.625620", "signal_mode": "eod_fixed", "dry_run": false}
