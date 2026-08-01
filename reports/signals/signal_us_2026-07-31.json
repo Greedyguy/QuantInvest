@@ -1,0 +1,185 @@
+{
+  "signal_date": "2026-07-31",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "BAC": 0.08917773629033399,
+    "PFE": 0.06710585292177036,
+    "AAPL": 0.06117423004130494,
+    "ABBV": 0.04223000964985536,
+    "V": 0.0355882229310255,
+    "TMO": 0.028480969125324794,
+    "ABT": 0.02742466107509991,
+    "UNH": 0.022721976590833838,
+    "AMD": 0.02266423626129918,
+    "GE": 0.022397957973003313,
+    "AMAT": 0.020856598613514177,
+    "NOW": 0.011058900268329133,
+    "MSFT": 0.004076613789048544,
+    "AMZN": 0.003697369964686721,
+    "NVDA": 0.003298824268116274,
+    "__CASH__": 0.538045840236454
+  },
+  "ref_prices": {
+    "BAC": 61.95000076293945,
+    "PFE": 25.010000228881836,
+    "AAPL": 308.9100036621094,
+    "ABBV": 250.94000244140625,
+    "V": 366.1300048828125,
+    "TMO": 574.2999877929688,
+    "ABT": 105.69999694824219,
+    "UNH": 414.3999938964844,
+    "AMD": 476.1499938964844,
+    "GE": 360.07000732421875,
+    "AMAT": 507.6700134277344,
+    "NOW": 111.2300033569336,
+    "MSFT": 464.7200012207031,
+    "AMZN": 271.5799865722656,
+    "NVDA": 200.75
+  },
+  "style_attribution": {
+    "signal_date": "2026-07-31",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.39247303261183625,
+      "kqm_small_cap_v22_short": 0.3819239932428364,
+      "k200_trend_sleeve": 0.06688805029460149,
+      "kqm": 0.05656501946087608,
+      "hybrid_portfolio_v2_4": 0.04317990671884139,
+      "kqm_small_cap_v22": 0.03555918006789796,
+      "k200_mean_rev": 0.02341081760311052
+    },
+    "target_style_sums": {
+      "small_cap": 0.46195415976354604
+    },
+    "cash_weight": 0.538045840236454,
+    "targets": [
+      {
+        "ticker": "BAC",
+        "weight": 0.08917773629033399,
+        "style": "small_cap",
+        "price": 61.95000076293945,
+        "market_cap": null,
+        "avg_value20": 2058880346.403656
+      },
+      {
+        "ticker": "PFE",
+        "weight": 0.06710585292177036,
+        "style": "small_cap",
+        "price": 25.010000228881836,
+        "market_cap": null,
+        "avg_value20": 971916962.5334549
+      },
+      {
+        "ticker": "AAPL",
+        "weight": 0.06117423004130494,
+        "style": "small_cap",
+        "price": 308.9100036621094,
+        "market_cap": null,
+        "avg_value20": 17394098489.023895
+      },
+      {
+        "ticker": "ABBV",
+        "weight": 0.04223000964985536,
+        "style": "small_cap",
+        "price": 250.94000244140625,
+        "market_cap": null,
+        "avg_value20": 1517338685.3899384
+      },
+      {
+        "ticker": "V",
+        "weight": 0.0355882229310255,
+        "style": "small_cap",
+        "price": 366.1300048828125,
+        "market_cap": null,
+        "avg_value20": 2770628735.961609
+      },
+      {
+        "ticker": "TMO",
+        "weight": 0.028480969125324794,
+        "style": "small_cap",
+        "price": 574.2999877929688,
+        "market_cap": null,
+        "avg_value20": 1225449849.5474243
+      },
+      {
+        "ticker": "ABT",
+        "weight": 0.02742466107509991,
+        "style": "small_cap",
+        "price": 105.69999694824219,
+        "market_cap": null,
+        "avg_value20": 1261628357.5199509
+      },
+      {
+        "ticker": "UNH",
+        "weight": 0.022721976590833838,
+        "style": "small_cap",
+        "price": 414.3999938964844,
+        "market_cap": null,
+        "avg_value20": 2399400376.5016174
+      },
+      {
+        "ticker": "AMD",
+        "weight": 0.02266423626129918,
+        "style": "small_cap",
+        "price": 476.1499938964844,
+        "market_cap": null,
+        "avg_value20": 14274544897.059784
+      },
+      {
+        "ticker": "GE",
+        "weight": 0.022397957973003313,
+        "style": "small_cap",
+        "price": 360.07000732421875,
+        "market_cap": null,
+        "avg_value20": 1404529060.22995
+      },
+      {
+        "ticker": "AMAT",
+        "weight": 0.020856598613514177,
+        "style": "small_cap",
+        "price": 507.6700134277344,
+        "market_cap": null,
+        "avg_value20": 4601152503.897705
+      },
+      {
+        "ticker": "NOW",
+        "weight": 0.011058900268329133,
+        "style": "small_cap",
+        "price": 111.2300033569336,
+        "market_cap": null,
+        "avg_value20": 2561573164.978752
+      },
+      {
+        "ticker": "MSFT",
+        "weight": 0.004076613789048544,
+        "style": "small_cap",
+        "price": 464.7200012207031,
+        "market_cap": null,
+        "avg_value20": 14706494834.525604
+      },
+      {
+        "ticker": "AMZN",
+        "weight": 0.003697369964686721,
+        "style": "small_cap",
+        "price": 271.5799865722656,
+        "market_cap": null,
+        "avg_value20": 11195155295.921326
+      },
+      {
+        "ticker": "NVDA",
+        "weight": 0.003298824268116274,
+        "style": "small_cap",
+        "price": 200.75,
+        "market_cap": null,
+        "avg_value20": 26043440122.883987
+      }
+    ]
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-08-01T05:49:50.462385",
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25
+  }
+}
