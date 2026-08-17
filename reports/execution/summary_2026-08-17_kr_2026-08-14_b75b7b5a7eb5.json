@@ -1,0 +1,291 @@
+{
+  "run_id": "b75b7b5a7eb5",
+  "timestamp": "2026-08-17T00:39:10.883285",
+  "trade_date": "2026-08-17",
+  "signal_date": "2026-08-14",
+  "market": "kr",
+  "signal_mode": "eod_fixed",
+  "dry_run": false,
+  "virtual_account": false,
+  "completed_for_signal": false,
+  "targets": {
+    "069500": 0.10282789147121908,
+    "270520": 0.0144403997876571,
+    "001210": 0.01373611850151213,
+    "489460": 0.01188375698444305,
+    "229200": 0.010747300819396153,
+    "010170": 0.0072639878305833325,
+    "002990": 0.007227962041307818,
+    "017900": 0.006193881838186043,
+    "317400": 0.005977069887035726,
+    "006340": 0.005351225948220584,
+    "024840": 0.005201928313365632,
+    "189330": 0.00401366157662325,
+    "114800": 0.0011161914806330515,
+    "073240": 0.00015289334646184134,
+    "079650": 0.00012501706920815627,
+    "457600": 0.00010584645811779721,
+    "079940": 4.299950151108558e-05,
+    "__CASH__": 0.8035918671445181
+  },
+  "style_attribution": {
+    "signal_date": "2026-08-14",
+    "style_context": {
+      "small_close": 861.3699951171875,
+      "large_close": 6813.33984375,
+      "small_ret20": 0.09871427405858646,
+      "small_ret60": -0.23760418821920193,
+      "large_ret20": -0.006342615155907838,
+      "large_ret60": -0.09072787736087884,
+      "relative_ret20": 0.1050568892144943,
+      "relative_ret60": -0.1468763108583231,
+      "small_ma60": 902.2171651204427,
+      "large_ma60": 7565.269384765625,
+      "large_trend": false,
+      "small_bear": true,
+      "small_underperform": false,
+      "small_underperform_severe": false
+    },
+    "strategy_weights": {
+      "etf_defensive_safe": 0.4496715372973678,
+      "kqm_small_cap_v22_short": 0.2873056394950008,
+      "kqm": 0.0791932847052065,
+      "k200_trend_sleeve": 0.06812908886165972,
+      "k200_mean_rev": 0.06273834802077587,
+      "hybrid_portfolio_v2_4": 0.04026774111499022,
+      "kqm_small_cap_v22": 0.012694360504999181
+    },
+    "target_style_sums": {
+      "index_etf": 0.11469138377124828,
+      "small_cap": 0.08171674908423356
+    },
+    "cash_weight": 0.8035918671445181,
+    "targets": [
+      {
+        "ticker": "069500",
+        "weight": 0.10282789147121908,
+        "style": "index_etf",
+        "price": 110060.0,
+        "market_cap": null,
+        "avg_value20": 2110385387581.45
+      },
+      {
+        "ticker": "270520",
+        "weight": 0.0144403997876571,
+        "style": "small_cap",
+        "price": 4050.0,
+        "market_cap": null,
+        "avg_value20": 813498455.5
+      },
+      {
+        "ticker": "001210",
+        "weight": 0.01373611850151213,
+        "style": "small_cap",
+        "price": 6490.0,
+        "market_cap": null,
+        "avg_value20": 13068680100.25
+      },
+      {
+        "ticker": "489460",
+        "weight": 0.01188375698444305,
+        "style": "small_cap",
+        "price": 12210.0,
+        "market_cap": null,
+        "avg_value20": 2486232881.5
+      },
+      {
+        "ticker": "229200",
+        "weight": 0.010747300819396153,
+        "style": "index_etf",
+        "price": 14830.0,
+        "market_cap": null,
+        "avg_value20": 534506054825.5
+      },
+      {
+        "ticker": "010170",
+        "weight": 0.0072639878305833325,
+        "style": "small_cap",
+        "price": 13370.0,
+        "market_cap": null,
+        "avg_value20": 140982006315.5
+      },
+      {
+        "ticker": "002990",
+        "weight": 0.007227962041307818,
+        "style": "small_cap",
+        "price": 13400.0,
+        "market_cap": null,
+        "avg_value20": 95338432360.0
+      },
+      {
+        "ticker": "017900",
+        "weight": 0.006193881838186043,
+        "style": "small_cap",
+        "price": 8520.0,
+        "market_cap": null,
+        "avg_value20": 33719174272.5
+      },
+      {
+        "ticker": "317400",
+        "weight": 0.005977069887035726,
+        "style": "small_cap",
+        "price": 10030.0,
+        "market_cap": null,
+        "avg_value20": 15835168704.0
+      },
+      {
+        "ticker": "006340",
+        "weight": 0.005351225948220584,
+        "style": "small_cap",
+        "price": 14710.0,
+        "market_cap": null,
+        "avg_value20": 212492748064.5
+      },
+      {
+        "ticker": "024840",
+        "weight": 0.005201928313365632,
+        "style": "small_cap",
+        "price": 5750.0,
+        "market_cap": null,
+        "avg_value20": 30725557673.75
+      },
+      {
+        "ticker": "189330",
+        "weight": 0.00401366157662325,
+        "style": "small_cap",
+        "price": 17770.0,
+        "market_cap": null,
+        "avg_value20": 8234375514.5
+      },
+      {
+        "ticker": "114800",
+        "weight": 0.0011161914806330515,
+        "style": "index_etf",
+        "price": 1011.0,
+        "market_cap": null,
+        "avg_value20": 1241115707966.1
+      },
+      {
+        "ticker": "073240",
+        "weight": 0.00015289334646184134,
+        "style": "small_cap",
+        "price": 8140.0,
+        "market_cap": null,
+        "avg_value20": 60615977509.0
+      },
+      {
+        "ticker": "079650",
+        "weight": 0.00012501706920815627,
+        "style": "small_cap",
+        "price": 4945.0,
+        "market_cap": null,
+        "avg_value20": 22278071577.0
+      },
+      {
+        "ticker": "457600",
+        "weight": 0.00010584645811779721,
+        "style": "small_cap",
+        "price": 4390.0,
+        "market_cap": null,
+        "avg_value20": 1254404916.25
+      },
+      {
+        "ticker": "079940",
+        "weight": 4.299950151108558e-05,
+        "style": "small_cap",
+        "price": 44800.0,
+        "market_cap": null,
+        "avg_value20": 2158441782.5
+      }
+    ]
+  },
+  "account": {
+    "account_no": "43098306",
+    "total_cash": 1844833.0,
+    "available_cash": 1844833.0,
+    "total_value": 2064953.0,
+    "total_profit_loss": -23213.0,
+    "profit_loss_rate": 0.0,
+    "stock_value": 220120.0,
+    "stock_value_source": "scts_evlu_amt"
+  },
+  "holdings": [
+    {
+      "symbol": "069500",
+      "name": "KODEX 200",
+      "quantity": 2,
+      "avg_price": 121666.5,
+      "current_price": 110060.0,
+      "market_value": 220120.0,
+      "unrealized_pnl": -23213.0,
+      "unrealized_pnl_rate": -9.539602109043985,
+      "purchase_date": ""
+    }
+  ],
+  "raw_plans": [
+    {
+      "symbol": "069500",
+      "action": "SELL",
+      "quantity": 1,
+      "est_price": 110060.0,
+      "est_value": 110060.0,
+      "target_weight": 0.10282789147121908,
+      "current_qty": 2,
+      "target_qty": 1
+    }
+  ],
+  "final_plans": [
+    {
+      "symbol": "069500",
+      "action": "SELL",
+      "quantity": 1,
+      "est_price": 110060.0,
+      "est_value": 110060.0,
+      "target_weight": 0.10282789147121908,
+      "current_qty": 2,
+      "target_qty": 1
+    }
+  ],
+  "recheck_logs": [
+    {
+      "run_id": "b75b7b5a7eb5",
+      "ticker": "069500",
+      "action": "SELL",
+      "decision": "send",
+      "reason": "ok",
+      "signal_price": 110060.0,
+      "recheck_price": 110060.0,
+      "planned_qty": 1,
+      "final_qty": 1,
+      "orderable_qty": null,
+      "cash_before": 1844833.0,
+      "cash_after": 1954712.44359838,
+      "cash_per_share": 109879.44359838,
+      "timestamp": "2026-08-17T00:39:06.844679",
+      "signal_mode": "eod_fixed",
+      "dry_run": false
+    }
+  ],
+  "execution": {
+    "executed_orders": 0,
+    "failed_orders": 1,
+    "not_eligible_orders": 0,
+    "abort_reason": "휴장/영업일 불일치(KIS: 장운영일자≠주문일)",
+    "order_logs": [
+      {
+        "run_id": "b75b7b5a7eb5",
+        "ticker": "069500",
+        "action": "SELL",
+        "decision": "failed",
+        "reason": "send_order_nonzero",
+        "final_qty": 1,
+        "price": 110060.0,
+        "order_result_code": -1001,
+        "timestamp": "2026-08-17T00:39:08.411037",
+        "signal_mode": "eod_fixed",
+        "dry_run": false
+      }
+    ],
+    "report_path": "/home/runner/work/QuantInvest/QuantInvest/reports/daily/daily_report_20260814.csv"
+  }
+}
