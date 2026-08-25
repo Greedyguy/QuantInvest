@@ -1,0 +1,146 @@
+{
+  "signal_date": "2026-08-25",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "069500": 0.1494308521838879,
+    "270520": 0.011515708433011099,
+    "114800": 0.008694410408129643,
+    "088350": 0.007714522723224272,
+    "002990": 0.00662394645236604,
+    "001210": 0.006179677068310804,
+    "229200": 0.006166699081937236,
+    "028670": 0.005505059431609559,
+    "024840": 0.003808421064116248,
+    "317400": 0.0013360477587063232,
+    "489460": 0.0010765859252239202,
+    "__CASH__": 0.7919480694694769
+  },
+  "ref_prices": {
+    "069500": 106795.0,
+    "270520": 3620.0,
+    "114800": 1032.0,
+    "088350": 5370.0,
+    "002990": 15380.0,
+    "001210": 8580.0,
+    "229200": 14300.0,
+    "028670": 6380.0,
+    "024840": 5300.0,
+    "317400": 10150.0,
+    "489460": 10800.0
+  },
+  "style_attribution": {
+    "signal_date": "2026-08-25",
+    "style_context": {},
+    "strategy_weights": {
+      "kqm_small_cap_v22_short": 0.4649540461590867,
+      "etf_defensive_safe": 0.3029862425485749,
+      "k200_trend_sleeve": 0.10020410442324111,
+      "kqm": 0.08084543770816766,
+      "k200_mean_rev": 0.030699031229106843,
+      "hybrid_portfolio_v2_4": 0.011304551327621728,
+      "kqm_small_cap_v22": 0.009006586604201094
+    },
+    "target_style_sums": {
+      "index_etf": 0.1642919616739548,
+      "small_cap": 0.043759968856568264
+    },
+    "cash_weight": 0.7919480694694769,
+    "targets": [
+      {
+        "ticker": "069500",
+        "weight": 0.1494308521838879,
+        "style": "index_etf",
+        "price": 106795.0,
+        "market_cap": null,
+        "avg_value20": 2279378950600.95
+      },
+      {
+        "ticker": "270520",
+        "weight": 0.011515708433011099,
+        "style": "small_cap",
+        "price": 3620.0,
+        "market_cap": null,
+        "avg_value20": 945388159.0
+      },
+      {
+        "ticker": "114800",
+        "weight": 0.008694410408129643,
+        "style": "index_etf",
+        "price": 1032.0,
+        "market_cap": null,
+        "avg_value20": 1334165534382.35
+      },
+      {
+        "ticker": "088350",
+        "weight": 0.007714522723224272,
+        "style": "small_cap",
+        "price": 5370.0,
+        "market_cap": null,
+        "avg_value20": 21720764728.5
+      },
+      {
+        "ticker": "002990",
+        "weight": 0.00662394645236604,
+        "style": "small_cap",
+        "price": 15380.0,
+        "market_cap": null,
+        "avg_value20": 141225850127.5
+      },
+      {
+        "ticker": "001210",
+        "weight": 0.006179677068310804,
+        "style": "small_cap",
+        "price": 8580.0,
+        "market_cap": null,
+        "avg_value20": 39316865227.25
+      },
+      {
+        "ticker": "229200",
+        "weight": 0.006166699081937236,
+        "style": "index_etf",
+        "price": 14300.0,
+        "market_cap": null,
+        "avg_value20": 554483026351.5
+      },
+      {
+        "ticker": "028670",
+        "weight": 0.005505059431609559,
+        "style": "small_cap",
+        "price": 6380.0,
+        "market_cap": null,
+        "avg_value20": 26100936212.5
+      },
+      {
+        "ticker": "024840",
+        "weight": 0.003808421064116248,
+        "style": "small_cap",
+        "price": 5300.0,
+        "market_cap": null,
+        "avg_value20": 33308427996.25
+      },
+      {
+        "ticker": "317400",
+        "weight": 0.0013360477587063232,
+        "style": "small_cap",
+        "price": 10150.0,
+        "market_cap": null,
+        "avg_value20": 16250250535.5
+      },
+      {
+        "ticker": "489460",
+        "weight": 0.0010765859252239202,
+        "style": "small_cap",
+        "price": 10800.0,
+        "market_cap": null,
+        "avg_value20": 1766761317.0
+      }
+    ]
+  },
+  "meta": {
+    "start_date": "2026-01-01",
+    "generated_at": "2026-08-25T08:04:04.959417",
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25
+  }
+}
