@@ -54,8 +54,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          mkdir -p reports/execution reports/daily
-          git add reports/execution/ reports/daily/
+          mkdir -p reports/execution
+          git add reports/execution/
           if git diff --cached --quiet; then
             exit 0
           fi

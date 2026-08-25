@@ -48,6 +48,34 @@ def _is_cache_stale(cache_end: pd.Timestamp, req_end: pd.Timestamp) -> bool:
     return _business_day_gap(cache_end, req_end) > DATA_STALE_TOLERANCE_BDAYS
 
 
+def validate_market_data_freshness(
+    frame: pd.DataFrame,
+    requested_end,
+    label: str,
+    tolerance_bdays: int = DATA_STALE_TOLERANCE_BDAYS,
+) -> dict:
+    """Return reproducibility metadata and fail closed on stale market data."""
+    if frame is None or frame.empty:
+        raise RuntimeError(f"{label} 데이터가 비어 있습니다.")
+    last_date = pd.to_datetime(frame.index.max()).normalize()
+    requested = pd.to_datetime(requested_end).normalize()
+    gap = _business_day_gap(last_date, requested)
+    metadata = {
+        "label": str(label),
+        "last_date": last_date.date().isoformat(),
+        "requested_end": requested.date().isoformat(),
+        "business_day_gap": int(gap),
+        "tolerance_bdays": int(tolerance_bdays),
+    }
+    if gap > tolerance_bdays:
+        raise RuntimeError(
+            f"{label} 데이터가 오래되었습니다: last={metadata['last_date']}, "
+            f"requested={metadata['requested_end']}, gap={gap} 영업일, "
+            f"허용={tolerance_bdays} 영업일"
+        )
+    return metadata
+
+
 def _download_ohlcv_block(
     ticker: str,
     start: str,
@@ -324,14 +352,16 @@ def get_index_close(market, start, end):
         return pd.DataFrame()
 
     start_dt = pd.to_datetime(start)
-    end_dt   = pd.to_datetime(end)
+    end_dt = pd.to_datetime(end)
+    # yfinance의 end는 exclusive이므로 요청 종료일을 포함시키기 위해 하루를 더한다.
+    download_end = end_dt + pd.Timedelta(days=1)
 
     try:
         # auto_adjust=False 로 명시 + progress bar 끄기
         df_raw = yf.download(
             symbol,
             start=start_dt,
-            end=end_dt,
+            end=download_end,
             auto_adjust=False,
             progress=False,
         )
@@ -375,6 +405,12 @@ def get_index_close(market, start, end):
     df = df.dropna()
     df.index = pd.to_datetime(df.index)
     df = df.sort_index()
+
+    freshness = validate_market_data_freshness(df, end_dt, f"{m} index")
+    print(
+        f"[INFO] {m} index as-of={freshness['last_date']} "
+        f"(gap={freshness['business_day_gap']}bd)"
+    )
 
     return df
 

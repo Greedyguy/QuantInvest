@@ -29,7 +29,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # 프로젝트 모듈
 from config import *
-from data_loader import get_universe, load_panel, get_index_close, infer_market
+from data_loader import (
+    get_universe,
+    load_panel,
+    get_index_close,
+    infer_market,
+    validate_market_data_freshness,
+)
 from signals import compute_indicators, add_rel_strength, scoring
 from utils import perf_stats
 from cache_manager import (
@@ -132,6 +138,11 @@ def load_data(use_cache=True, max_workers=8, incremental=True, start_date=None,
             if use_cache:
                 save_index(market, idx_data)
             print(f"  ✅ {market} (다운로드)")
+        freshness = validate_market_data_freshness(idx_map[market], end, f"{market} index")
+        print(
+            f"     as-of {freshness['last_date']} "
+            f"(요청일 대비 {freshness['business_day_gap']} 영업일)"
+        )
     
     # 인디케이터 & 상대강도 계산 (병렬 처리)
     print("⚙️ 기술적 지표 계산 중...")

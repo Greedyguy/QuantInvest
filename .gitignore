@@ -1,0 +1,15 @@
+# Local credentials and runtime tokens
+.env
+.env.*
+!.env.example
+.kis_cache/
+
+# Future detailed account reports stay local. Sanitized execution/shadow reports
+# under reports/execution and reports/shadow remain eligible for Git tracking.
+reports/daily/
+
+# Local runtime artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage

@@ -13,9 +13,13 @@ jobs:
     # Oracle Cloud 셋업 완료 후 아래 줄을 교체:
     #   runs-on: [self-hosted, oracle-kr-trader]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -27,7 +31,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Prepare snapshot and run execution B shadow (eod fixed)
+      - name: Compare small-account execution policies (shadow only)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -39,8 +43,25 @@ jobs:
         run: |
           python multi_allocator_plus_trader.py \
             --start-date 2026-01-01 \
+            --real \
             --dry-run \
             --min-trade 50000 \
             --signal-mode eod_fixed \
+            --small-account-shadow \
             --execution-recheck \
             --recheck-price-band-pct 3.0
+
+      - name: Commit sanitized shadow report
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          mkdir -p reports/shadow
+          git add reports/shadow/
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "chore: small-account shadow report $(date -u +%Y-%m-%d)"
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

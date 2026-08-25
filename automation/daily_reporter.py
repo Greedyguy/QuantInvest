@@ -38,7 +38,7 @@ class DailyReporter:
     def save_report(
         self,
         run_date: datetime,
-        equity: float,
+        equity: float | None,
         orders: List[Dict[str, Any]],
         portfolio_snapshot: Dict[str, Any],
     ) -> Path:
@@ -63,10 +63,11 @@ class DailyReporter:
 
         payload = {
             "date": report_date,
-            "equity": equity,
             "orders": orders,
             "portfolio": portfolio_snapshot,
         }
+        if equity is not None:
+            payload["equity"] = equity
         with json_path.open("w", encoding="utf-8") as jf:
             json.dump(payload, jf, indent=2, ensure_ascii=False)
 

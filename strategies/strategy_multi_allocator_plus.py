@@ -157,17 +157,21 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
         min_periods = max(15, self.protection_window // 2)
         roll = (1.0 + blended).rolling(self.protection_window, min_periods=min_periods).apply(lambda x: np.prod(x) - 1.0, raw=True)
         roll = roll.fillna(0.0)
-        # warmup 감쇠: 데이터가 252일 미만이면 stress 신호를 비례 축소
-        # (live에서 start_date가 짧을 때 과잉 방어 방지)
-        warmup = min(1.0, len(exposures) / 252)
+        # warmup 감쇠는 각 날짜까지 관측된 길이만 사용한다. 전체 입력 길이를 쓰면
+        # 미래 데이터가 추가됐을 때 과거 stress 판정까지 바뀌는 look-ahead가 생긴다.
+        warmup = pd.Series(
+            np.minimum(np.arange(1, len(exposures) + 1) / 252.0, 1.0),
+            index=exposures.index,
+        )
         stress_levels = pd.Series(0, index=exposures.index)
         adj = exposures.copy()
         for date in exposures.index:
             expo = exposures.loc[date]
             f = 1.0
             level = 0
-            r = (roll.loc[date] if date in roll.index else 0.0) * warmup
-            d = (dd.loc[date] if date in dd.index else 0.0) * warmup
+            warmup_at_date = float(warmup.loc[date])
+            r = (roll.loc[date] if date in roll.index else 0.0) * warmup_at_date
+            d = (dd.loc[date] if date in dd.index else 0.0) * warmup_at_date
             if r < -0.01 or d < -0.015:
                 f *= 0.88
                 level = max(level, 1)
@@ -224,6 +228,8 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
         expos = self._dynamic_exposure(regime_df, ret_df.index)
         expos = expos.shift(1).fillna(self.regime_exposure.get("neutral", 0.7))
         expos = expos.clip(lower=self.exposure_floor, upper=1.2)
+        self.latest_regime_context = regime_df
+        self.latest_base_exposure = expos.copy()
 
         base = pd.Series(self.strategy_base_weight)
         base = base / base.sum()
@@ -231,7 +237,11 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
         base_blended = (raw_weights * ret_df.reindex(shared_index)).sum(axis=1)
         fast_signal = self._meta_fast_signal(base_blended)
         expos, stress_levels = self._performance_stress(expos.reindex(shared_index), base_blended)
+        self.latest_stress_exposure = expos.copy()
         expos = self._apply_momentum_exposure_boost(expos, fast_signal)
+        self.latest_final_exposure = expos.copy()
+        self.latest_stress_levels = stress_levels.copy()
+        self.latest_fast_signal = fast_signal.copy()
         strategy_weights = self._apply_regime_bias(raw_weights, expos, stress_levels=stress_levels)
         strategy_weights = self._apply_performance_filter(strategy_weights, ret_df)
         strategy_weights = self._apply_fast_momentum_boost(strategy_weights, ret_df)

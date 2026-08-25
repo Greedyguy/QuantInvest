@@ -43,11 +43,8 @@ class KoreaInvestmentConfig:
             else:
                 self.base_url = "https://openapi.koreainvestment.com:9443"
         
-        print("[DEBUG] appkey:", self.appkey[:10] + "***" if self.appkey else "비어있음")
-        print("[DEBUG] appsecret:", "설정됨" if self.appsecret else "비어있음") 
-        print("[DEBUG] account:", self.account)
-        print("[DEBUG] virtual:", self.virtual)
-        print("[DEBUG] base_url:", self.base_url)
+        # 자격증명과 계좌번호는 로그에 일부라도 출력하지 않는다. GitHub Actions
+        # 마스킹은 정확히 일치하는 secret만 보장하므로 접두사 출력도 피한다.
     
     def is_valid(self) -> bool:
         """설정 유효성 검사"""
@@ -64,12 +61,10 @@ class KoreaInvestmentConfig:
         }
     
     def __str__(self) -> str:
-        """설정 정보 출력 (민감 정보 마스킹)"""
+        """민감 정보 없이 설정 상태만 출력"""
         return f"""
 한국투자증권 API 설정:
-- 앱키: {self.appkey[:8]}***
-- 앱시크릿: {self.appsecret[:8]}***
-- 계좌번호: {self.account[:4]}****
+- 자격증명: {'설정됨' if self.is_valid() else '미설정'}
 - 모의투자: {self.virtual}
 - 기본 URL: {self.base_url}
 """
@@ -82,8 +77,8 @@ def load_kis_config(env_file: str = ".env") -> Optional[KoreaInvestmentConfig]:
         if config.is_valid():
             return config
         else:
-            print("❌ API 설정이 유효하지 않습니다. .env 파일을 확인하세요.")
+            print("❌ API 설정이 유효하지 않습니다. KIS 환경 변수를 확인하세요.")
             return None
     except Exception as e:
         print(f"❌ 설정 로드 실패: {e}")
-        return None 
+        return None
