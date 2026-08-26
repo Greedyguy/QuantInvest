@@ -1,0 +1,239 @@
+{
+  "signal_date": "2026-08-25",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "ABT": 0.15444484680638798,
+    "TMO": 0.11231485795528484,
+    "DHR": 0.07734214202352938,
+    "MRK": 0.05608657801286167,
+    "NOW": 0.055691192303784526,
+    "AAPL": 0.030183788839693915,
+    "PFE": 0.026886376544548264,
+    "TSLA": 0.026870214977092403,
+    "NFLX": 0.02431151860951874,
+    "AMZN": 0.0243071070369063,
+    "NVDA": 0.023544330719457156,
+    "MSFT": 0.010486492153895464,
+    "JPM": 0.010348512870478097,
+    "BAC": 0.010203676861366535,
+    "GE": 0.009926023334959212,
+    "GOOGL": 0.004560129275190729,
+    "__CASH__": 0.34249221167504473
+  },
+  "ref_prices": {
+    "ABT": 116.12999725341797,
+    "TMO": 628.1500244140625,
+    "DHR": 215.97000122070312,
+    "MRK": 156.4499969482422,
+    "NOW": 127.0,
+    "AAPL": 309.8999938964844,
+    "PFE": 28.56999969482422,
+    "TSLA": 350.25,
+    "NFLX": 82.2300033569336,
+    "AMZN": 261.05999755859375,
+    "NVDA": 213.0500030517578,
+    "MSFT": 491.7099914550781,
+    "JPM": 356.69000244140625,
+    "BAC": 62.43000030517578,
+    "GE": 349.5400085449219,
+    "GOOGL": 346.9599914550781
+  },
+  "style_attribution": {
+    "signal_date": "2026-08-25",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.3920440591419523,
+      "kqm_small_cap_v22_short": 0.2277622365448375,
+      "k200_trend_sleeve": 0.1186702885431037,
+      "kqm": 0.09274989629484603,
+      "hybrid_portfolio_v2_4": 0.06990484755960029,
+      "kqm_small_cap_v22": 0.05733407092557394,
+      "k200_mean_rev": 0.0415346009900863
+    },
+    "target_style_sums": {
+      "small_cap": 0.6575077883249552
+    },
+    "cash_weight": 0.34249221167504473,
+    "targets": [
+      {
+        "ticker": "ABT",
+        "weight": 0.15444484680638798,
+        "style": "small_cap",
+        "price": 116.12999725341797,
+        "market_cap": null,
+        "avg_value20": 875501834.358173
+      },
+      {
+        "ticker": "TMO",
+        "weight": 0.11231485795528484,
+        "style": "small_cap",
+        "price": 628.1500244140625,
+        "market_cap": null,
+        "avg_value20": 1077828363.2166748
+      },
+      {
+        "ticker": "DHR",
+        "weight": 0.07734214202352938,
+        "style": "small_cap",
+        "price": 215.97000122070312,
+        "market_cap": null,
+        "avg_value20": 777907864.0666809
+      },
+      {
+        "ticker": "MRK",
+        "weight": 0.05608657801286167,
+        "style": "small_cap",
+        "price": 156.4499969482422,
+        "market_cap": null,
+        "avg_value20": 1555264080.3274322
+      },
+      {
+        "ticker": "NOW",
+        "weight": 0.055691192303784526,
+        "style": "small_cap",
+        "price": 127.0,
+        "market_cap": null,
+        "avg_value20": 2326273454.3923097
+      },
+      {
+        "ticker": "AAPL",
+        "weight": 0.030183788839693915,
+        "style": "small_cap",
+        "price": 309.8999938964844,
+        "market_cap": null,
+        "avg_value20": 15910724803.86906
+      },
+      {
+        "ticker": "PFE",
+        "weight": 0.026886376544548264,
+        "style": "small_cap",
+        "price": 28.56999969482422,
+        "market_cap": null,
+        "avg_value20": 1047028937.4501774
+      },
+      {
+        "ticker": "TSLA",
+        "weight": 0.026870214977092403,
+        "style": "small_cap",
+        "price": 350.25,
+        "market_cap": null,
+        "avg_value20": 11427022905.051453
+      },
+      {
+        "ticker": "NFLX",
+        "weight": 0.02431151860951874,
+        "style": "small_cap",
+        "price": 82.2300033569336,
+        "market_cap": null,
+        "avg_value20": 2418930890.625699
+      },
+      {
+        "ticker": "AMZN",
+        "weight": 0.0243071070369063,
+        "style": "small_cap",
+        "price": 261.05999755859375,
+        "market_cap": null,
+        "avg_value20": 12341540647.29425
+      },
+      {
+        "ticker": "NVDA",
+        "weight": 0.023544330719457156,
+        "style": "small_cap",
+        "price": 213.0500030517578,
+        "market_cap": null,
+        "avg_value20": 24529418888.23109
+      },
+      {
+        "ticker": "MSFT",
+        "weight": 0.010486492153895464,
+        "style": "small_cap",
+        "price": 491.7099914550781,
+        "market_cap": null,
+        "avg_value20": 16886813252.81723
+      },
+      {
+        "ticker": "JPM",
+        "weight": 0.010348512870478097,
+        "style": "small_cap",
+        "price": 356.69000244140625,
+        "market_cap": null,
+        "avg_value20": 2109668806.858139
+      },
+      {
+        "ticker": "BAC",
+        "weight": 0.010203676861366535,
+        "style": "small_cap",
+        "price": 62.43000030517578,
+        "market_cap": null,
+        "avg_value20": 1705198083.3094597
+      },
+      {
+        "ticker": "GE",
+        "weight": 0.009926023334959212,
+        "style": "small_cap",
+        "price": 349.5400085449219,
+        "market_cap": null,
+        "avg_value20": 1284277127.7297835
+      },
+      {
+        "ticker": "GOOGL",
+        "weight": 0.004560129275190729,
+        "style": "small_cap",
+        "price": 346.9599914550781,
+        "market_cap": null,
+        "avg_value20": 9208233762.38823
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-08-25",
+    "regime": {
+      "close": 7677.27978515625,
+      "ma60": 7536.222509765625,
+      "mom5": -0.0018825315545425436,
+      "mom20": 0.03345098484363995,
+      "mom1m": 0.035625683325195556,
+      "mom3m": 0.02103433187710646,
+      "vol20": 0.13308959892275332
+    },
+    "exposure": {
+      "base": 0.6,
+      "after_stress": 0.528,
+      "final": 0.528,
+      "stress_level": 1,
+      "fast_signal": 0.005204082356204287
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-08-26T03:48:43.084779",
+    "git_revision": "5a8c9c71c2ffe505ae795231fc1c338cb55d5d34",
+    "data_as_of": {
+      "primary_index": "2026-08-25",
+      "secondary_index": null,
+      "universe_latest_min": "2026-08-25",
+      "universe_latest_max": "2026-08-25",
+      "target_securities": {
+        "ABT": "2026-08-25",
+        "TMO": "2026-08-25",
+        "DHR": "2026-08-25",
+        "MRK": "2026-08-25",
+        "NOW": "2026-08-25",
+        "AAPL": "2026-08-25",
+        "PFE": "2026-08-25",
+        "TSLA": "2026-08-25",
+        "NFLX": "2026-08-25",
+        "AMZN": "2026-08-25",
+        "NVDA": "2026-08-25",
+        "MSFT": "2026-08-25",
+        "JPM": "2026-08-25",
+        "BAC": "2026-08-25",
+        "GE": "2026-08-25",
+        "GOOGL": "2026-08-25"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25
+  }
+}
