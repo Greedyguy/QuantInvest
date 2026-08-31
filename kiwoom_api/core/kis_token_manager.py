@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-KIS API Token Manager - 싱글톤 패턴으로 토큰 중복 발급 방지
+KIS API Token Manager - 거래 환경별 공유로 토큰 중복 발급 방지
 """
 
 import os
 import json
 import time
 import threading
+import hashlib
 from typing import Optional, Dict, Any
 from pathlib import Path
 import logging
@@ -15,25 +16,21 @@ logger = logging.getLogger(__name__)
 
 class KISTokenManager:
     """
-    한국투자증권 API 토큰 관리자 (싱글톤)
+    한국투자증권 API 토큰 관리자
     - 일 1회 발급 원칙 준수
     - 토큰 캐시 및 공유
     - 중복 발급 방지
     """
-    _instance = None
     _lock = threading.Lock()
-    
-    def __new__(cls):
-        if cls._instance is None:
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
-        return cls._instance
-    
-    def __init__(self):
-        if self._initialized:
-            return
+
+    def __init__(
+        self,
+        appkey: Optional[str] = None,
+        appsecret: Optional[str] = None,
+        virtual_account: Optional[bool] = None,
+        base_url: Optional[str] = None,
+        cache_dir: Optional[Path] = None,
+    ):
             
         self.access_token = None
         self.token_expiry = 0
@@ -42,24 +39,35 @@ class KISTokenManager:
         self.daily_reset_time = 0     # 일일 리셋 시간
         
         # 캐시 디렉토리
-        self.cache_dir = Path(".kis_cache")
+        self.cache_dir = Path(cache_dir or ".kis_cache")
         self.cache_dir.mkdir(exist_ok=True)
-        self.cache_file = self.cache_dir / "shared_token.json"
-        
+
         # 환경 설정
-        self.appkey = os.getenv('KIS_APP_KEY')
-        self.appsecret = os.getenv('KIS_APP_SECRET')
-        self.virtual_account = os.getenv('KIS_VIRTUAL_ACCOUNT', 'true').lower() == 'true'
-        
-        if self.virtual_account:
-            self.base_url = "https://openapivts.koreainvestment.com:29443"
+        self.appkey = appkey or os.getenv('KIS_APP_KEY')
+        self.appsecret = appsecret or os.getenv('KIS_APP_SECRET')
+        if virtual_account is None:
+            self.virtual_account = os.getenv(
+                'KIS_VIRTUAL_ACCOUNT', 'true'
+            ).lower() == 'true'
         else:
-            self.base_url = "https://openapi.koreainvestment.com:9443"
+            self.virtual_account = bool(virtual_account)
+
+        default_base_url = (
+            "https://openapivts.koreainvestment.com:29443"
+            if self.virtual_account
+            else "https://openapi.koreainvestment.com:9443"
+        )
+        self.base_url = (base_url or default_base_url).rstrip("/")
+        self.environment = 'virtual' if self.virtual_account else 'real'
+        self.appkey_fingerprint = hashlib.sha256(
+            (self.appkey or "").encode("utf-8")
+        ).hexdigest()[:12]
+        self.cache_file = self.cache_dir / (
+            f"shared_token_{self.environment}_{self.appkey_fingerprint}.json"
+        )
             
         # 토큰 로드 시도
         self._load_cached_token()
-        self._initialized = True
-        
         logger.info(f"[INIT] KIS 토큰 관리자 초기화 완료 ({'모의투자' if self.virtual_account else '실거래'})")
     
     def _reset_daily_counter_if_needed(self):
@@ -86,6 +94,13 @@ class KISTokenManager:
                 
             with open(self.cache_file, 'r') as f:
                 data = json.load(f)
+
+            if (
+                data.get('environment') != self.environment
+                or data.get('appkey_fingerprint') != self.appkey_fingerprint
+            ):
+                logger.warning("[LOAD] 현재 거래 환경과 다른 토큰 캐시를 무시합니다")
+                return False
             
             # 토큰 유효성 검사
             if data.get('expires_at', 0) > time.time() + 300:  # 5분 여유
@@ -112,7 +127,8 @@ class KISTokenManager:
                 'expires_at': self.token_expiry,
                 'daily_count': self.token_request_count,
                 'daily_reset': self.daily_reset_time,
-                'environment': 'virtual' if self.virtual_account else 'real',
+                'environment': self.environment,
+                'appkey_fingerprint': self.appkey_fingerprint,
                 'last_update': time.time()
             }
             
@@ -216,15 +232,46 @@ class KISTokenManager:
             return token is not None
 
 
-# 전역 토큰 매니저 인스턴스
-_token_manager = None
+# 거래 환경별 토큰 매니저 인스턴스. 실전/모의 토큰은 서로 호환되지 않는다.
+_token_managers: Dict[tuple, KISTokenManager] = {}
+_token_managers_lock = threading.Lock()
 
-def get_token_manager() -> KISTokenManager:
-    """토큰 매니저 인스턴스 반환"""
-    global _token_manager
-    if _token_manager is None:
-        _token_manager = KISTokenManager()
-    return _token_manager
+
+def get_token_manager(
+    appkey: Optional[str] = None,
+    appsecret: Optional[str] = None,
+    virtual_account: Optional[bool] = None,
+    base_url: Optional[str] = None,
+) -> KISTokenManager:
+    """API 키와 거래 환경이 같은 호출끼리만 토큰 매니저를 공유한다."""
+    resolved_appkey = appkey or os.getenv('KIS_APP_KEY')
+    if virtual_account is None:
+        resolved_virtual = os.getenv(
+            'KIS_VIRTUAL_ACCOUNT', 'true'
+        ).lower() == 'true'
+    else:
+        resolved_virtual = bool(virtual_account)
+    resolved_base_url = (
+        base_url
+        or (
+            "https://openapivts.koreainvestment.com:29443"
+            if resolved_virtual
+            else "https://openapi.koreainvestment.com:9443"
+        )
+    ).rstrip("/")
+    manager_key = (resolved_appkey or "", resolved_virtual, resolved_base_url)
+
+    with _token_managers_lock:
+        manager = _token_managers.get(manager_key)
+        if manager is None:
+            manager = KISTokenManager(
+                appkey=resolved_appkey,
+                appsecret=appsecret,
+                virtual_account=resolved_virtual,
+                base_url=resolved_base_url,
+            )
+            _token_managers[manager_key] = manager
+        return manager
 
 def get_shared_token() -> Optional[str]:
     """공유 토큰 반환 (편의 함수)"""
@@ -232,4 +279,4 @@ def get_shared_token() -> Optional[str]:
 
 def get_token_stats() -> Dict[str, Any]:
     """토큰 발급 통계 반환"""
-    return get_token_manager().get_daily_stats() 
+    return get_token_manager().get_daily_stats()

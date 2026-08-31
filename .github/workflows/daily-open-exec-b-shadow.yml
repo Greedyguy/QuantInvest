@@ -38,6 +38,7 @@ jobs:
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
           KIS_ACCOUNT: ${{ secrets.KIS_ACCOUNT }}
+          KIS_VIRTUAL_ACCOUNT: "false"
           KRX_ID: ${{ secrets.KRX_ID }}
           KRX_PW: ${{ secrets.KRX_PW }}
         run: |

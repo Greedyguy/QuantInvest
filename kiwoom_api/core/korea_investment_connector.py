@@ -52,14 +52,6 @@ class KoreaInvestmentConnector:
         self.account = account or os.getenv('KIS_ACCOUNT')
         self.virtual_account = virtual_account
         
-        # 🔧 새로운 토큰 매니저 사용
-        from .kis_token_manager import get_token_manager
-        self.token_manager = get_token_manager()
-        
-        # 기존 토큰 관련 속성은 토큰 매니저에서 관리
-        self.access_token = None  # 이제 토큰 매니저에서 가져옴
-        self.token_expiry = 0
-        
         # API 설정
         if base_url:
             self.BASE_URL = base_url
@@ -68,6 +60,19 @@ class KoreaInvestmentConnector:
                 self.BASE_URL = "https://openapivts.koreainvestment.com:29443"
             else:
                 self.BASE_URL = "https://openapi.koreainvestment.com:9443"
+
+        # 커넥터와 동일한 거래 환경에서 발급한 토큰만 사용한다.
+        from .kis_token_manager import get_token_manager
+        self.token_manager = get_token_manager(
+            appkey=self.appkey,
+            appsecret=self.appsecret,
+            virtual_account=self.virtual_account,
+            base_url=self.BASE_URL,
+        )
+
+        # 기존 토큰 관련 속성은 토큰 매니저에서 관리
+        self.access_token = None  # 이제 토큰 매니저에서 가져옴
+        self.token_expiry = 0
         
         # 계좌 정보
         self.account_list = [self.account] if self.account else []
@@ -99,6 +104,7 @@ class KoreaInvestmentConnector:
         
         # 에러 코드 처리
         self.error_code = KoreaInvestmentErrorCode()
+        self.last_error = None
     
     def _get_headers(self, tr_id: str) -> Dict[str, str]:
         """API 요청 헤더 생성"""
@@ -332,12 +338,14 @@ class KoreaInvestmentConnector:
         Returns:
             Dict: 잔고 정보
         """
+        self.last_error = None
         try:
             self.ensure_token()
             self.api_calls += 1
             
             acc_no = account_no or self.account
             if not acc_no:
+                self.last_error = "계좌번호가 없습니다"
                 self.logger.error("[FAIL] 계좌번호가 없습니다")
                 return {}
             
@@ -376,6 +384,7 @@ class KoreaInvestmentConnector:
                 response = _request_balance(inqr_dvsn)
                 if response.status_code != 200:
                     last_error_msg = f"HTTP {response.status_code}: {response.text}"
+                    self.last_error = last_error_msg
                     self.logger.error(f"[FAIL] 잔고 조회 요청 실패 (INQR_DVSN={inqr_dvsn}): {response.text}")
                     continue
 
@@ -392,6 +401,7 @@ class KoreaInvestmentConnector:
                 error_msg = result.get("msg1", "잔고 조회 실패")
                 error_cd = result.get("msg_cd", "")
                 last_error_msg = f"{error_msg} (msg_cd={error_cd})"
+                self.last_error = last_error_msg
                 self.logger.error(
                     f"[FAIL] 잔고 조회 실패 (INQR_DVSN={inqr_dvsn}, msg_cd={error_cd}): {error_msg}"
                 )
@@ -408,6 +418,7 @@ class KoreaInvestmentConnector:
             return {}
                 
         except Exception as e:
+            self.last_error = f"{type(e).__name__}: {e}"
             self.logger.error(f"[FAIL] 잔고 조회 오류: {e}")
             return {}
     

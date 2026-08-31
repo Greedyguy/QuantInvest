@@ -539,7 +539,12 @@ class MultiAllocatorPlusTrader:
 
         balance_raw = self.kis.get_account_balance()
         if not balance_raw:
-            raise RuntimeError("계좌 잔고 조회 실패: 빈 응답을 받아 실거래를 중단합니다.")
+            detail = getattr(self.kis, "last_error", None)
+            detail_suffix = f" 원인: {detail}" if detail else ""
+            raise RuntimeError(
+                "계좌 잔고 조회 실패: 빈 응답을 받아 실거래를 중단합니다."
+                + detail_suffix
+            )
 
         account = self.kis.parse_account_balance_data(balance_raw)
         if not account or not account.get("total_value"):
