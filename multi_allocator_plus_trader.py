@@ -1320,6 +1320,29 @@ class MultiAllocatorPlusTrader:
         logger.info("🧪 소액계좌 shadow 비교 저장: %s", report_path)
         return report_path
 
+    def save_shadow_failure(
+        self,
+        signal_date: pd.Timestamp,
+        error: Exception,
+    ) -> Path:
+        payload = {
+            "run_id": self.run_id,
+            "timestamp": datetime.now().isoformat(),
+            "trade_date": datetime.now().date().isoformat(),
+            "signal_date": str(signal_date.date()),
+            "market": self.market,
+            "mode": "small_account_shadow",
+            "execution_guard": "NO_ORDERS_SENT",
+            "status": "failed",
+            "reason": str(error),
+            "source_meta": (self.loaded_signal_snapshot_payload or {}).get("meta", {}),
+        }
+        report_path = self._shadow_report_path(signal_date)
+        with open(report_path, "w", encoding="utf-8") as f:
+            json.dump(self._sanitize_report_value(payload), f, ensure_ascii=False, indent=2)
+        logger.info("🧪 소액계좌 shadow 실패 리포트 저장: %s", report_path)
+        return report_path
+
     def append_execution_logs(self, logs: List[Dict]):
         if not logs:
             return
@@ -1593,14 +1616,18 @@ class MultiAllocatorPlusTrader:
         if self.small_account_shadow:
             if self.signal_mode != "eod_fixed":
                 raise RuntimeError("소액계좌 shadow 비교는 저장된 eod_fixed 신호만 사용합니다.")
-            account, holdings = self.fetch_account_snapshot(force_live_read=True)
-            self.run_small_account_shadow(
-                last_date,
-                targets,
-                account,
-                holdings,
-                price_cache_override,
-            )
+            try:
+                account, holdings = self.fetch_account_snapshot(force_live_read=True)
+                self.run_small_account_shadow(
+                    last_date,
+                    targets,
+                    account,
+                    holdings,
+                    price_cache_override,
+                )
+            except Exception as exc:
+                self.save_shadow_failure(last_date, exc)
+                raise
             return
         prior_execution = self._completed_execution_for_signal(last_date)
         if prior_execution is not None:

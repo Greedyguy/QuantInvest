@@ -36,6 +36,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Compare small-account execution policies (shadow only)
+        id: shadow
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -58,15 +59,34 @@ jobs:
 
       - name: Commit sanitized shadow report
         if: always()
+        env:
+          SHADOW_STEP_OUTCOME: ${{ steps.shadow.outcome }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           mkdir -p reports/shadow
-          git add reports/shadow/
+          if ! find reports/shadow -maxdepth 1 -type f -name '*.json' -print -quit | grep -q .; then
+            if [ "$SHADOW_STEP_OUTCOME" = "success" ]; then
+              echo "::error::Shadow comparison succeeded but produced no JSON report."
+              exit 1
+            fi
+            echo "::warning::Shadow execution failed before a report could be written."
+            exit 0
+          fi
+          git add -f -- reports/shadow/
           if git diff --cached --quiet; then
             exit 0
           fi
           git commit -m "chore: small-account shadow report $(date -u +%Y-%m-%d)"
-          git fetch origin main
-          git rebase origin/main
-          git push origin HEAD:main
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "::warning::Shadow report push attempt ${attempt}/3 failed; retrying."
+            sleep $((attempt * 5))
+          done
+          echo "::error::Failed to push shadow report after 3 attempts."
+          exit 1
