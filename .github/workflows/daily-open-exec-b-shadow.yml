@@ -8,6 +8,10 @@ on:
     - cron: "0 0 * * 1-5"
   workflow_dispatch: {}
 
+concurrency:
+  group: kis-real-token
+  cancel-in-progress: false
+
 jobs:
   run-shadow:
     # Oracle Cloud 셋업 완료 후 아래 줄을 교체:

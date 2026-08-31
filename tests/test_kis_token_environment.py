@@ -25,6 +25,16 @@ KISTokenManager = token_module.KISTokenManager
 get_token_manager = token_module.get_token_manager
 
 
+class FakeResponse:
+    def __init__(self, status_code, payload):
+        self.status_code = status_code
+        self.payload = payload
+        self.text = str(payload)
+
+    def json(self):
+        return self.payload
+
+
 class KISTokenEnvironmentTest(unittest.TestCase):
     def setUp(self):
         token_module._token_managers.clear()
@@ -105,6 +115,36 @@ class KISTokenEnvironmentTest(unittest.TestCase):
 
             self.assertFalse(manager._load_cached_token())
             self.assertIsNone(manager.access_token)
+
+    def test_minute_rate_limit_waits_and_retries_once(self):
+        rate_limited = FakeResponse(
+            403,
+            {
+                "error_code": "EGW00133",
+                "error_description": "접근토큰 발급 잠시 후 다시 시도하세요(1분당 1회)",
+            },
+        )
+        success = FakeResponse(
+            200,
+            {"access_token": "new-token", "expires_in": 86400},
+        )
+
+        with TemporaryDirectory() as tmp:
+            manager = KISTokenManager(
+                appkey="real-key",
+                appsecret="secret",
+                virtual_account=False,
+                cache_dir=Path(tmp),
+            )
+            with (
+                patch("requests.post", side_effect=[rate_limited, success]) as post,
+                patch.object(token_module.time, "sleep") as sleep,
+            ):
+                token = manager._request_new_token()
+
+        self.assertEqual(token, "new-token")
+        self.assertEqual(post.call_count, 2)
+        sleep.assert_called_once_with(65)
 
 
 if __name__ == "__main__":

@@ -14,6 +14,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+TOKEN_RATE_LIMIT_RETRY_SECONDS = 65
+TOKEN_RATE_LIMIT_ERROR_CODE = "EGW00133"
+
 class KISTokenManager:
     """
     한국투자증권 API 토큰 관리자
@@ -163,18 +166,10 @@ class KISTokenManager:
             return self._request_new_token()
     
     def _request_new_token(self) -> Optional[str]:
-        """새 토큰 발급"""
+        """새 토큰 발급. 분당 발급 제한은 한 번 대기 후 재시도한다."""
         try:
             import requests
-            
-            # 이전 요청으로부터 최소 65초 대기
-            if self.last_token_request > 0:
-                elapsed = time.time() - self.last_token_request
-                if elapsed < 65:
-                    wait_time = 65 - elapsed
-                    logger.info(f"[WAIT] 토큰 발급 제한으로 {wait_time:.1f}초 대기")
-                    time.sleep(wait_time)
-            
+
             url = f"{self.base_url}/oauth2/tokenP"
             headers = {"content-type": "application/json; charset=utf-8"}
             data = {
@@ -182,30 +177,71 @@ class KISTokenManager:
                 "appkey": self.appkey,
                 "appsecret": self.appsecret
             }
-            
-            logger.info(f"[REQ] 새 토큰 발급 요청 (일일 {self.token_request_count + 1}회차)")
-            
-            response = requests.post(url, headers=headers, json=data, timeout=10)
-            
-            if response.status_code == 200:
-                result = response.json()
-                
-                self.access_token = result["access_token"]
-                self.token_expiry = time.time() + int(result["expires_in"])
+
+            for attempt in range(2):
+                if attempt > 0:
+                    logger.warning(
+                        "[RETRY] KIS 접근토큰 1분당 발급 제한으로 %d초 후 재시도합니다.",
+                        TOKEN_RATE_LIMIT_RETRY_SECONDS,
+                    )
+                    time.sleep(TOKEN_RATE_LIMIT_RETRY_SECONDS)
+                elif self.last_token_request > 0:
+                    elapsed = time.time() - self.last_token_request
+                    if elapsed < TOKEN_RATE_LIMIT_RETRY_SECONDS:
+                        wait_time = TOKEN_RATE_LIMIT_RETRY_SECONDS - elapsed
+                        logger.info(f"[WAIT] 토큰 발급 제한으로 {wait_time:.1f}초 대기")
+                        time.sleep(wait_time)
+
+                logger.info(
+                    f"[REQ] 새 토큰 발급 요청 (일일 {self.token_request_count + 1}회차)"
+                )
+                response = requests.post(url, headers=headers, json=data, timeout=10)
                 self.last_token_request = time.time()
-                self.token_request_count += 1
-                
-                self._save_token_cache()
-                
-                logger.info(f"✅ 토큰 발급 성공! (일일 {self.token_request_count}/3)")
-                return self.access_token
-            else:
+
+                if response.status_code == 200:
+                    result = response.json()
+
+                    self.access_token = result["access_token"]
+                    self.token_expiry = time.time() + int(result["expires_in"])
+                    self.token_request_count += 1
+
+                    self._save_token_cache()
+
+                    logger.info(f"✅ 토큰 발급 성공! (일일 {self.token_request_count}/3)")
+                    return self.access_token
+
+                if attempt == 0 and self._is_minute_rate_limit(response):
+                    continue
+
                 logger.error(f"[FAIL] 토큰 발급 실패: {response.text}")
-                
+                break
+
         except Exception as e:
             logger.error(f"[ERROR] 토큰 발급 오류: {e}")
-        
+
         return None
+
+    @staticmethod
+    def _is_minute_rate_limit(response) -> bool:
+        """KIS의 접근토큰 1분당 1회 제한 응답인지 판별한다."""
+        response_text = response.text or ""
+        error_code = ""
+        error_description = ""
+        try:
+            payload = response.json()
+            error_code = str(payload.get("error_code") or payload.get("msg_cd") or "")
+            error_description = str(
+                payload.get("error_description") or payload.get("msg1") or ""
+            )
+        except (TypeError, ValueError):
+            pass
+
+        combined = f"{response_text} {error_description}"
+        return (
+            error_code == TOKEN_RATE_LIMIT_ERROR_CODE
+            or "1분당 1회" in combined
+            or "접근토큰 발급 잠시 후 다시 시도" in combined
+        )
     
     def get_daily_stats(self) -> Dict[str, Any]:
         """일일 토큰 발급 통계"""
