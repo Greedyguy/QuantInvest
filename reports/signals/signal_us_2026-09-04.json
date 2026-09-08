@@ -187,8 +187,8 @@
   },
   "meta": {
     "start_date": "2020-01-01",
-    "generated_at": "2026-09-05T07:17:39.323756",
-    "git_revision": "eb52c5f15cf537fb6087ba32e89ae771aea1739a",
+    "generated_at": "2026-09-08T07:40:43.510081",
+    "git_revision": "3dab9dc1ddf7036b06b7abf28b146372f8432e8b",
     "data_as_of": {
       "primary_index": "2026-09-04",
       "secondary_index": null,
