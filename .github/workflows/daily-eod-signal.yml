@@ -42,6 +42,7 @@ jobs:
           python multi_allocator_plus_trader.py \
             --start-date 2026-01-01 \
             --prepare-signal-only \
+            --stress-recovery-mode shadow \
             --signal-mode live
 
       - name: Commit and push signal snapshot
