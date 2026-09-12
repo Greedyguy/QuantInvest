@@ -1,0 +1,272 @@
+{
+  "signal_date": "2026-09-11",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "BAC": 0.055530409218579435,
+    "NVDA": 0.05089845709836233,
+    "AAPL": 0.04620867739500131,
+    "AMZN": 0.045842441338646574,
+    "NFLX": 0.04394153124980162,
+    "ORCL": 0.04329141179262706,
+    "CVX": 0.042421964832016164,
+    "MRK": 0.03604629031345047,
+    "XOM": 0.034179836166530544,
+    "JNJ": 0.020390797334785375,
+    "TMO": 0.019812820486689496,
+    "V": 0.016073404574052805,
+    "DHR": 0.015986696145996203,
+    "MA": 0.015921812008199362,
+    "ABT": 0.015502607185060479,
+    "CRM": 0.012010132805647018,
+    "PFE": 0.00640059343074209,
+    "NOW": 0.003770843155673158,
+    "MSFT": 0.003769273468138512,
+    "__CASH__": 0.472
+  },
+  "ref_prices": {
+    "BAC": 62.689998626708984,
+    "NVDA": 218.2899932861328,
+    "AAPL": 332.2699890136719,
+    "AMZN": 256.7799987792969,
+    "NFLX": 77.4000015258789,
+    "ORCL": 150.27999877929688,
+    "CVX": 214.05999755859375,
+    "MRK": 143.92999267578125,
+    "XOM": 165.99000549316406,
+    "JNJ": 265.5799865722656,
+    "TMO": 609.8200073242188,
+    "V": 370.45001220703125,
+    "DHR": 200.13999938964844,
+    "MA": 569.1900024414062,
+    "ABT": 101.94999694824219,
+    "CRM": 247.72000122070312,
+    "PFE": 27.719999313354492,
+    "NOW": 132.52999877929688,
+    "MSFT": 495.6300048828125
+  },
+  "style_attribution": {
+    "signal_date": "2026-09-11",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.37137789738535754,
+      "kqm_small_cap_v22_short": 0.28317177418041267,
+      "k200_trend_sleeve": 0.11305998148699364,
+      "kqm": 0.08395356139790103,
+      "hybrid_portfolio_v2_4": 0.07938725624544672,
+      "k200_mean_rev": 0.039570993520447774,
+      "kqm_small_cap_v22": 0.029478535783440663
+    },
+    "target_style_sums": {
+      "small_cap": 0.5279999999999999
+    },
+    "cash_weight": 0.472,
+    "targets": [
+      {
+        "ticker": "BAC",
+        "weight": 0.055530409218579435,
+        "style": "small_cap",
+        "price": 62.689998626708984,
+        "market_cap": null,
+        "avg_value20": 1884150377.3822021
+      },
+      {
+        "ticker": "NVDA",
+        "weight": 0.05089845709836233,
+        "style": "small_cap",
+        "price": 218.2899932861328,
+        "market_cap": null,
+        "avg_value20": 28153193120.116882
+      },
+      {
+        "ticker": "AAPL",
+        "weight": 0.04620867739500131,
+        "style": "small_cap",
+        "price": 332.2699890136719,
+        "market_cap": null,
+        "avg_value20": 13497458154.962921
+      },
+      {
+        "ticker": "AMZN",
+        "weight": 0.045842441338646574,
+        "style": "small_cap",
+        "price": 256.7799987792969,
+        "market_cap": null,
+        "avg_value20": 8282765118.465881
+      },
+      {
+        "ticker": "NFLX",
+        "weight": 0.04394153124980162,
+        "style": "small_cap",
+        "price": 77.4000015258789,
+        "market_cap": null,
+        "avg_value20": 2154103432.0343018
+      },
+      {
+        "ticker": "ORCL",
+        "weight": 0.04329141179262706,
+        "style": "small_cap",
+        "price": 150.27999877929688,
+        "market_cap": null,
+        "avg_value20": 4017781663.237076
+      },
+      {
+        "ticker": "CVX",
+        "weight": 0.042421964832016164,
+        "style": "small_cap",
+        "price": 214.05999755859375,
+        "market_cap": null,
+        "avg_value20": 1602341259.8414612
+      },
+      {
+        "ticker": "MRK",
+        "weight": 0.03604629031345047,
+        "style": "small_cap",
+        "price": 143.92999267578125,
+        "market_cap": null,
+        "avg_value20": 1647947393.4765625
+      },
+      {
+        "ticker": "XOM",
+        "weight": 0.034179836166530544,
+        "style": "small_cap",
+        "price": 165.99000549316406,
+        "market_cap": null,
+        "avg_value20": 2251121797.374649
+      },
+      {
+        "ticker": "JNJ",
+        "weight": 0.020390797334785375,
+        "style": "small_cap",
+        "price": 265.5799865722656,
+        "market_cap": null,
+        "avg_value20": 1685942402.3840332
+      },
+      {
+        "ticker": "TMO",
+        "weight": 0.019812820486689496,
+        "style": "small_cap",
+        "price": 609.8200073242188,
+        "market_cap": null,
+        "avg_value20": 1028953970.4232788
+      },
+      {
+        "ticker": "V",
+        "weight": 0.016073404574052805,
+        "style": "small_cap",
+        "price": 370.45001220703125,
+        "market_cap": null,
+        "avg_value20": 2328678787.136688
+      },
+      {
+        "ticker": "DHR",
+        "weight": 0.015986696145996203,
+        "style": "small_cap",
+        "price": 200.13999938964844,
+        "market_cap": null,
+        "avg_value20": 670545889.1905975
+      },
+      {
+        "ticker": "MA",
+        "weight": 0.015921812008199362,
+        "style": "small_cap",
+        "price": 569.1900024414062,
+        "market_cap": null,
+        "avg_value20": 1546090093.5516357
+      },
+      {
+        "ticker": "ABT",
+        "weight": 0.015502607185060479,
+        "style": "small_cap",
+        "price": 101.94999694824219,
+        "market_cap": null,
+        "avg_value20": 878972705.7551575
+      },
+      {
+        "ticker": "CRM",
+        "weight": 0.012010132805647018,
+        "style": "small_cap",
+        "price": 247.72000122070312,
+        "market_cap": null,
+        "avg_value20": 3901432381.118622
+      },
+      {
+        "ticker": "PFE",
+        "weight": 0.00640059343074209,
+        "style": "small_cap",
+        "price": 27.719999313354492,
+        "market_cap": null,
+        "avg_value20": 920209180.002594
+      },
+      {
+        "ticker": "NOW",
+        "weight": 0.003770843155673158,
+        "style": "small_cap",
+        "price": 132.52999877929688,
+        "market_cap": null,
+        "avg_value20": 2235239585.547447
+      },
+      {
+        "ticker": "MSFT",
+        "weight": 0.003769273468138512,
+        "style": "small_cap",
+        "price": 495.6300048828125,
+        "market_cap": null,
+        "avg_value20": 10295525047.538452
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-09-11",
+    "regime": {
+      "close": 7656.97998046875,
+      "ma60": 7576.977351888021,
+      "mom5": -0.011710554593059586,
+      "mom20": -0.018208800067516795,
+      "mom1m": -0.01181132084032388,
+      "mom3m": 0.035524685598321115,
+      "vol20": 0.08998125915633996
+    },
+    "exposure": {
+      "base": 0.6,
+      "after_stress": 0.528,
+      "final": 0.528,
+      "stress_level": 1,
+      "fast_signal": -0.008911697077218506
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-09-12T07:33:53.819393",
+    "git_revision": "aa7d0b6d8eec7d97c8dcddf654b60c46c8d046aa",
+    "data_as_of": {
+      "primary_index": "2026-09-11",
+      "secondary_index": null,
+      "universe_latest_min": "2026-09-11",
+      "universe_latest_max": "2026-09-11",
+      "target_securities": {
+        "BAC": "2026-09-11",
+        "NVDA": "2026-09-11",
+        "AAPL": "2026-09-11",
+        "AMZN": "2026-09-11",
+        "NFLX": "2026-09-11",
+        "ORCL": "2026-09-11",
+        "CVX": "2026-09-11",
+        "MRK": "2026-09-11",
+        "XOM": "2026-09-11",
+        "JNJ": "2026-09-11",
+        "TMO": "2026-09-11",
+        "V": "2026-09-11",
+        "DHR": "2026-09-11",
+        "MA": "2026-09-11",
+        "ABT": "2026-09-11",
+        "CRM": "2026-09-11",
+        "PFE": "2026-09-11",
+        "NOW": "2026-09-11",
+        "MSFT": "2026-09-11"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25
+  }
+}
