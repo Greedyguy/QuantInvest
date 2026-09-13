@@ -896,7 +896,15 @@ class MultiAllocatorPlusTrader:
                     "reference_price": float(price or 0),
                 })
 
-        plans.sort(key=lambda x: (-1 if x.action == "SELL" else 1, -x.est_value))
+        # Cash-equivalent buys are residual-cash operations.  Execute every
+        # risk reduction and risk-asset buy first so parking can never crowd
+        # out the strategy portfolio.
+        plans.sort(key=lambda plan: (
+            0
+            if plan.action == "SELL"
+            else (2 if self._normalize_symbol(plan.symbol) in CASH_EQUIVALENT_TICKERS else 1),
+            -plan.est_value,
+        ))
         if return_decisions:
             return plans, decisions
         return plans

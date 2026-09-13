@@ -119,6 +119,8 @@ def test_cash_parking_shadow_keeps_liquid_reserve_and_excludes_kofr_from_risk_ex
     )
 
     assert any(plan.symbol == "423160" and plan.quantity == 4 for plan in plans)
+    buy_symbols = [plan.symbol for plan in plans if plan.action == "BUY"]
+    assert buy_symbols.index("423160") > buy_symbols.index("069500")
     assert exposure["target_exposure"] == pytest.approx(0.18)
     assert exposure["executable_exposure"] == pytest.approx(0.14)
 
