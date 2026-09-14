@@ -1,5 +1,5 @@
 {
-  "status": "pre_registered_before_development_result_or_data_download",
+  "status": "pre_registered_selection_rules_with_pre_return_data_workflow_amendment",
   "candidate": "krx_small_account_value_profitability_momentum_v1",
   "development_period": {
     "start": "2018-06-29",
@@ -49,7 +49,7 @@
   },
   "execution": {
     "small_account_krw": 2100000,
-    "prices": "split-adjusted histories for signals; official KRX actual historical OHLC for affordability and integer sizing",
+    "prices": "split-adjusted histories for signals; exact-date official KRX all-stock closes for screening; complete official KRX daily actual closes for selected-name execution and integer sizing",
     "integer_shares": true,
     "minimum_trade_krw": 50000,
     "commission_per_side": 0.000140527,
@@ -60,6 +60,14 @@
     "domestic_equity_etf_sell_tax": 0.0,
     "cash_distributions": "include official payment events and applicable withholding for stocks and KODEX 200",
     "corporate_actions": "fail closed if a selected holding crosses an unmodelled material actual-to-adjusted price scale change"
+  },
+  "pre_return_data_workflow_amendment": {
+    "date": "2026-09-15",
+    "timing": "after deriving candidate identities from the frozen rules and official decision-date cross-sections, but before any candidate return calculation",
+    "unchanged": "universe, score, eligibility, weights, timing, costs, pass gates, and sealed periods",
+    "reason": "full daily actual-price and distribution collection is required only for names the frozen rules can hold; screening every constituent from official all-stock decision-date cross-sections preserves the original selection rules",
+    "decision_calendar": "data/reference/krx_small_account_decision_dates_2018_2022.csv",
+    "selected_name_daily_data_rule": "collect complete 2017-06-01 through 2022-12-29 KRX daily actual closes for every ticker selected at least once before calculating returns"
   },
   "development_pass_gate": {
     "continuous_kodex200_total_return_cagr_excess_pct_point_min": 1.0,

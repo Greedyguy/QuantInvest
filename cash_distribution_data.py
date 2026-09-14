@@ -19,6 +19,7 @@ REQUIRED_EVENT_COLUMNS = (
 APPROVED_SOURCE_PREFIXES = (
     "KRX Data Marketplace",
     "KRX Open API",
+    "KSD SEIBro",
     "DART",
     "Samsung Asset Management",
     "official_pdf",

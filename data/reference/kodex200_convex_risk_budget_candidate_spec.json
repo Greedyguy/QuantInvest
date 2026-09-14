@@ -1,0 +1,53 @@
+{
+  "status": "pre_registered_before_any_candidate_return",
+  "candidate": "kodex200_convex_risk_budget_v1",
+  "pre_registered_on": "2026-09-15",
+  "development_period": {
+    "start": "2018-06-29",
+    "end": "2022-12-29"
+  },
+  "sealed_periods": {
+    "walk_forward": "2023-01-01/2024-12-31",
+    "unused_holdout": "2025-01-01/2026-12-31"
+  },
+  "rationale": "The already pre-registered same-timing KODEX 200 comparator showed that low-turnover risk timing added value while concentrated stock selection did not. The new untested component is a fixed leveraged-ETF risk budget intended to add upside without stock-specific ranking or frequent rebalancing.",
+  "assets": {
+    "core": "069500 KODEX 200",
+    "convex_sleeve": "122630 KODEX Leverage",
+    "cash": "uninvested KRW"
+  },
+  "signals": {
+    "risk_state": "frozen K200LowTurnoverReentry defaults using only KODEX 200 split-adjusted history",
+    "leverage_etf_has_no_independent_signal": true,
+    "execution": "state changes execute at the following session open"
+  },
+  "portfolio": {
+    "risk_on_kodex200_weight": 0.70,
+    "risk_on_kodex_leverage_weight": 0.25,
+    "risk_on_cash_weight": 0.05,
+    "approximate_index_exposure_when_risk_on": 1.20,
+    "risk_off_cash_weight": 1.0,
+    "rebalance_inside_unchanged_state": false
+  },
+  "execution": {
+    "small_account_krw": 2100000,
+    "actual_official_daily_ohlc_required": true,
+    "integer_shares": true,
+    "minimum_trade_krw": 50000,
+    "commission_per_side": 0.000140527,
+    "venue_fee_per_side": 0.000036396,
+    "entry_slippage": 0.002,
+    "exit_slippage": 0.002,
+    "domestic_equity_etf_sell_tax": 0.0,
+    "cash_distributions": "official payment events with 15.4 percent withholding on the taxable amount"
+  },
+  "development_pass_gate": {
+    "continuous_kodex200_total_return_cagr_excess_pct_point_min": 2.0,
+    "same_timing_unlevered_kodex200_cagr_excess_pct_point_min": 1.5,
+    "rolling_12m_beat_rate_pct_min_for_both_benchmarks": 60.0,
+    "maximum_drawdown_disadvantage_vs_same_timing_pct_point_max": 5.0,
+    "positive_excess_year_concentration_pct_max": 60.0,
+    "must_pass_double_cost_stress": true
+  },
+  "decision_rule": "Any development gate failure rejects v1 without opening either sealed period. Passing development opens only the 2023-2024 walk-forward period."
+}

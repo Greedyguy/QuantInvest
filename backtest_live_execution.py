@@ -73,8 +73,15 @@ def _price_on_or_before(
     return value if np.isfinite(value) else np.nan
 
 
-def _mark_to_market(cash: float, holdings: Dict[str, int], enriched: Dict[str, pd.DataFrame], day) -> float:
-    equity = cash
+def _mark_to_market(
+    cash: float,
+    holdings: Dict[str, int],
+    enriched: Dict[str, pd.DataFrame],
+    day,
+    *,
+    distribution_receivable: float = 0.0,
+) -> float:
+    equity = cash + float(distribution_receivable)
     for ticker, qty in holdings.items():
         price = _price_on_or_before(enriched, ticker, day, "close")
         if np.isfinite(price) and price > 0:
@@ -223,7 +230,13 @@ def simulate(
     pending_distributions: list[tuple[str, dict, int]] = []
     if dates:
         equity_rows.append(
-            {"date": dates[0], "equity": cash, "cash": cash, "positions": 0}
+            {
+                "date": dates[0],
+                "equity": cash,
+                "cash": cash,
+                "distribution_receivable": 0.0,
+                "positions": 0,
+            }
         )
     for idx in range(len(dates) - 1):
         signal_date = dates[idx]
@@ -338,8 +351,27 @@ def simulate(
             )
         pending_distributions = still_pending
 
-        equity = _mark_to_market(cash, holdings, enriched, exec_date)
-        equity_rows.append({"date": exec_date, "equity": equity, "cash": cash, "positions": len(holdings)})
+        distribution_receivable = sum(
+            eligible_quantity * float(event["net_unit"])
+            for _, event, eligible_quantity in pending_distributions
+            if eligible_quantity > 0
+        )
+        equity = _mark_to_market(
+            cash,
+            holdings,
+            enriched,
+            exec_date,
+            distribution_receivable=distribution_receivable,
+        )
+        equity_rows.append(
+            {
+                "date": exec_date,
+                "equity": equity,
+                "cash": cash,
+                "distribution_receivable": distribution_receivable,
+                "positions": len(holdings),
+            }
+        )
 
     equity_curve = pd.DataFrame(equity_rows)
     if not equity_curve.empty:

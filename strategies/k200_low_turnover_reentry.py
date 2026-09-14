@@ -224,7 +224,7 @@ class K200LowTurnoverReentry(BaseStrategy):
         equity_rows = []
 
         first_date = states.index[0]
-        equity_rows.append((first_date, cash, cash, quantity, self.CASH))
+        equity_rows.append((first_date, cash, cash, 0.0, quantity, self.CASH))
         self._record_weights(first_date, cash, {}, {self.ticker: data})
 
         for current_date in states.index[1:]:
@@ -313,9 +313,23 @@ class K200LowTurnoverReentry(BaseStrategy):
                 )
             pending_distributions = still_pending
 
-            equity = cash + quantity * close_price
+            distribution_receivable = sum(
+                int(event["eligible_quantity"]) * float(event["net_unit"])
+                for event in pending_distributions
+                if int(event["eligible_quantity"]) > 0
+            )
+            equity = cash + quantity * close_price + distribution_receivable
             state = str(row["state"])
-            equity_rows.append((current_date, equity, cash, quantity, state))
+            equity_rows.append(
+                (
+                    current_date,
+                    equity,
+                    cash,
+                    distribution_receivable,
+                    quantity,
+                    state,
+                )
+            )
             positions = (
                 {self.ticker: {"qty": quantity, "entry_px": close_price}}
                 if quantity > 0
@@ -325,6 +339,13 @@ class K200LowTurnoverReentry(BaseStrategy):
 
         equity_curve = pd.DataFrame(
             equity_rows,
-            columns=["date", "equity", "cash", "quantity", "state"],
+            columns=[
+                "date",
+                "equity",
+                "cash",
+                "distribution_receivable",
+                "quantity",
+                "state",
+            ],
         ).set_index("date")
         return equity_curve, trades

@@ -107,17 +107,29 @@ def import_actual_closes(
     constituents_path: Path,
     output_path: Path,
     manifest_path: Path,
+    *,
+    required_tickers: set[str] | None = None,
 ) -> tuple[Path, Path]:
     """Write an immutable normalized panel and a content-addressed manifest."""
 
     if output_path.exists() or manifest_path.exists():
         raise FileExistsError("actual-close output is immutable and already exists")
     constituents = load_point_in_time_constituents(constituents_path)
-    required = set(
+    universe = set(
         constituents.loc[
             constituents["as_of_date"].le(DEVELOPMENT_END), "ticker"
         ].astype(str)
     )
+    required = (
+        {str(ticker).zfill(6) for ticker in required_tickers}
+        if required_tickers is not None
+        else universe
+    )
+    if not required:
+        raise ValueError("required KRX actual-close ticker set cannot be empty")
+    unexpected = sorted(required - universe)
+    if unexpected:
+        raise ValueError(f"requested tickers are outside the development universe: {unexpected}")
     panel, provenance = build_actual_close_panel(
         discover_raw_files(input_dir), required_tickers=required
     )
@@ -163,10 +175,19 @@ def main() -> None:
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--manifest", type=Path)
+    parser.add_argument(
+        "--required-tickers",
+        nargs="+",
+        help="Optional selected development tickers; defaults to the full universe",
+    )
     args = parser.parse_args()
     manifest = args.manifest or args.output.with_suffix(".manifest.json")
     output_path, manifest_path = import_actual_closes(
-        args.input_dir, args.constituents, args.output, manifest
+        args.input_dir,
+        args.constituents,
+        args.output,
+        manifest,
+        required_tickers=(set(args.required_tickers) if args.required_tickers else None),
     )
     print(f"normalized actual closes: {output_path}")
     print(f"provenance manifest: {manifest_path}")

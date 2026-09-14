@@ -245,15 +245,37 @@ def prepare_distribution_schedule(
     if settlement_lag < 0:
         raise ValueError("settlement_lag must be non-negative")
     dates = pd.DatetimeIndex(pd.to_datetime(trading_dates)).sort_values().unique()
+    empty_columns = [
+        "record_date",
+        "pay_date",
+        "entitlement_date",
+        "credit_date",
+        "gross_unit",
+        "tax_unit",
+        "net_unit",
+    ]
+    if dates.empty:
+        return pd.DataFrame(columns=empty_columns)
     rows: list[dict] = []
     for event in events.to_dict("records"):
         record_date = pd.Timestamp(event["record_date"])
         pay_date = pd.Timestamp(event["pay_date"])
+        # A calendar record date can fall just after the last exchange session
+        # (for example, Saturday 31 December after Thursday 29 December).  Keep
+        # that entitlement, but never drag genuinely future events backwards
+        # into a truncated test calendar.
+        if record_date > dates[-1] + pd.Timedelta(days=7):
+            continue
         record_position = int(dates.searchsorted(record_date, side="right") - 1)
         entitlement_position = record_position - settlement_lag
         credit_position = int(dates.searchsorted(pay_date, side="left"))
-        if entitlement_position < 0 or credit_position >= len(dates):
+        if entitlement_position < 0:
             continue
+        credit_date = (
+            dates[credit_position]
+            if credit_position < len(dates)
+            else pay_date.normalize()
+        )
         gross_unit = float(event["distribution_per_share"])
         taxable_unit = float(event.get("taxable_per_share", gross_unit))
         tax_unit = max(taxable_unit, 0.0) * tax_profile.distribution_income_tax_rate
@@ -263,24 +285,14 @@ def prepare_distribution_schedule(
                 "record_date": record_date,
                 "pay_date": pay_date,
                 "entitlement_date": dates[entitlement_position],
-                "credit_date": dates[credit_position],
+                "credit_date": credit_date,
                 "gross_unit": gross_unit,
                 "tax_unit": tax_unit,
                 "net_unit": gross_unit - tax_unit,
             }
         )
     if not rows:
-        return pd.DataFrame(
-            columns=[
-                "record_date",
-                "pay_date",
-                "entitlement_date",
-                "credit_date",
-                "gross_unit",
-                "tax_unit",
-                "net_unit",
-            ]
-        )
+        return pd.DataFrame(columns=empty_columns)
     return pd.DataFrame(rows).sort_values("entitlement_date").reset_index(drop=True)
 
 

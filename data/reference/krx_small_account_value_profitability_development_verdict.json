@@ -1,0 +1,45 @@
+{
+  "status": "rejected_in_development",
+  "candidate": "krx_small_account_value_profitability_momentum_v1",
+  "evaluated_on": "2026-09-15",
+  "development_period": "2018-06-29/2022-12-29",
+  "sealed_periods_opened": false,
+  "account_krw": 2100000,
+  "data": {
+    "fundamentals": "official KRX point-in-time snapshot panel",
+    "selection_prices": "official KRX exact decision-date actual closes",
+    "execution_prices": "official KRX daily actual closes for all selected names",
+    "stock_distributions": "KSD SEIBro official common-stock dividend history",
+    "kodex200_prices_and_distributions": "Samsung Asset Management official files"
+  },
+  "results": {
+    "candidate_return_pct": 31.00964402124673,
+    "candidate_cagr_pct": 6.184447435547158,
+    "candidate_mdd_pct": -13.929555021684637,
+    "candidate_orders": 47,
+    "candidate_explicit_cost_pct_initial": 1.6427573246085614,
+    "continuous_kodex200_return_pct": 6.568096402531531,
+    "continuous_kodex200_cagr_pct": 1.4233271158146987,
+    "same_timing_kodex200_return_pct": 31.907050171646567,
+    "same_timing_kodex200_cagr_pct": 6.34561303257164,
+    "same_timing_kodex200_orders": 7,
+    "same_timing_kodex200_explicit_cost_pct_initial": 0.8751670241288643,
+    "candidate_vs_same_timing_annualised_excess_pct_point": -0.16116559702448185,
+    "candidate_vs_same_timing_rolling_12m_beat_rate_pct": 41.74418604651163,
+    "double_cost_candidate_return_pct": 27.17112082559272,
+    "double_cost_vs_continuous_rolling_12m_beat_rate_pct": 56.51162790697675
+  },
+  "failed_gates": [
+    "same-timing KODEX 200 annualised excess return >= 2.0 percentage points",
+    "same-timing KODEX 200 rolling 12-month beat rate >= 60 percent",
+    "same-timing positive excess-year concentration <= 60 percent",
+    "double-cost rolling 12-month beat rate >= 60 percent against both benchmarks"
+  ],
+  "diagnosis": [
+    "The risk-state timing, not the four-stock selection sleeve, produced the market outperformance.",
+    "Replacing 55 percent of KODEX 200 with four stocks slightly reduced CAGR and increased maximum drawdown against the same-timing benchmark.",
+    "The stock sleeve raised executed orders from 7 to 47 and did not earn back its added implementation cost.",
+    "The selection sleeve lagged the same-timing benchmark in 2019 and 2020; its 2021 gain was not broad or persistent enough."
+  ],
+  "decision": "Reject v1 without opening 2023-2024 or 2025-2026 candidate data. Preserve the frozen low-turnover risk state and test a separately pre-registered, low-turnover ETF risk-budget candidate instead of another concentrated stock-ranking revision."
+}

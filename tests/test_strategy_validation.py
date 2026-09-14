@@ -285,3 +285,40 @@ def test_execution_credits_distribution_to_entitled_integer_shares():
     prior_cash = equity.loc[pd.Timestamp("2025-02-03"), "cash"]
     paid_cash = equity.loc[pd.Timestamp("2025-02-04"), "cash"]
     assert paid_cash - prior_cash == pytest.approx(2 * (100.0 - 80.0 * 0.154))
+
+
+def test_execution_values_post_horizon_distribution_receivable():
+    dates = pd.bdate_range("2022-12-20", "2022-12-29")
+    prices = pd.DataFrame(
+        {"close": [50_000.0] * len(dates), "open": [50_000.0] * len(dates)},
+        index=dates,
+    )
+    targets = pd.DataFrame(
+        {"005930": [0.50] * len(dates), "__CASH__": [0.50] * len(dates)},
+        index=dates,
+    )
+    distributions = pd.DataFrame(
+        {
+            "record_date": [pd.Timestamp("2022-12-31")],
+            "pay_date": [pd.Timestamp("2023-04-14")],
+            "distribution_per_share": [100.0],
+            "taxable_per_share": [100.0],
+        }
+    )
+
+    equity, trades = simulate(
+        targets,
+        {"005930": prices},
+        initial_cash=210_000.0,
+        min_trade=0,
+        price_band_pct=3.0,
+        blocked_tickers=set(),
+        sell_tax_rate_by_ticker={"005930": 0.0},
+        rebalance_only_on_target_change=True,
+        distribution_events_by_ticker={"005930": distributions},
+    )
+
+    expected = 2 * 100.0 * (1.0 - 0.154)
+    assert equity.loc[pd.Timestamp("2022-12-27"), "distribution_receivable"] == pytest.approx(expected)
+    assert equity.loc[pd.Timestamp("2022-12-29"), "distribution_receivable"] == pytest.approx(expected)
+    assert not [trade for trade in trades if trade["action"] == "DISTRIBUTION"]

@@ -95,18 +95,15 @@ def assert_development_coverage(decisions: pd.DataFrame) -> None:
         raise RuntimeError(f"KRX development coverage gate failed: {diagnostics}")
 
 
-def _load_price_bases(
+def _load_adjusted_prices(
     constituents: pd.DataFrame,
     *,
-    actual_closes_path: Path,
     adjusted_price_dir: Path,
     adjusted_price_template: str,
     core_adjusted_price_file: Path,
-    core_standard_file: Path,
-) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
-    actual_closes = load_actual_close_panel(actual_closes_path)
-    if actual_closes["date"].max() > DEVELOPMENT_END:
-        raise ValueError("actual-close input opens the sealed post-development period")
+) -> dict[str, pd.DataFrame]:
+    """Load split-adjusted histories used only for signals."""
+
     tickers = sorted(
         constituents.loc[
             constituents["as_of_date"].le(DEVELOPMENT_END), "ticker"
@@ -126,21 +123,55 @@ def _load_price_bases(
         ]
     if missing:
         raise FileNotFoundError(f"missing adjusted signal price files: {missing}")
-    prices = restore_actual_price_panel(adjusted, actual_closes)
-
-    core_adjusted = load_naver_prices(core_adjusted_price_file).loc[
+    adjusted[CORE_TICKER] = load_naver_prices(core_adjusted_price_file).loc[
         lambda frame: frame.index.to_series().between(
             PRICE_WARMUP_START, DEVELOPMENT_END
         )
     ]
+    return adjusted
+
+
+def _price_mapping_from_panel(path: Path) -> dict[str, pd.DataFrame]:
+    """Expose a sparse official close panel for point-in-time screening."""
+
+    panel = load_actual_close_panel(path)
+    if panel["date"].max() > DEVELOPMENT_END:
+        raise ValueError("actual-close input opens the sealed post-development period")
+    return {
+        str(ticker): group.set_index("date")[["close"]].sort_index()
+        for ticker, group in panel.groupby("ticker", sort=True)
+    }
+
+
+def _load_execution_prices(
+    adjusted_prices: dict[str, pd.DataFrame],
+    *,
+    actual_closes_path: Path,
+    selected_tickers: set[str],
+    core_standard_file: Path,
+) -> dict[str, pd.DataFrame]:
+    """Restore daily traded-price OHLC only for names the rules selected."""
+
+    actual_closes = load_actual_close_panel(actual_closes_path)
+    if actual_closes["date"].max() > DEVELOPMENT_END:
+        raise ValueError("actual-close input opens the sealed post-development period")
+    present = set(actual_closes["ticker"].astype(str))
+    missing = sorted({str(ticker) for ticker in selected_tickers} - present)
+    if missing:
+        raise ValueError(f"daily actual closes missing selected tickers: {missing}")
+    selected_adjusted = {
+        ticker: adjusted_prices[ticker] for ticker in sorted(selected_tickers)
+    }
+    prices = restore_actual_price_panel(selected_adjusted, actual_closes)
+
+    core_adjusted = adjusted_prices[CORE_TICKER]
     core_official = load_samsung_kodex_standard_xls(core_standard_file)
     core_close = core_official.loc[
         core_official.index.to_series().between(PRICE_WARMUP_START, DEVELOPMENT_END),
         "market_close",
     ]
-    adjusted[CORE_TICKER] = core_adjusted
     prices[CORE_TICKER] = restore_actual_ohlc(core_adjusted, core_close)
-    return adjusted, prices
+    return prices
 
 
 def _summary(equity: pd.DataFrame, initial_cash: float, trades: list[dict]) -> dict:
@@ -190,7 +221,8 @@ def run_development_backtest(
     constituents: pd.DataFrame,
     fundamentals: pd.DataFrame,
     signal_prices: dict[str, pd.DataFrame],
-    actual_prices: dict[str, pd.DataFrame],
+    selection_actual_prices: dict[str, pd.DataFrame],
+    execution_prices: dict[str, pd.DataFrame],
     stock_distributions: dict[str, pd.DataFrame],
     kodex_distributions: pd.DataFrame,
     *,
@@ -200,12 +232,12 @@ def run_development_backtest(
         constituents,
         fundamentals,
         signal_prices,
-        actual_prices=actual_prices,
+        actual_prices=selection_actual_prices,
     )
     assert_development_coverage(decisions)
     targets = targets.loc[DEVELOPMENT_START:DEVELOPMENT_END]
     assert_no_unmodelled_corporate_actions(
-        targets, signal_prices, actual_prices
+        targets, signal_prices, execution_prices
     )
     same_timing_targets = same_timing_kodex200_targets(targets)
     continuous_targets = continuous_kodex200_targets(targets.index)
@@ -229,25 +261,25 @@ def run_development_backtest(
 
     candidate_equity, candidate_trades = _simulate(
         targets,
-        actual_prices,
+        execution_prices,
         candidate_distributions,
         initial_cash=initial_cash,
     )
     same_equity, same_trades = _simulate(
         same_timing_targets,
-        actual_prices,
+        execution_prices,
         benchmark_distributions,
         initial_cash=initial_cash,
     )
     continuous_equity, continuous_trades = _simulate(
         continuous_targets,
-        actual_prices,
+        execution_prices,
         benchmark_distributions,
         initial_cash=initial_cash,
     )
     stressed_equity, stressed_trades = _simulate(
         targets,
-        actual_prices,
+        execution_prices,
         candidate_distributions,
         initial_cash=initial_cash,
         cost_multiplier=2.0,
@@ -305,6 +337,7 @@ def run_development_backtest(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fundamentals", type=Path, required=True)
+    parser.add_argument("--selection-actual-closes", type=Path, required=True)
     parser.add_argument("--actual-closes", type=Path, required=True)
     parser.add_argument("--stock-distributions", type=Path, required=True)
     parser.add_argument("--stock-distribution-manifest", type=Path, required=True)
@@ -349,19 +382,20 @@ def main() -> None:
     fundamentals = load_point_in_time_fundamentals(args.fundamentals)
     if fundamentals["snapshot_date"].max() > DEVELOPMENT_END:
         raise ValueError("fundamental input opens the sealed post-development period")
-    signal_prices, actual_prices = _load_price_bases(
+    signal_prices = _load_adjusted_prices(
         constituents,
-        actual_closes_path=args.actual_closes,
         adjusted_price_dir=args.adjusted_price_dir,
         adjusted_price_template=args.adjusted_price_template,
         core_adjusted_price_file=args.core_adjusted_price_file,
-        core_standard_file=args.core_standard_file,
+    )
+    selection_actual_prices = _price_mapping_from_panel(
+        args.selection_actual_closes
     )
     targets, decisions = build_krx_small_account_targets(
         constituents,
         fundamentals,
         signal_prices,
-        actual_prices=actual_prices,
+        actual_prices=selection_actual_prices,
     )
     assert_development_coverage(decisions)
     selected = {
@@ -373,6 +407,12 @@ def main() -> None:
         for ticker in value.split(",")
         if ticker
     }
+    execution_prices = _load_execution_prices(
+        signal_prices,
+        actual_closes_path=args.actual_closes,
+        selected_tickers=selected,
+        core_standard_file=args.core_standard_file,
+    )
     stock_distributions = load_distribution_bundle(
         args.stock_distributions,
         args.stock_distribution_manifest,
@@ -393,7 +433,8 @@ def main() -> None:
         constituents,
         fundamentals,
         signal_prices,
-        actual_prices,
+        selection_actual_prices,
+        execution_prices,
         stock_distributions,
         load_distribution_events(args.kodex_distributions),
         initial_cash=args.initial_cash,

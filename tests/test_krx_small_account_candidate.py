@@ -97,6 +97,21 @@ def test_expensive_share_is_ineligible_for_fixed_small_account_sleeve():
     assert not bool(expensive["eligible"])
 
 
+def test_missing_krx_factor_is_scored_as_ineligible_instead_of_crashing():
+    fundamentals = _fundamentals()
+    fundamentals.loc[fundamentals["ticker"].eq("000025"), ["eps", "per"]] = pd.NA
+
+    scores, coverage = compute_krx_small_account_scores(
+        _constituents(), fundamentals, _prices(), "2020-04-01"
+    )
+
+    missing = scores.set_index("ticker").loc["000025"]
+    assert coverage["fundamental_members"] == 25
+    assert np.isnan(missing["eps"])
+    assert np.isnan(missing["per"])
+    assert not bool(missing["eligible"])
+
+
 def test_signal_indicators_use_adjusted_prices_but_affordability_uses_actual_price():
     signal_prices = _prices()
     actual_prices = {ticker: frame.copy() for ticker, frame in signal_prices.items()}

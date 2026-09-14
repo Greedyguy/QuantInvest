@@ -13,6 +13,16 @@ from strategies.k200_low_turnover_reentry import K200LowTurnoverReentry
 CORE_TICKER = "069500"
 
 
+def _optional_float(value) -> float:
+    """Convert an optional KRX numeric field without rejecting the row."""
+
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return np.nan
+    return result if np.isfinite(result) else np.nan
+
+
 def _asof_close(
     prices: dict[str, pd.DataFrame], ticker: str, signal_date: pd.Timestamp
 ) -> pd.Series:
@@ -76,10 +86,10 @@ def compute_krx_small_account_scores(
             factor = factors.loc[ticker]
             current_signal_close = float(signal_close.iloc[-1])
             current_actual_close = float(actual_close.iloc[-1])
-            eps = float(factor["eps"])
-            bps = float(factor["bps"])
-            per = float(factor["per"])
-            pbr = float(factor["pbr"])
+            eps = _optional_float(factor["eps"])
+            bps = _optional_float(factor["bps"])
+            per = _optional_float(factor["per"])
+            pbr = _optional_float(factor["pbr"])
             earnings_yield = 1.0 / per if np.isfinite(per) and per > 0 else np.nan
             book_to_market = 1.0 / pbr if np.isfinite(pbr) and pbr > 0 else np.nan
             implied_roe = eps / bps if np.isfinite(eps) and bps > 0 else np.nan

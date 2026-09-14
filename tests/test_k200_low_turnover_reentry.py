@@ -131,6 +131,38 @@ def test_distribution_schedule_uses_settlement_lag_and_net_taxable_amount():
     assert schedule.iloc[0]["net_unit"] == pytest.approx(87.68)
 
 
+def test_distribution_schedule_keeps_nearby_post_horizon_payment_as_receivable():
+    dates = pd.bdate_range("2022-12-20", "2022-12-29")
+    events = pd.DataFrame(
+        {
+            "record_date": [pd.Timestamp("2022-12-31")],
+            "pay_date": [pd.Timestamp("2023-04-14")],
+            "distribution_per_share": [100.0],
+            "taxable_per_share": [100.0],
+        }
+    )
+
+    schedule = prepare_distribution_schedule(events, dates)
+
+    assert len(schedule) == 1
+    assert schedule.iloc[0]["entitlement_date"] == pd.Timestamp("2022-12-27")
+    assert schedule.iloc[0]["credit_date"] == pd.Timestamp("2023-04-14")
+
+
+def test_distribution_schedule_does_not_pull_distant_future_event_backwards():
+    dates = pd.bdate_range("2022-12-20", "2022-12-29")
+    events = pd.DataFrame(
+        {
+            "record_date": [pd.Timestamp("2023-01-31")],
+            "pay_date": [pd.Timestamp("2023-02-02")],
+            "distribution_per_share": [100.0],
+            "taxable_per_share": [100.0],
+        }
+    )
+
+    assert prepare_distribution_schedule(events, dates).empty
+
+
 def test_samsung_distribution_json_loader_maps_official_fields(tmp_path):
     response = tmp_path / "distribution.json"
     response.write_text(
