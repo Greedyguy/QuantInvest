@@ -1,0 +1,72 @@
+{
+  "status": "pre_registered_before_development_result_or_data_download",
+  "candidate": "krx_small_account_value_profitability_momentum_v1",
+  "development_period": {
+    "start": "2018-06-29",
+    "end": "2022-12-29"
+  },
+  "sealed_periods": {
+    "walk_forward": "2023-01-01/2024-12-31",
+    "unused_holdout": "2025-01-01/2026-12-31"
+  },
+  "universe": {
+    "source": "official point-in-time KODEX 200 top-30 PCF snapshots",
+    "fundamentals": "same-date official KRX KOSPI PER/PBR/BPS/EPS snapshot",
+    "signal_timing": "snapshot after close, first observable next KRX session, execute following session open",
+    "minimum_fundamental_members": 23,
+    "minimum_index_weight_coverage_pct": 65.0,
+    "fallback_when_coverage_fails": "same-timing KODEX 200"
+  },
+  "score": {
+    "value_weight": 0.45,
+    "value_metrics": [
+      "1 / KRX PER",
+      "1 / KRX PBR"
+    ],
+    "profitability_weight": 0.25,
+    "profitability_metric": "KRX EPS / KRX BPS",
+    "momentum_weight": 0.30,
+    "momentum_metric": "12-minus-1-month price return percentile",
+    "ranking": "cross-sectional percentile, higher is better"
+  },
+  "eligibility": {
+    "eps": "> 0",
+    "bps": "> 0",
+    "per": "2 through 50 inclusive",
+    "pbr": "0.1 through 8 inclusive",
+    "implied_roe": "0 through 1 inclusive",
+    "price_confirmation": "12-minus-1-month return > 0 and actual close > 200-session average",
+    "maximum_actual_share_price_krw": 250000
+  },
+  "portfolio": {
+    "risk_timing": "frozen K200LowTurnoverReentry state",
+    "risk_on_core_weight": 0.40,
+    "risk_on_satellite_weight": 0.55,
+    "risk_on_cash_weight": 0.05,
+    "satellite_names": 4,
+    "satellite_weighting": "equal",
+    "risk_off": "cash"
+  },
+  "execution": {
+    "small_account_krw": 2100000,
+    "prices": "official KRX actual historical OHLC; adjusted price levels forbidden for integer sizing",
+    "integer_shares": true,
+    "minimum_trade_krw": 50000,
+    "commission_per_side": 0.000140527,
+    "venue_fee_per_side": 0.000036396,
+    "entry_slippage": 0.002,
+    "exit_slippage": 0.002,
+    "individual_stock_sell_tax": "historical effective-date schedule",
+    "domestic_equity_etf_sell_tax": 0.0,
+    "cash_distributions": "include official payment events and applicable withholding for stocks and KODEX 200"
+  },
+  "development_pass_gate": {
+    "continuous_kodex200_total_return_cagr_excess_pct_point_min": 1.0,
+    "same_timing_kodex200_total_return_cagr_excess_pct_point_min": 2.0,
+    "rolling_12m_beat_rate_pct_min_for_both_benchmarks": 60.0,
+    "maximum_drawdown_not_worse_by_pct_point": 5.0,
+    "positive_excess_year_concentration_pct_max": 60.0,
+    "must_pass_double_cost_stress": true
+  },
+  "decision_rule": "Any development gate failure rejects v1 without opening either sealed period. Passing development opens only the 2023-2024 walk-forward period."
+}
