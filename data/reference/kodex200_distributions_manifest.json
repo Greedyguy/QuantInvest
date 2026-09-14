@@ -2,7 +2,14 @@
   "version": 1,
   "product": "KODEX 200",
   "ticker": "069500",
+  "source": "Samsung Asset Management official API and product PDFs",
   "purpose": "Dividend-inclusive integer-share execution benchmark",
+  "history_coverage_start": "2018-01-01",
+  "history_coverage_end": "2022-12-31",
+  "complete_cash_distribution_history": true,
+  "audited_tickers": [
+    "069500"
+  ],
   "development_coverage": {
     "start": "2018-04-30",
     "end": "2022-10-31",
