@@ -1,8 +1,11 @@
+from argparse import Namespace
+
 import numpy as np
 import pandas as pd
 import pytest
 
 from strategies import get_strategy
+from scripts.backtest_kodex_sector_rotation import _validate_sealed_holdout
 from strategies.kodex_sector_rotation import KodexSectorRotation
 
 
@@ -78,3 +81,20 @@ def test_sector_rotation_uses_core_two_sectors_and_cash_buffer():
 
 def test_sector_rotation_is_registered():
     assert isinstance(get_strategy("kodex_sector_rotation"), KodexSectorRotation)
+
+
+def test_sealed_holdout_requires_preregistered_period_and_signal_source():
+    valid = Namespace(
+        start_date="2018-04-02",
+        end_date="2019-12-30",
+        core_signal_source="distribution_adjusted_actual",
+    )
+    assert _validate_sealed_holdout(valid)["one_shot_evaluation"] is True
+
+    invalid = Namespace(
+        start_date="2018-05-01",
+        end_date="2019-12-30",
+        core_signal_source="distribution_adjusted_actual",
+    )
+    with pytest.raises(ValueError, match="sealed holdout dates"):
+        _validate_sealed_holdout(invalid)

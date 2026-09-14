@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import datetime
@@ -40,6 +41,9 @@ from strategies.kodex_sector_rotation import KodexSectorRotation
 CORE_TICKER = "069500"
 LEGACY_DISTRIBUTIONS = (
     PROJECT_ROOT / "data" / "reference" / "kodex_sector_distributions_2017_2019.csv"
+)
+HOLDOUT_PROTOCOL = (
+    PROJECT_ROOT / "data" / "reference" / "kodex_sector_rotation_holdout_protocol.json"
 )
 SECTOR_PRODUCTS = {
     "091180": "자동차",
@@ -133,6 +137,40 @@ def _load_official_inputs(data_dir: Path):
 def _normalised_equity(equity: pd.DataFrame) -> pd.Series:
     values = equity["equity"].astype(float)
     return values / float(values.iloc[0])
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _validate_sealed_holdout(args: argparse.Namespace) -> dict:
+    protocol = json.loads(HOLDOUT_PROTOCOL.read_text(encoding="utf-8"))
+    sealed = protocol["sealed_period"]
+    frozen = protocol["frozen_candidate"]
+    requested = (
+        str(pd.Timestamp(args.start_date).date()),
+        str(pd.Timestamp(args.end_date).date()),
+    )
+    expected = (sealed["start"], sealed["end"])
+    if requested != expected:
+        raise ValueError(f"sealed holdout dates must be {expected}, got {requested}")
+    if args.core_signal_source != "distribution_adjusted_actual":
+        raise ValueError("sealed holdout requires distribution_adjusted_actual signals")
+    strategy_path = PROJECT_ROOT / "strategies" / "kodex_sector_rotation.py"
+    shadow_spec_path = (
+        PROJECT_ROOT
+        / "data"
+        / "reference"
+        / "kodex_sector_rotation_shadow_spec.json"
+    )
+    observed_hashes = {
+        "strategy_file_sha256": _sha256(strategy_path),
+        "shadow_spec_sha256": _sha256(shadow_spec_path),
+    }
+    for key, observed in observed_hashes.items():
+        if observed != frozen[key]:
+            raise RuntimeError(f"frozen candidate hash mismatch for {key}")
+    return protocol
 
 
 def _account_summary(
@@ -234,7 +272,10 @@ def main() -> None:
     parser.add_argument("--small-account", type=float, default=2_100_000.0)
     parser.add_argument("--reference-account", type=float, default=100_000_000.0)
     parser.add_argument("--output-dir", default=str(PROJECT_ROOT / "reports"))
+    parser.add_argument("--sealed-holdout", action="store_true")
     args = parser.parse_args()
+
+    holdout_protocol = _validate_sealed_holdout(args) if args.sealed_holdout else None
 
     data_dir = Path(args.official_data_dir)
     execution, total_return, distributions = _load_official_inputs(data_dir)
@@ -384,7 +425,12 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    stem = f"kodex_sector_rotation_{stamp}"
+    label = (
+        "kodex_sector_rotation_holdout"
+        if args.sealed_holdout
+        else "kodex_sector_rotation"
+    )
+    stem = f"{label}_{stamp}"
     summary_path = output_dir / f"{stem}.json"
     equity_path = output_dir / f"{stem}_equity.csv"
     targets_path = output_dir / f"{stem}_targets.csv"
@@ -393,13 +439,28 @@ def main() -> None:
     historical_pass = bool(
         summaries["small"]["candidate_vs_market"]["passes_all_gates"]
     )
+    primary_protocol_pass = None
+    if holdout_protocol is not None:
+        primary_protocol_pass = all(
+            summaries["small"][comparison]["passes_all_gates"]
+            for comparison in (
+                "candidate_vs_market",
+                "candidate_vs_same_timing_kodex200",
+                "candidate_vs_market_double_cost",
+            )
+        )
     payload = {
         "strategy": "kodex_sector_rotation",
         "status": "paper_shadow_only_no_capital",
         "production_approved": False,
         "historical_gate_result": historical_pass,
+        "sealed_holdout": args.sealed_holdout,
+        "primary_protocol_pass": primary_protocol_pass,
+        "holdout_protocol": str(HOLDOUT_PROTOCOL) if args.sealed_holdout else None,
         "validation_status": (
-            "retrospective seen data; this result cannot be relabelled as out-of-sample"
+            "one-shot sealed historical holdout; candidate and gates were frozen first"
+            if args.sealed_holdout
+            else "retrospective seen data; this result cannot be relabelled as out-of-sample"
         ),
         "data_start": str(targets.index.min().date()),
         "data_end": str(targets.index.max().date()),
