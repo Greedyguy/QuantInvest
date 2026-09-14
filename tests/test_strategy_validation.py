@@ -193,6 +193,35 @@ def test_execution_can_exempt_domestic_equity_etf_sell_tax():
     assert exempt.iloc[-1]["equity"] > taxed.iloc[-1]["equity"]
 
 
+def test_execution_can_resolve_historical_sell_tax_by_date():
+    dates = pd.bdate_range("2020-01-02", periods=3)
+    prices = pd.DataFrame(
+        {"close": [50_000.0] * 3, "open": [50_000.0] * 3}, index=dates
+    )
+    targets = pd.DataFrame(
+        {"AAA": [0.50, 0.00, 0.00], "__CASH__": [0.50, 1.00, 1.00]},
+        index=dates,
+    )
+    calls = []
+
+    _, trades = simulate(
+        targets,
+        {"AAA": prices},
+        initial_cash=210_000.0,
+        min_trade=50_000,
+        price_band_pct=3.0,
+        blocked_tickers=set(),
+        sell_tax_rate_resolver=lambda ticker, date: calls.append((ticker, date))
+        or 0.0025,
+    )
+
+    sell = next(trade for trade in trades if trade["action"] == "SELL")
+    assert calls == [("AAA", dates[2])]
+    assert sell["tax"] == pytest.approx(
+        sell["final_qty"] * sell["exec_price"] * 0.0025
+    )
+
+
 def test_execution_can_avoid_daily_weight_maintenance_churn():
     dates = pd.bdate_range("2025-01-02", periods=5)
     prices = pd.DataFrame(

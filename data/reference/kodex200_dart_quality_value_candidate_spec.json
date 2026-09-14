@@ -74,9 +74,10 @@
     "domestic_equity_etf_sell_tax": 0.0
   },
   "development_pass_gate": {
-    "same_timing_kodex200_cagr_excess_pct_point_min": 1.0,
-    "rolling_12m_beat_rate_pct_min": 55.0,
-    "maximum_drawdown_not_worse_by_pct_point": 3.0,
+    "same_timing_kodex200_cagr_excess_pct_point_min": 2.0,
+    "rolling_12m_beat_rate_pct_min": 60.0,
+    "maximum_drawdown_not_worse_by_pct_point": 5.0,
+    "positive_excess_year_concentration_pct_max": 60.0,
     "must_pass_double_cost_stress": true
   },
   "decision_rule": "A development failure ends this candidate without opening either sealed period."

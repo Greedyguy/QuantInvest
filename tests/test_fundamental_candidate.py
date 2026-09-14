@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 
 from fundamental_candidate import (
+    build_dart_quality_value_targets,
     compute_dart_quality_value_scores,
+    historical_kospi_sell_tax_rate,
     select_dart_quality_value_satellite,
 )
 
@@ -104,3 +106,55 @@ def test_split_mismatch_value_outlier_is_ineligible():
     row = scores.set_index("ticker").loc["000001"]
     assert not bool(row["value_plausible"])
     assert not bool(row["eligible"])
+
+
+def test_historical_kospi_sell_tax_schedule_and_etf_exemption():
+    assert historical_kospi_sell_tax_rate("005930", "2019-06-02") == 0.0030
+    assert historical_kospi_sell_tax_rate("005930", "2019-06-03") == 0.0025
+    assert historical_kospi_sell_tax_rate("005930", "2021-01-01") == 0.0023
+    assert historical_kospi_sell_tax_rate("069500", "2021-01-01") == 0.0
+
+
+def test_targets_use_satellite_only_after_coverage_and_keep_cash_buffer():
+    prices = _prices(periods=430)
+    dates = next(iter(prices.values())).index
+    core_close = np.linspace(20_000.0, 35_000.0, len(dates))
+    prices["069500"] = pd.DataFrame(
+        {"open": core_close, "close": core_close}, index=dates
+    )
+    constituents = _constituents()
+    constituents["as_of_date"] = dates[-40]
+
+    targets, decisions = build_dart_quality_value_targets(
+        constituents, _fundamentals(), prices
+    )
+
+    satellite_decisions = decisions.loc[decisions["selected"].ne("")]
+    assert not satellite_decisions.empty
+    execution_date = satellite_decisions.iloc[-1]["execution_date"]
+    signal_position = targets.index.get_loc(execution_date) - 1
+    row = targets.iloc[signal_position]
+    assert row["069500"] == 0.40
+    assert row["__CASH__"] == 0.05
+    assert row.drop(["069500", "__CASH__"]).gt(0).sum() == 4
+    assert row.sum() == 1.0
+
+
+def test_targets_fall_back_to_same_timing_core_when_coverage_is_insufficient():
+    prices = _prices(count=17, periods=430)
+    dates = next(iter(prices.values())).index
+    core_close = np.linspace(20_000.0, 35_000.0, len(dates))
+    prices["069500"] = pd.DataFrame(
+        {"open": core_close, "close": core_close}, index=dates
+    )
+    constituents = _constituents(count=17)
+    constituents["as_of_date"] = dates[-40]
+
+    targets, decisions = build_dart_quality_value_targets(
+        constituents, _fundamentals(count=17), prices
+    )
+
+    fallback = decisions.loc[decisions["fallback"].eq("same_timing_kodex200")]
+    assert not fallback.empty
+    assert decisions["selected"].eq("").all()
+    assert np.isclose(targets["069500"].max(), 0.95)

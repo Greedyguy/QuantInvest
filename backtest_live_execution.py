@@ -14,7 +14,7 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Mapping
+from typing import Callable, Dict, List, Mapping
 
 import numpy as np
 import pandas as pd
@@ -200,6 +200,7 @@ def simulate(
     price_band_pct: float,
     blocked_tickers: set[str] | None = None,
     sell_tax_rate_by_ticker: Mapping[str, float] | None = None,
+    sell_tax_rate_resolver: Callable[[str, pd.Timestamp], float] | None = None,
     rebalance_only_on_target_change: bool = False,
     distribution_events_by_ticker: Mapping[str, pd.DataFrame] | None = None,
     fee_per_side: float = FEE_PER_SIDE,
@@ -260,11 +261,18 @@ def simulate(
                 exec_price = order.exec_price * (1 - slippage_exit)
                 gross = qty * exec_price
                 fee = gross * fee_per_side
-                tax_rate = (
-                    float(sell_tax_rate_by_ticker.get(order.ticker, TAX_RATE_SELL))
-                    if sell_tax_rate_by_ticker is not None
-                    else TAX_RATE_SELL
-                )
+                if sell_tax_rate_resolver is not None:
+                    tax_rate = float(
+                        sell_tax_rate_resolver(order.ticker, pd.Timestamp(exec_date))
+                    )
+                elif sell_tax_rate_by_ticker is not None:
+                    tax_rate = float(
+                        sell_tax_rate_by_ticker.get(order.ticker, TAX_RATE_SELL)
+                    )
+                else:
+                    tax_rate = TAX_RATE_SELL
+                if tax_rate < 0:
+                    raise ValueError("sell tax rate cannot be negative")
                 tax = gross * tax_rate
                 cash += gross - fee - tax
                 holdings[order.ticker] = int(holdings.get(order.ticker, 0)) - qty

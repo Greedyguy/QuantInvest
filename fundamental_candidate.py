@@ -7,6 +7,7 @@ import pandas as pd
 
 from dart_point_in_time import annual_fundamentals_asof
 from point_in_time_constituents import constituents_asof
+from strategies.k200_low_turnover_reentry import K200LowTurnoverReentry
 
 
 QUALITY_FIELDS = (
@@ -16,6 +17,34 @@ QUALITY_FIELDS = (
     "cash_accrual_quality",
     "equity_to_assets",
 )
+
+KOSPI_SELL_TAX_SCHEDULE = (
+    (pd.Timestamp("1900-01-01"), 0.0030),
+    (pd.Timestamp("2019-06-03"), 0.0025),
+    (pd.Timestamp("2021-01-01"), 0.0023),
+    (pd.Timestamp("2023-01-01"), 0.0020),
+    (pd.Timestamp("2024-01-01"), 0.0018),
+    (pd.Timestamp("2025-01-01"), 0.0015),
+)
+
+
+def historical_kospi_sell_tax_rate(ticker: str, execution_date) -> float:
+    """Return total KOSPI sell tax, including the 0.15% rural surtax.
+
+    KODEX 200 and other domestic equity ETFs are exempt from transaction tax.
+    The individual-stock schedule follows the effective-date changes used in
+    the pre-registered development simulation.
+    """
+
+    if str(ticker) == "069500":
+        return 0.0
+    date = pd.Timestamp(execution_date).normalize()
+    rate = KOSPI_SELL_TAX_SCHEDULE[0][1]
+    for effective_date, candidate in KOSPI_SELL_TAX_SCHEDULE:
+        if date < effective_date:
+            break
+        rate = candidate
+    return rate
 
 
 def _safe_ratio(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
@@ -162,3 +191,97 @@ def select_dart_quality_value_satellite(
     if len(eligible) < top_n:
         return []
     return eligible.head(top_n)["ticker"].tolist()
+
+
+def build_dart_quality_value_targets(
+    constituents: pd.DataFrame,
+    fundamentals: pd.DataFrame,
+    prices: dict[str, pd.DataFrame],
+    *,
+    core_ticker: str = "069500",
+    core_weight: float = 0.40,
+    satellite_weight: float = 0.55,
+    cash_weight: float = 0.05,
+    top_n: int = 4,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Create daily-held targets for next-open execution and audit decisions."""
+
+    if not np.isclose(core_weight + satellite_weight + cash_weight, 1.0):
+        raise ValueError("core, satellite, and cash weights must sum to one")
+    core = prices.get(core_ticker)
+    if core is None or core.empty:
+        return pd.DataFrame(), pd.DataFrame()
+    state_model = K200LowTurnoverReentry(ticker=core_ticker)
+    states = state_model.compute_state_history(core)
+    if states.empty:
+        return pd.DataFrame(), pd.DataFrame()
+    dates = states.index
+    snapshots = set(pd.to_datetime(constituents["as_of_date"]).dt.normalize())
+    current = {"__CASH__": 1.0}
+    current_risk_on = False
+    target_rows: list[dict[str, object]] = []
+    decisions: list[dict[str, object]] = []
+
+    for position, signal_date in enumerate(dates):
+        if position + 1 < len(dates):
+            execution_date = dates[position + 1]
+            risk_on = states.loc[execution_date, "state"] == state_model.RISK_ON
+            scheduled = signal_date.normalize() in snapshots
+            regime_changed = risk_on != current_risk_on
+            if scheduled or regime_changed:
+                selected: list[str] = []
+                scores = pd.DataFrame()
+                coverage = {
+                    "constituent_members": 0.0,
+                    "fundamental_members": 0.0,
+                    "index_weight_coverage_pct": 0.0,
+                }
+                fallback = "risk_off_cash"
+                if risk_on:
+                    scores, coverage = compute_dart_quality_value_scores(
+                        constituents, fundamentals, prices, signal_date
+                    )
+                    selected = select_dart_quality_value_satellite(
+                        scores, coverage, top_n=top_n
+                    )
+                    if selected:
+                        current = {core_ticker: core_weight}
+                        per_name = satellite_weight / len(selected)
+                        current.update({ticker: per_name for ticker in selected})
+                        current["__CASH__"] = cash_weight
+                        fallback = "none"
+                    else:
+                        current = {
+                            core_ticker: core_weight + satellite_weight,
+                            "__CASH__": cash_weight,
+                        }
+                        fallback = "same_timing_kodex200"
+                else:
+                    current = {"__CASH__": 1.0}
+                score_map = (
+                    scores.set_index("ticker")["composite_score"].to_dict()
+                    if not scores.empty
+                    else {}
+                )
+                decisions.append(
+                    {
+                        "signal_date": signal_date,
+                        "execution_date": execution_date,
+                        "risk_on": risk_on,
+                        "reason": (
+                            "regime_change" if regime_changed else "quarterly_snapshot"
+                        ),
+                        "selected": ",".join(selected),
+                        "selected_scores": ",".join(
+                            f"{ticker}:{score_map[ticker]:.6f}" for ticker in selected
+                        ),
+                        "fallback": fallback,
+                        **coverage,
+                    }
+                )
+                current_risk_on = risk_on
+        target_rows.append({"date": signal_date, **current})
+
+    targets = pd.DataFrame(target_rows).set_index("date").fillna(0.0)
+    targets = targets.reindex(columns=sorted(targets.columns)).fillna(0.0)
+    return targets, pd.DataFrame(decisions)
