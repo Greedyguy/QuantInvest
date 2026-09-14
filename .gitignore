@@ -8,6 +8,9 @@
 # under reports/execution and reports/shadow remain eligible for Git tracking.
 reports/daily/
 
+# Authenticated KRX downloads and normalized research snapshots stay local.
+data/fundamentals/
+
 # Local runtime artifacts
 __pycache__/
 *.py[cod]
