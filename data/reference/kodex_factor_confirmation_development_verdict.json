@@ -1,0 +1,89 @@
+{
+  "candidate": "kodex_factor_relative_confirmation",
+  "evaluated_at": "2026-09-14T16:15:00+09:00",
+  "evaluation_kind": "retrospective_seen_development_data",
+  "period": {
+    "start": "2018-04-02",
+    "end": "2026-09-11"
+  },
+  "small_account_krw": 2100000,
+  "execution_assumptions": {
+    "integer_shares": true,
+    "buy_and_sell_slippage_pct": 0.2,
+    "broker_fee_per_side_pct": 0.0140527,
+    "domestic_equity_etf_sell_tax_pct": 0.0,
+    "distribution_income_tax_pct": 15.4
+  },
+  "static_buy_and_hold_diagnostic": {
+    "market_kodex200": {
+      "return_pct": 246.86211321819326,
+      "cagr_pct": 15.870143481102804,
+      "mdd_pct": -39.34717479522695
+    },
+    "211900_dividend_growth": {
+      "return_pct": 127.86,
+      "annualised_excess_return_pct_point": -5.62,
+      "rolling_12m_beat_rate_pct": 52.8
+    },
+    "223190_value_low_volatility": {
+      "return_pct": 217.44,
+      "annualised_excess_return_pct_point": -1.21,
+      "rolling_12m_beat_rate_pct": 60.2
+    },
+    "244620_momentum_plus": {
+      "return_pct": 73.60,
+      "annualised_excess_return_pct_point": -9.12,
+      "rolling_12m_beat_rate_pct": 41.0
+    },
+    "244660_quality_plus": {
+      "return_pct": -4.25,
+      "annualised_excess_return_pct_point": -16.38,
+      "rolling_12m_beat_rate_pct": 15.7
+    },
+    "252650_equal_weight": {
+      "return_pct": 79.64,
+      "annualised_excess_return_pct_point": -8.69,
+      "rolling_12m_beat_rate_pct": 40.6
+    }
+  },
+  "relative_confirmation_candidate": {
+    "structure": "40% KODEX 200 core plus 55% split over up to two factor ETFs only when both 26-week and 52-week NAV total returns beat KODEX 200; otherwise 95% KODEX 200 during the frozen risk-on state",
+    "candidate_return_pct": 288.38318321509047,
+    "candidate_cagr_pct": 17.43213265477963,
+    "market_comparison": {
+      "benchmark_return_pct": 246.86211321819326,
+      "benchmark_cagr_pct": 15.870143481102804,
+      "annualised_excess_return_pct_point": 1.5619891736768254,
+      "rolling_12m_beat_rate_pct": 47.995606809445356,
+      "candidate_mdd_pct": -19.535711573265512,
+      "benchmark_mdd_pct": -39.34717479522695
+    },
+    "same_risk_timing_kodex200_comparison": {
+      "benchmark_return_pct": 309.8253246300347,
+      "benchmark_cagr_pct": 18.181893769554947,
+      "annualised_excess_return_pct_point": -0.7497611147753158,
+      "rolling_12m_beat_rate_pct": 48.59967051070841,
+      "candidate_mdd_pct": -19.535711573265512,
+      "benchmark_mdd_pct": -19.65312276920659
+    },
+    "double_cost_market_comparison": {
+      "candidate_return_pct": 269.3137657079214,
+      "annualised_excess_return_pct_point": 0.8638799326210034,
+      "rolling_12m_beat_rate_pct": 43.43767160900604
+    },
+    "small_account_orders": 76
+  },
+  "diagnosis": [
+    "Every static factor ETF lagged investable KODEX 200 over the full seen period.",
+    "The relative-confirmation overlay improved continuous-market drawdown but reduced CAGR versus KODEX 200 held on the identical risk-on dates.",
+    "The apparent market outperformance came from the already-tested KODEX 200 risk state rather than factor selection.",
+    "Further selection of a winning factor, horizon, or weight on this same history would be retrospective parameter mining."
+  ],
+  "decision": {
+    "production": "rejected",
+    "capital_allocation_pct": 0,
+    "paper_shadow": "not_required",
+    "unused_pre_2018_holdout": "do_not_open",
+    "next_research_direction": "point-in-time fundamental quality/value plus price confirmation"
+  }
+}

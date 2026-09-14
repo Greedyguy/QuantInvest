@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "product": "KODEX 200",
+  "ticker": "069500",
+  "fund_id": "2ETF01",
+  "retrieved_at": "2026-09-14T16:30:00+09:00",
+  "source": "Samsung Asset Management official KODEX product page, historical portfolio deposit file view",
+  "source_product_url": "https://m.samsungfund.com/etf/product/view.do?id=2ETF01",
+  "source_download_template": "https://m.samsungfund.com/etf/product/excel_pdf.do?fId=2ETF01&gijunYMD=YYYYMMDD",
+  "timing_rule": "A snapshot observed after its as-of-date close may first drive an order at the next trading-session open.",
+  "coverage": {
+    "first_snapshot": "2018-03-30",
+    "last_snapshot": "2025-12-30",
+    "snapshot_count": 32,
+    "security_rows_per_snapshot": 29,
+    "note": "The official top-30 table includes one KRW cash/deposit row; this normalized file retains the 29 six-digit equity rows."
+  },
+  "normalized_file": {
+    "path": "data/reference/kodex200_top30_pcf_quarterly_2018_2025.csv",
+    "sha256": "5661baac1fbd5a9b91fb78ccff29174f807c8ed8d427bb81ca2070c8fb9aec27",
+    "rows": 928
+  },
+  "limitations": [
+    "The public product-page table exposes only the top 30 portfolio rows, not all KOSPI 200 constituents.",
+    "Weights are point-in-time membership evidence, not a fundamental-data substitute.",
+    "Adjusted chart prices require separate corporate-action handling before integer-share execution simulation."
+  ]
+}
