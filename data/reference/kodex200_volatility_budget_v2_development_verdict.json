@@ -1,0 +1,33 @@
+{
+  "candidate": "kodex200_volatility_budget_v2",
+  "development_period": "2018-06-29/2022-12-29",
+  "verdict": "rejected_in_development",
+  "development_passes": false,
+  "sealed_periods_opened": false,
+  "candidate_metrics": {
+    "return_pct": 38.70021152474883,
+    "cagr_pct": 7.5387153511123906,
+    "mdd_pct": -16.31431774193134,
+    "orders": 31,
+    "holding_period_tax_pct_initial": 0.1337242866666665
+  },
+  "continuous_kodex200_metrics": {
+    "return_pct": 6.573999909013906,
+    "cagr_pct": 1.4245753349224843,
+    "mdd_pct": -33.53381398264954
+  },
+  "same_timing_kodex200_metrics": {
+    "return_pct": 31.89956739256916,
+    "cagr_pct": 6.344272727782774,
+    "mdd_pct": -13.612551122105554
+  },
+  "failed_registered_gates": {
+    "cagr_excess_vs_same_timing_pct_point": 1.1944426233296168,
+    "positive_year_concentration_vs_same_timing_pct": 70.59460605952746,
+    "double_cost_cagr_excess_vs_same_timing_pct_point": 0.6256181179762121,
+    "double_cost_rolling_12m_vs_same_timing_pct": 47.20930232558139,
+    "double_cost_positive_year_concentration_vs_same_timing_pct": 79.80716459361838
+  },
+  "diagnosis": "Monthly volatility tiers improved normal-cost rolling persistence versus v1, but did not generate enough diversified incremental return. More threshold tuning on the same panel would create material selection bias.",
+  "next_step": "reject_without_opening_sealed_periods"
+}
