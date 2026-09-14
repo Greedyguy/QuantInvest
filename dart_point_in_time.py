@@ -92,10 +92,11 @@ def parse_company_search(html_text: str, ticker: str) -> list[DartAnnualReport]:
             continue
         link = links[0]
         title = " ".join(link.text_content().split())
-        if not title.startswith("사업보고서") or "정정" in title:
-            continue
         receipt_match = re.search(r"rcpNo=(\d{14})", link.get("href", ""))
-        period_match = re.search(r"\((\d{4})\.(\d{2})\)", title)
+        # The public search also returns filings such as
+        # "사업보고서 제출기한 연장 신고서".  Only the exact annual-report
+        # title is a usable financial-statement receipt.
+        period_match = re.fullmatch(r"사업보고서\s*\((\d{4})\.(\d{2})\)", title)
         corp_anchor = row.xpath(".//a[contains(@onclick, 'openCorpInfoNew')]")
         cells = row.xpath("./td")
         if not receipt_match or not period_match or not corp_anchor or len(cells) < 5:
@@ -152,13 +153,21 @@ def parse_report_sections(html_text: str) -> list[DartDocumentSection]:
 def select_report_section(
     sections: list[DartDocumentSection], section_type: str
 ) -> DartDocumentSection:
-    """Select the consolidated statements or issued-share-count section."""
+    """Select a financial-statement or issued-share-count section."""
 
     if section_type == "consolidated_financial_statements":
         candidates = [
             section
             for section in sections
             if "연결재무제표" in _compact(section.text)
+            and "주석" not in _compact(section.text)
+        ]
+    elif section_type == "standalone_financial_statements":
+        candidates = [
+            section
+            for section in sections
+            if "재무제표" in _compact(section.text)
+            and "연결재무제표" not in _compact(section.text)
             and "주석" not in _compact(section.text)
         ]
     elif section_type == "issued_shares":
@@ -172,8 +181,24 @@ def select_report_section(
     return min(candidates, key=lambda section: int(section.element_id))
 
 
+def has_no_consolidated_financial_statements(html_text: str) -> bool:
+    """Return True only when DART explicitly says consolidation is unavailable."""
+
+    root = lxml_html.fromstring(html_text)
+    visible = _compact(root.text_content())
+    phrases = (
+        "해당사항없습니다",
+        "해당사항이없습니다",
+        "연결재무제표를작성하지아니하였습니다",
+    )
+    # A normal statement can mention these phrases in a footnote.  The
+    # explicit no-statement sections are tiny and contain no financial table.
+    return not root.xpath("//table") and any(phrase in visible for phrase in phrases)
+
+
 def _parse_number(value: object) -> float:
-    text = _compact(value).replace(",", "")
+    # DART legacy tables use strings of equals signs as visual underlines.
+    text = _compact(value).replace(",", "").replace("=", "")
     if text in {"", "-", "nan", "None"}:
         return np.nan
     negative = text.startswith("(") and text.endswith(")")
@@ -236,6 +261,8 @@ _STATEMENT_ALIASES = {
     "operating_income": ("영업이익(손실)", "영업이익", "영업손실"),
     "net_income": (
         "당기순이익(손실)",
+        "순이익(손실)",
+        "당기연결순이익",
         "연결당기순이익",
         "당기순이익",
         "당기순손익",
@@ -247,6 +274,7 @@ _STATEMENT_ALIASES = {
         "영업활동으로 인한 현금흐름",
         "영업활동으로 인한 순현금흐름",
         "영업활동으로인한순현금흐름",
+        "영업활동으로부터의 현금흐름",
     ),
 }
 
@@ -306,6 +334,7 @@ def normalize_annual_filing(
     *,
     statement_url: str,
     shares_url: str,
+    statement_scope: str = "consolidated",
 ) -> dict[str, object]:
     """Combine one original filing into an auditable point-in-time row."""
 
@@ -318,6 +347,7 @@ def normalize_annual_filing(
         "source": "DART public original filing",
         "report_url": report.main_url,
         "statement_url": statement_url,
+        "statement_scope": statement_scope,
         "shares_url": shares_url,
     }
     return row

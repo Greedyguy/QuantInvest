@@ -20,6 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from dart_point_in_time import (
     DART_BASE_URL,
     DartPointInTimeError,
+    has_no_consolidated_financial_statements,
     normalize_annual_filing,
     parse_company_search,
     parse_report_sections,
@@ -166,6 +167,16 @@ def collect(
                     f"{ticker}_{report.receipt_no}_statements.html",
                     statements.viewer_url,
                 )
+                statement_scope = "consolidated"
+                if has_no_consolidated_financial_statements(statement_html):
+                    statements = select_report_section(
+                        sections, "standalone_financial_statements"
+                    )
+                    statement_html, statement_hash = client.get(
+                        f"{ticker}_{report.receipt_no}_standalone_statements.html",
+                        statements.viewer_url,
+                    )
+                    statement_scope = "standalone_when_consolidated_unavailable"
                 shares_html, shares_hash = client.get(
                     f"{ticker}_{report.receipt_no}_shares.html", shares.viewer_url
                 )
@@ -175,6 +186,7 @@ def collect(
                     shares_html,
                     statement_url=statements.viewer_url,
                     shares_url=shares.viewer_url,
+                    statement_scope=statement_scope,
                 )
                 rows.append(row)
                 raw_hashes[f"{ticker}:{report.receipt_no}:main"] = main_hash
@@ -207,6 +219,10 @@ def collect(
         "errors": len(errors),
         "availability_rule": "receipt_date plus one calendar day",
         "correction_rule": "original annual-report receipt only; finalReport=recent omitted",
+        "statement_scope_rule": (
+            "consolidated first; standalone only when the original filing "
+            "explicitly states that consolidated statements are unavailable"
+        ),
         "raw_sha256": raw_hashes,
     }
     return frame, errors, metadata

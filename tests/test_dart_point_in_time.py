@@ -4,6 +4,7 @@ import pytest
 from dart_point_in_time import (
     DartPointInTimeError,
     annual_fundamentals_asof,
+    has_no_consolidated_financial_statements,
     parse_company_search,
     parse_consolidated_financial_statements,
     parse_ordinary_issued_shares,
@@ -35,6 +36,19 @@ def test_company_search_preserves_original_receipt_and_availability_date():
     assert reports[0].available_date == "2019-04-02"
 
 
+def test_company_search_rejects_annual_report_deadline_extension_filing():
+    html = """
+    <table><tbody id="tbody"><tr>
+      <td>1</td><td><a onclick="openCorpInfoNew('00126380', 'x', 'y');">삼성전자</a></td>
+      <td><a href="/dsaf001/main.do?rcpNo=20200320001044">
+        사업보고서 제출기한 연장 신고서 (2019.12)
+      </a></td><td>삼성전자</td><td>2020.03.20</td><td>연</td>
+    </tr></tbody></table>
+    """
+
+    assert parse_company_search(html, "005930") == []
+
+
 def test_report_tree_selects_statements_and_shares_without_notes():
     html = """
     var node2 = {};
@@ -44,6 +58,14 @@ def test_report_tree_selects_statements_and_shares_without_notes():
     node2['eleId'] = "13";
     node2['offset'] = "625579";
     node2['length'] = "120141";
+    node2['dtd'] = "dart3.xsd";
+    var node2 = {};
+    node2['text'] = "4. 재무제표";
+    node2['rcpNo'] = "20190401004781";
+    node2['dcmNo'] = "6616741";
+    node2['eleId'] = "15";
+    node2['offset'] = "1332655";
+    node2['length'] = "110141";
     node2['dtd'] = "dart3.xsd";
     var node2 = {};
     node2['text'] = "3. 연결재무제표 주석";
@@ -66,10 +88,23 @@ def test_report_tree_selects_statements_and_shares_without_notes():
 
     statements = select_report_section(sections, "consolidated_financial_statements")
     shares = select_report_section(sections, "issued_shares")
+    standalone = select_report_section(sections, "standalone_financial_statements")
 
     assert statements.element_id == "13"
     assert "eleId=13" in statements.viewer_url
     assert shares.element_id == "7"
+    assert standalone.element_id == "15"
+
+
+def test_no_consolidated_statement_requires_explicit_short_section():
+    unavailable = "<html><body><p>2. 연결재무제표</p><p>해당사항 없습니다.</p></body></html>"
+    mentioned_in_table = """
+    <html><body><p>해당사항 없습니다.</p>
+    <table><tr><td>자산총계</td><td>100</td></tr></table></body></html>
+    """
+
+    assert has_no_consolidated_financial_statements(unavailable)
+    assert not has_no_consolidated_financial_statements(mentioned_in_table)
 
 
 def test_statement_parser_normalizes_units_and_parenthesized_losses():
@@ -115,6 +150,39 @@ def test_statement_parser_accepts_numbered_and_consolidated_labels():
     assert result["operating_income"] == 100
     assert result["net_income"] == 70
     assert result["cash_flow_from_operations"] == 85
+
+
+def test_statement_parser_accepts_legacy_insurer_and_profit_labels():
+    html = """
+    <p>(단위 : 백만원)</p>
+    <table><tr><th></th><th>당기</th><th>전기</th></tr>
+      <tr><td>자 산 총 계</td><td>1,000 ==========</td><td>900 =====</td></tr>
+      <tr><td>부 채 총 계</td><td>400</td><td>350</td></tr>
+      <tr><td>자 본 총 계</td><td>600</td><td>550</td></tr></table>
+    <table><tr><th></th><th>당기</th><th>전기</th></tr>
+      <tr><td>Ⅷ.당기연결순이익</td><td>70</td><td>60</td></tr>
+      <tr><td>Ⅰ.영업활동으로부터의 현금흐름</td><td>85</td><td>75</td></tr></table>
+    """
+
+    result = parse_consolidated_financial_statements(html)
+
+    assert result["assets"] == 1_000_000_000
+    assert result["net_income"] == 70_000_000
+    assert result["cash_flow_from_operations"] == 85_000_000
+
+
+def test_statement_parser_accepts_plain_profit_loss_label():
+    html = """
+    <p>(단위 : 원)</p><table>
+      <tr><th></th><th>당기</th><th>전기</th></tr>
+      <tr><td>자산총계</td><td>1000</td><td>900</td></tr>
+      <tr><td>부채총계</td><td>400</td><td>350</td></tr>
+      <tr><td>자본총계</td><td>600</td><td>550</td></tr>
+      <tr><td>순이익(손실)</td><td>70</td><td>60</td></tr>
+    </table>
+    """
+
+    assert parse_consolidated_financial_statements(html)["net_income"] == 70
 
 
 def test_share_parser_selects_ordinary_issued_total_not_all_classes():
