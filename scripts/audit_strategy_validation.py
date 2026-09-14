@@ -24,6 +24,36 @@ from strategy_validation import DEFAULT_VALIDATION_PERIODS, performance_by_perio
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def select_enriched_cache_paths(
+    enriched_dir: Path,
+    start: pd.Timestamp,
+    end: pd.Timestamp,
+) -> list[Path]:
+    """Select the best period-covering cache file for every KR ticker."""
+
+    selected: dict[str, tuple[tuple[float, float, float], Path]] = {}
+    for path in enriched_dir.glob("*.parquet"):
+        parts = path.stem.rsplit("_", 2)
+        if len(parts) != 3:
+            continue
+        ticker, raw_start, raw_end = parts
+        try:
+            file_start = pd.Timestamp(raw_start)
+            file_end = pd.Timestamp(raw_end)
+        except (TypeError, ValueError):
+            continue
+        overlap_start = max(start, file_start)
+        overlap_end = min(end, file_end)
+        overlap_days = max(float((overlap_end - overlap_start).days), -1.0)
+        full_cover = float(file_start <= start and file_end >= end)
+        end_distance = -abs(float((file_end - end).days))
+        score = (full_cover, overlap_days, end_distance)
+        current = selected.get(ticker)
+        if current is None or score > current[0]:
+            selected[ticker] = (score, path)
+    return sorted(item[1] for item in selected.values())
+
+
 def load_enriched_snapshot(
     cache_suffix: str,
     start_date: str,
@@ -32,22 +62,19 @@ def load_enriched_snapshot(
     """Load one immutable enriched-cache generation without network access."""
 
     enriched_dir = PROJECT_ROOT / "data" / "enriched"
-    paths = sorted(enriched_dir.glob(f"*_{cache_suffix}.parquet"))
-    if not paths:
-        raise FileNotFoundError(
-            f"no enriched cache files found for suffix {cache_suffix!r}"
-        )
-
     start = pd.Timestamp(start_date)
-    end = pd.Timestamp(end_date) if end_date else None
+    index_end = pd.Timestamp(cache_suffix.rsplit("_", 1)[-1])
+    end = min(pd.Timestamp(end_date), index_end) if end_date else index_end
+    paths = select_enriched_cache_paths(enriched_dir, start, end)
+    if not paths:
+        raise FileNotFoundError("no compatible enriched cache files found")
     enriched: dict[str, pd.DataFrame] = {}
     for path in paths:
         ticker = path.name.split("_", 1)[0]
         frame = pd.read_parquet(path)
         frame.index = pd.to_datetime(frame.index)
         frame = frame.loc[frame.index >= start]
-        if end is not None:
-            frame = frame.loc[frame.index <= end]
+        frame = frame.loc[frame.index <= end]
         if not frame.empty and {"open", "close"}.issubset(frame.columns):
             enriched[ticker] = frame.sort_index()
 
@@ -59,8 +86,7 @@ def load_enriched_snapshot(
         frame = pd.read_parquet(path)
         frame.index = pd.to_datetime(frame.index)
         frame = frame.loc[frame.index >= start]
-        if end is not None:
-            frame = frame.loc[frame.index <= end]
+        frame = frame.loc[frame.index <= end]
         indexes[market] = frame.sort_index()
     return enriched, indexes
 

@@ -19,6 +19,7 @@ from strategies.strategy_kqm_small_cap import KQMSmallCapStrategy
 from strategies.strategy_ksms import KSMSStrategy
 from strategies.k200_mean_reversion import K200MeanReversion
 from strategies.k200_trend_sleeve import K200TrendSleeve
+from strategies.k200_low_turnover_reentry import K200LowTurnoverReentry
 from strategies.strategy_kqm_small_cap_v2 import KQMSmallCapStrategyV21
 from strategies.kmr_midcap_reversion import KMRMidcapReversion
 from strategies.strategy_kqm_small_cap_v3 import KQMSmallCapStrategyV3
@@ -68,6 +69,7 @@ def _register_strategies():
         KSMSStrategy,
         K200MeanReversion,
         K200TrendSleeve,
+        K200LowTurnoverReentry,
         KQMSmallCapStrategyV21,
         KQMSmallCapStrategyV22,
         KQMSmallCapStrategyV22Regime,
