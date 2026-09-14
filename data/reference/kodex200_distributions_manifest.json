@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "product": "KODEX 200",
+  "ticker": "069500",
+  "purpose": "Dividend-inclusive integer-share execution benchmark",
+  "development_coverage": {
+    "start": "2018-04-30",
+    "end": "2022-10-31",
+    "policy_change": "KODEX 200 paid three times per year through 2019 and four times per year from 2020"
+  },
+  "historical_source_documents": [
+    {
+      "url": "https://m.samsungfund.com/sheet/20190704/2ETF01_20190630.pdf",
+      "sha256": "933a18ce6b909529ebf2db24434f0370ea80a44cd47bd4020cda9a350ecb751d",
+      "observations": [
+        "2018-04-30:460",
+        "2018-07-31:65",
+        "2018-10-31:80"
+      ]
+    },
+    {
+      "url": "https://m.samsungfund.com/sheet/20200410/2ETF01_20200331.pdf",
+      "sha256": "975fc2f16d0af1da8142b243adbdad4d7690cd3555eb054845526a3d16fa6ada",
+      "observations": [
+        "2019-04-30:465",
+        "2019-07-31:60",
+        "2019-10-31:70",
+        "2020-01-31:50"
+      ]
+    }
+  ],
+  "payment_date_rule": "For PDF-only observations, credit on the second KRX trading session after the record date, matching the manager's later official API records.",
+  "taxable_amount_rule": "For PDF-only observations without a published tax-base amount, treat the full cash distribution as taxable; this is conservative for after-tax wealth.",
+  "normalized_file": "data/reference/kodex200_distributions.csv"
+}

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -7,6 +8,7 @@ from market_benchmark import (
     MarketOutperformanceCriteria,
     adjust_ohlc_for_distributions,
     evaluate_market_outperformance,
+    load_distribution_events,
     load_samsung_distribution_json,
     prepare_distribution_schedule,
     restore_actual_ohlc,
@@ -15,6 +17,21 @@ from scripts.audit_strategy_validation import select_enriched_cache_paths
 from scripts.backtest_k200_reentry import load_naver_prices, merge_adjusted_prices
 from strategies import get_strategy
 from strategies.k200_low_turnover_reentry import K200LowTurnoverReentry
+
+
+def test_kodex200_distribution_reference_covers_full_development_period():
+    reference = (
+        Path(__file__).resolve().parents[1]
+        / "data"
+        / "reference"
+        / "kodex200_distributions.csv"
+    )
+    events = load_distribution_events(reference)
+    amounts = events.set_index("record_date")["distribution_per_share"]
+
+    assert amounts.loc[pd.Timestamp("2018-04-30")] == 460
+    assert amounts.loc[pd.Timestamp("2019-10-31")] == 70
+    assert events["record_date"].min() <= pd.Timestamp("2018-04-30")
 
 
 def _monthly_synthetic_prices() -> pd.DataFrame:
