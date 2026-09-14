@@ -1,5 +1,12 @@
 import pandas as pd
+import pytest
 
+from market_benchmark import (
+    MarketOutperformanceCriteria,
+    evaluate_market_outperformance,
+    prepare_distribution_schedule,
+    restore_actual_ohlc,
+)
 from scripts.audit_strategy_validation import select_enriched_cache_paths
 from scripts.backtest_k200_reentry import load_naver_prices, merge_adjusted_prices
 from strategies import get_strategy
@@ -67,7 +74,7 @@ def test_entries_only_happen_at_first_trading_day_of_month():
         assert date.month != prior_date.month
 
 
-def test_backtest_trades_only_on_state_changes_and_taxes_losing_sell():
+def test_backtest_trades_only_on_state_changes_and_does_not_tax_etf_sell():
     prices = _monthly_synthetic_prices()
     strategy = _short_window_strategy()
 
@@ -76,12 +83,92 @@ def test_backtest_trades_only_on_state_changes_and_taxes_losing_sell():
     assert not equity.empty
     assert [trade["action"] for trade in trades] == ["BUY", "SELL"]
     assert trades[-1]["price"] < trades[0]["price"]
-    assert trades[-1]["tax"] > 0.0
+    assert trades[-1]["tax"] == 0.0
     assert len(trades) == int(equity["state"].ne(equity["state"].shift()).sum() - 1)
 
 
 def test_strategy_is_registered():
     assert isinstance(get_strategy("k200_low_turnover_reentry"), K200LowTurnoverReentry)
+
+
+def test_distribution_schedule_uses_settlement_lag_and_net_taxable_amount():
+    dates = pd.bdate_range("2025-01-27", "2025-02-05")
+    events = pd.DataFrame(
+        {
+            "record_date": [pd.Timestamp("2025-01-31")],
+            "pay_date": [pd.Timestamp("2025-02-04")],
+            "distribution_per_share": [100.0],
+            "taxable_per_share": [80.0],
+        }
+    )
+
+    schedule = prepare_distribution_schedule(events, dates)
+
+    assert schedule.iloc[0]["entitlement_date"] == pd.Timestamp("2025-01-29")
+    assert schedule.iloc[0]["credit_date"] == pd.Timestamp("2025-02-04")
+    assert schedule.iloc[0]["tax_unit"] == pytest.approx(12.32)
+    assert schedule.iloc[0]["net_unit"] == pytest.approx(87.68)
+
+
+def test_strategy_credits_net_distribution_only_when_eligible():
+    prices = _monthly_synthetic_prices()
+    events = pd.DataFrame(
+        {
+            "record_date": [pd.Timestamp("2025-03-20")],
+            "pay_date": [pd.Timestamp("2025-03-24")],
+            "distribution_per_share": [100.0],
+            "taxable_per_share": [100.0],
+        }
+    )
+    strategy = K200LowTurnoverReentry(
+        trend_window=5,
+        momentum_window=3,
+        fast_trend_window=2,
+        medium_trend_window=4,
+        entry_buffer=0.0,
+        exit_buffer=0.01,
+        exit_momentum=-0.03,
+        execution_prices=prices,
+        distribution_events=events,
+    )
+
+    _, trades = strategy.run_backtest({"069500": prices}, silent=True)
+
+    payments = [trade for trade in trades if trade["action"] == "DISTRIBUTION"]
+    assert len(payments) == 1
+    assert payments[0]["date"] == pd.Timestamp("2025-03-24")
+    assert payments[0]["tax"] == pytest.approx(
+        payments[0]["qty"] * 100.0 * 0.154
+    )
+
+
+def test_restore_actual_ohlc_keeps_signals_separate_from_execution_scale():
+    dates = pd.to_datetime(["2025-01-02", "2025-01-03"])
+    adjusted = pd.DataFrame(
+        {"open": [90.0, 99.0], "high": [101.0, 111.0], "low": [89.0, 98.0], "close": [100.0, 110.0]},
+        index=dates,
+    )
+    official_close = pd.Series([120.0, 132.0], index=dates)
+
+    actual = restore_actual_ohlc(adjusted, official_close)
+
+    assert actual.loc[dates[0], "open"] == pytest.approx(108.0)
+    assert actual.loc[dates[1], "close"] == pytest.approx(132.0)
+
+
+def test_market_outperformance_requires_repeatable_excess_return():
+    dates = pd.bdate_range("2020-01-02", periods=800)
+    benchmark = pd.Series((1.0002 ** pd.RangeIndex(len(dates))).to_numpy(), index=dates)
+    strategy = pd.Series((1.00035 ** pd.RangeIndex(len(dates))).to_numpy(), index=dates)
+    result = evaluate_market_outperformance(
+        strategy,
+        benchmark,
+        MarketOutperformanceCriteria(max_positive_excess_year_share=1.0),
+    )
+
+    assert result["annualised_excess_return_pct_point"] > 2.0
+    assert result["rolling_12m_beat_rate_pct"] == 100.0
+    assert result["passes_all_gates"]
 
 
 def test_cache_selection_includes_etf_with_different_suffix(tmp_path):

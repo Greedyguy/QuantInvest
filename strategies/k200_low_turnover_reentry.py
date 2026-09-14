@@ -5,7 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from config import FEE_PER_SIDE, SLIPPAGE_ENTRY, SLIPPAGE_EXIT, TAX_RATE_SELL
+from config import FEE_PER_SIDE, SLIPPAGE_ENTRY, SLIPPAGE_EXIT
+from market_benchmark import (
+    DOMESTIC_EQUITY_ETF,
+    AssetTaxProfile,
+    prepare_distribution_schedule,
+)
 from strategies.base_strategy import BaseStrategy
 
 
@@ -35,6 +40,9 @@ class K200LowTurnoverReentry(BaseStrategy):
         emergency_drawdown: float = -0.12,
         emergency_momentum: float = -0.04,
         initial_cash: float = 2_100_000.0,
+        execution_prices: pd.DataFrame | None = None,
+        distribution_events: pd.DataFrame | None = None,
+        tax_profile: AssetTaxProfile = DOMESTIC_EQUITY_ETF,
     ):
         super().__init__()
         self.ticker = ticker
@@ -49,6 +57,13 @@ class K200LowTurnoverReentry(BaseStrategy):
         self.emergency_drawdown = float(emergency_drawdown)
         self.emergency_momentum = float(emergency_momentum)
         self.initial_cash = float(initial_cash)
+        self.execution_prices = (
+            execution_prices.copy() if execution_prices is not None else None
+        )
+        self.distribution_events = (
+            distribution_events.copy() if distribution_events is not None else None
+        )
+        self.tax_profile = tax_profile
         self.latest_state_history = pd.DataFrame()
 
     def get_name(self) -> str:
@@ -176,6 +191,32 @@ class K200LowTurnoverReentry(BaseStrategy):
         if states.empty:
             return pd.DataFrame(), []
 
+        if self.distribution_events is not None and self.execution_prices is None:
+            raise ValueError(
+                "distribution cash flows require unadjusted execution prices"
+            )
+        execution_data = (
+            self.execution_prices.copy() if self.execution_prices is not None else data
+        )
+        execution_data.index = pd.to_datetime(execution_data.index)
+        execution_data = execution_data.sort_index().reindex(states.index)
+        if execution_data[["open", "close"]].isna().any(axis=None):
+            raise ValueError("execution prices do not cover every strategy date")
+
+        distribution_schedule = (
+            prepare_distribution_schedule(
+                self.distribution_events,
+                states.index,
+                tax_profile=self.tax_profile,
+            )
+            if self.distribution_events is not None
+            else pd.DataFrame()
+        )
+        entitlement_by_date: dict[pd.Timestamp, list[dict]] = {}
+        for event in distribution_schedule.to_dict("records"):
+            entitlement_by_date.setdefault(event["entitlement_date"], []).append(event)
+        pending_distributions: list[dict] = []
+
         cash = self.initial_cash
         quantity = 0
         effective_target = 0.0
@@ -189,8 +230,8 @@ class K200LowTurnoverReentry(BaseStrategy):
         for current_date in states.index[1:]:
             row = states.loc[current_date]
             target = float(row["target_exposure"])
-            open_price = float(data.loc[current_date, "open"])
-            close_price = float(data.loc[current_date, "close"])
+            open_price = float(execution_data.loc[current_date, "open"])
+            close_price = float(execution_data.loc[current_date, "close"])
             if not np.isfinite(open_price) or open_price <= 0:
                 open_price = close_price
 
@@ -203,7 +244,7 @@ class K200LowTurnoverReentry(BaseStrategy):
                     execution_price = open_price * (1.0 - SLIPPAGE_EXIT)
                     gross = sell_quantity * execution_price
                     fee = gross * FEE_PER_SIDE
-                    tax = gross * TAX_RATE_SELL
+                    tax = gross * self.tax_profile.sell_transaction_tax_rate
                     cash += gross - fee - tax
                     quantity -= sell_quantity
                     trades.append(
@@ -242,6 +283,35 @@ class K200LowTurnoverReentry(BaseStrategy):
                             }
                         )
                 effective_target = target
+
+            for event in entitlement_by_date.get(current_date, []):
+                pending_distributions.append({**event, "eligible_quantity": quantity})
+            still_pending: list[dict] = []
+            for event in pending_distributions:
+                if event["credit_date"] > current_date:
+                    still_pending.append(event)
+                    continue
+                eligible_quantity = int(event["eligible_quantity"])
+                if eligible_quantity <= 0:
+                    continue
+                gross = eligible_quantity * float(event["gross_unit"])
+                tax = eligible_quantity * float(event["tax_unit"])
+                cash += gross - tax
+                trades.append(
+                    {
+                        "signal_date": event["entitlement_date"],
+                        "date": current_date,
+                        "ticker": self.ticker,
+                        "action": "DISTRIBUTION",
+                        "price": float(event["gross_unit"]),
+                        "qty": eligible_quantity,
+                        "fee": 0.0,
+                        "tax": tax,
+                        "gross": gross,
+                        "reason": "kodex_distribution",
+                    }
+                )
+            pending_distributions = still_pending
 
             equity = cash + quantity * close_price
             state = str(row["state"])

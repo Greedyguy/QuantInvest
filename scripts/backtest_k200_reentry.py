@@ -13,17 +13,28 @@ import numpy as np
 import pandas as pd
 
 from config import FEE_PER_SIDE, SLIPPAGE_ENTRY
+from market_benchmark import (
+    DOMESTIC_EQUITY_ETF,
+    evaluate_market_outperformance,
+    load_distribution_events,
+    load_samsung_kodex_standard_xls,
+    load_samsung_kodex_total_return_json,
+    period_return_asof,
+    prepare_distribution_schedule,
+    restore_actual_ohlc,
+)
 from strategies.k200_low_turnover_reentry import K200LowTurnoverReentry
 from strategy_validation import ValidationPeriod, performance_by_period
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PERIODS = (
-    ValidationPeriod("train", "2020-01-01", "2023-12-31"),
-    ValidationPeriod("validation", "2024-01-01", "2024-12-31"),
-    ValidationPeriod("test", "2025-01-01", "2025-12-31"),
-    ValidationPeriod("live_oos", "2026-01-01", "2026-12-31"),
+    ValidationPeriod("historical_2020_2023_seen", "2020-01-01", "2023-12-31"),
+    ValidationPeriod("historical_2024_seen", "2024-01-01", "2024-12-31"),
+    ValidationPeriod("historical_2025_seen", "2025-01-01", "2025-12-31"),
+    ValidationPeriod("historical_2026_seen", "2026-01-01", "2026-12-31"),
 )
+DEFAULT_DISTRIBUTIONS = PROJECT_ROOT / "data" / "reference" / "kodex200_distributions.csv"
 
 
 def select_k200_file() -> Path:
@@ -100,8 +111,18 @@ def buy_and_hold(
     dates: pd.Index,
     initial_cash: float,
     exposure: float,
+    distribution_events: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, list[dict]]:
     aligned = prices.reindex(dates).dropna(subset=["open", "close"])
+    distribution_schedule = (
+        prepare_distribution_schedule(distribution_events, aligned.index)
+        if distribution_events is not None
+        else pd.DataFrame()
+    )
+    entitlement_by_date: dict[pd.Timestamp, list[dict]] = {}
+    for event in distribution_schedule.to_dict("records"):
+        entitlement_by_date.setdefault(event["entitlement_date"], []).append(event)
+    pending_distributions: list[dict] = []
     cash = float(initial_cash)
     quantity = 0
     rows = []
@@ -129,6 +150,34 @@ def buy_and_hold(
                     "reason": "buy_and_hold",
                 }
             )
+        for event in entitlement_by_date.get(date, []):
+            pending_distributions.append({**event, "eligible_quantity": quantity})
+        still_pending: list[dict] = []
+        for event in pending_distributions:
+            if event["credit_date"] > date:
+                still_pending.append(event)
+                continue
+            eligible_quantity = int(event["eligible_quantity"])
+            if eligible_quantity <= 0:
+                continue
+            gross_distribution = eligible_quantity * float(event["gross_unit"])
+            distribution_tax = eligible_quantity * float(event["tax_unit"])
+            cash += gross_distribution - distribution_tax
+            trades.append(
+                {
+                    "signal_date": event["entitlement_date"],
+                    "date": date,
+                    "ticker": "069500",
+                    "action": "DISTRIBUTION",
+                    "price": float(event["gross_unit"]),
+                    "qty": eligible_quantity,
+                    "fee": 0.0,
+                    "tax": distribution_tax,
+                    "gross": gross_distribution,
+                    "reason": "kodex_distribution",
+                }
+            )
+        pending_distributions = still_pending
         rows.append(
             {
                 "date": date,
@@ -152,6 +201,10 @@ def summarise(
     full_drawdown = equity["equity"] / equity["equity"].cummax() - 1.0
     invested = equity["quantity"].gt(0)
     explicit_cost = sum(float(row["fee"] + row["tax"]) for row in trades)
+    orders = [row for row in trades if row["action"] in {"BUY", "SELL"}]
+    distributions = [row for row in trades if row["action"] == "DISTRIBUTION"]
+    gross_distributions = sum(float(row.get("gross", 0.0)) for row in distributions)
+    distribution_tax = sum(float(row["tax"]) for row in distributions)
     summary = {
         "label": label,
         "initial_cash": float(initial_cash),
@@ -159,8 +212,11 @@ def summarise(
         "end": str(equity.index.max().date()),
         "full_return_pct": full_return * 100.0,
         "full_mdd_pct": float(full_drawdown.min()) * 100.0,
-        "orders": len(trades),
-        "round_trips": sum(row["action"] == "SELL" for row in trades),
+        "orders": len(orders),
+        "round_trips": sum(row["action"] == "SELL" for row in orders),
+        "distribution_payments": len(distributions),
+        "gross_distributions": gross_distributions,
+        "distribution_tax": distribution_tax,
         "invested_days_pct": float(invested.mean()) * 100.0,
         "explicit_cost_pct_initial": explicit_cost / initial_cash * 100.0,
         "periods": metrics.reset_index().replace({np.nan: None}).to_dict("records"),
@@ -173,6 +229,19 @@ def main() -> None:
     parser.add_argument("--data-file")
     parser.add_argument("--naver-xml", help="Optional recent Naver chart XML to append")
     parser.add_argument("--end-date")
+    parser.add_argument(
+        "--kodex-standard-xls",
+        help="Official Samsung daily market-close/NAV workbook for actual-price execution",
+    )
+    parser.add_argument(
+        "--kodex-total-return-json",
+        help="Official Samsung total-return JSON used as a benchmark sanity check",
+    )
+    parser.add_argument(
+        "--distribution-file",
+        default=str(DEFAULT_DISTRIBUTIONS),
+        help="KODEX 200 distribution CSV; applied only with actual-price execution",
+    )
     parser.add_argument("--small-account", type=float, default=2_100_000.0)
     parser.add_argument("--reference-account", type=float, default=100_000_000.0)
     parser.add_argument("--output-dir", default=str(PROJECT_ROOT / "reports"))
@@ -188,16 +257,36 @@ def main() -> None:
         )
         if args.end_date:
             prices = prices.loc[prices.index <= pd.Timestamp(args.end_date)]
+    execution_prices = prices
+    distribution_events = None
+    price_basis = "adjusted_proxy_without_cash_distributions"
+    if args.kodex_standard_xls:
+        official_daily = load_samsung_kodex_standard_xls(args.kodex_standard_xls)
+        execution_prices = restore_actual_ohlc(prices, official_daily["market_close"])
+        distribution_events = load_distribution_events(args.distribution_file)
+        price_basis = "official_actual_close_scaled_ohlc_with_net_cash_distributions"
+
+    official_total_return = None
+    if args.kodex_total_return_json:
+        official_total_return = load_samsung_kodex_total_return_json(
+            args.kodex_total_return_json
+        )
     comparisons = []
     metric_tables = []
     curves = {}
     state_history = None
+    market_outperformance = {}
 
     for account_label, initial_cash in (
         ("small", args.small_account),
         ("reference", args.reference_account),
     ):
-        strategy = K200LowTurnoverReentry(initial_cash=initial_cash)
+        strategy = K200LowTurnoverReentry(
+            initial_cash=initial_cash,
+            execution_prices=execution_prices if args.kodex_standard_xls else None,
+            distribution_events=distribution_events,
+            tax_profile=DOMESTIC_EQUITY_ETF,
+        )
         strategy_equity, strategy_trades = strategy.run_backtest(
             {"069500": prices}, silent=True
         )
@@ -205,10 +294,14 @@ def main() -> None:
             raise RuntimeError("re-entry strategy produced no equity curve")
         state_history = strategy.latest_state_history
         hold_equity, hold_trades = buy_and_hold(
-            prices,
+            execution_prices,
             strategy_equity.index,
             initial_cash,
             strategy.risk_on_exposure,
+            distribution_events,
+        )
+        market_outperformance[account_label] = evaluate_market_outperformance(
+            strategy_equity["equity"], hold_equity["equity"]
         )
 
         for strategy_label, equity, trades in (
@@ -238,6 +331,15 @@ def main() -> None:
         "data_end": str(prices.index.max().date()),
         "recent_price_file": str(Path(args.naver_xml).resolve()) if args.naver_xml else None,
         "recent_price_adjustment": recent_adjustment,
+        "price_basis": price_basis,
+        "tax_profile": {
+            "asset_class": "domestic_equity_etf",
+            "sell_transaction_tax_rate": DOMESTIC_EQUITY_ETF.sell_transaction_tax_rate,
+            "distribution_income_tax_rate": DOMESTIC_EQUITY_ETF.distribution_income_tax_rate,
+        },
+        "validation_status": (
+            "historical replay only; all periods were visible during strategy design"
+        ),
         "parameters": {
             "decision_frequency": "first trading day of each month",
             "risk_on_exposure": 0.95,
@@ -254,6 +356,7 @@ def main() -> None:
             ),
         },
         "comparison": comparisons,
+        "market_outperformance": market_outperformance,
         "covered_call_note": (
             "Covered-call ETF comparison is intentionally excluded until "
             "total-return prices including distributions are supplied."
@@ -264,6 +367,24 @@ def main() -> None:
             "state_history": str(states_path),
         },
     }
+    if official_total_return is not None and state_history is not None:
+        payload["official_pre_tax_sanity_check"] = {
+            "start": str(state_history.index.min().date()),
+            "end": str(state_history.index.max().date()),
+            "market_price_return_pct": period_return_asof(
+                official_total_return["market_price_index"],
+                state_history.index.min(),
+                state_history.index.max(),
+            )
+            * 100.0,
+            "nav_total_return_pct": period_return_asof(
+                official_total_return["nav_total_return_index"],
+                state_history.index.min(),
+                state_history.index.max(),
+            )
+            * 100.0,
+            "note": "NAV total return assumes pre-tax distribution reinvestment.",
+        }
     summary_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
     )
