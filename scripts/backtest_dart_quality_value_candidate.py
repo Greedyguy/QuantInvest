@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from backtest_live_execution import simulate
+from config import FEE_PER_SIDE, VENUE_FEE_PER_SIDE
 from fundamental_candidate import (
     build_dart_quality_value_targets,
     historical_kospi_sell_tax_rate,
@@ -28,6 +29,7 @@ from scripts.backtest_k200_reentry import load_naver_prices
 DEVELOPMENT_START = pd.Timestamp("2018-06-29")
 DEVELOPMENT_END = pd.Timestamp("2022-12-29")
 CORE_TICKER = "069500"
+TOTAL_FEE_PER_SIDE = FEE_PER_SIDE + VENUE_FEE_PER_SIDE
 
 
 def same_timing_kodex200_targets(targets: pd.DataFrame) -> pd.DataFrame:
@@ -135,6 +137,7 @@ def run_development_backtest(
         blocked_tickers=set(),
         sell_tax_rate_resolver=historical_kospi_sell_tax_rate,
         rebalance_only_on_target_change=True,
+        fee_per_side=TOTAL_FEE_PER_SIDE,
     )
     benchmark_equity, benchmark_trades = simulate(
         benchmark_targets,
@@ -145,6 +148,7 @@ def run_development_backtest(
         blocked_tickers=set(),
         sell_tax_rate_by_ticker={CORE_TICKER: 0.0},
         rebalance_only_on_target_change=True,
+        fee_per_side=TOTAL_FEE_PER_SIDE,
     )
     stressed_equity, stressed_trades = simulate(
         targets,
@@ -155,7 +159,7 @@ def run_development_backtest(
         blocked_tickers=set(),
         sell_tax_rate_resolver=historical_kospi_sell_tax_rate,
         rebalance_only_on_target_change=True,
-        fee_per_side=0.000140527 * 2.0,
+        fee_per_side=TOTAL_FEE_PER_SIDE * 2.0,
         slippage_entry=0.002 * 2.0,
         slippage_exit=0.002 * 2.0,
     )

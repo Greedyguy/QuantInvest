@@ -38,10 +38,17 @@ def _sha256_bytes(payload: bytes) -> str:
 
 
 class PublicDartClient:
-    def __init__(self, cache_dir: Path, pause_seconds: float = 0.20):
+    def __init__(
+        self,
+        cache_dir: Path,
+        pause_seconds: float = 0.20,
+        *,
+        cache_only: bool = False,
+    ):
         self.cache_dir = cache_dir
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.pause_seconds = max(float(pause_seconds), 0.0)
+        self.cache_only = bool(cache_only)
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -63,6 +70,8 @@ class PublicDartClient:
         if cache_path.exists():
             payload = cache_path.read_bytes()
             return payload.decode("utf-8"), _sha256_bytes(payload)
+        if self.cache_only:
+            raise FileNotFoundError(f"DART cache entry is missing: {cache_path}")
         last_error: Exception | None = None
         for attempt in range(4):
             try:
@@ -115,6 +124,7 @@ def collect(
     end_date: str,
     cache_dir: Path,
     pause_seconds: float,
+    cache_only: bool = False,
 ) -> tuple[pd.DataFrame, list[dict], dict]:
     end = pd.Timestamp(end_date)
     if end > DEVELOPMENT_END:
@@ -125,7 +135,11 @@ def collect(
     constituents["as_of_date"] = pd.to_datetime(constituents["as_of_date"])
     development = constituents.loc[constituents["as_of_date"].le(DEVELOPMENT_END)]
     tickers = sorted(development["ticker"].astype(str).str.zfill(6).unique())
-    client = PublicDartClient(cache_dir, pause_seconds=pause_seconds)
+    client = PublicDartClient(
+        cache_dir,
+        pause_seconds=pause_seconds,
+        cache_only=cache_only,
+    )
     rows: list[dict] = []
     errors: list[dict] = []
     raw_hashes: dict[str, str] = {}
@@ -183,6 +197,7 @@ def collect(
     metadata = {
         "source": "DART public original filings",
         "development_only": True,
+        "cache_only": cache_only,
         "search_start_date": start_date,
         "search_end_date": end_date,
         "universe_source": str(constituents_path.resolve()),
@@ -204,6 +219,11 @@ def main() -> None:
     parser.add_argument("--end-date", default="2022-12-31")
     parser.add_argument("--cache-dir", type=Path, default=Path("/private/tmp/dart_pit_cache"))
     parser.add_argument("--pause-seconds", type=float, default=0.20)
+    parser.add_argument(
+        "--cache-only",
+        action="store_true",
+        help="reparse existing raw files without making network requests",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--errors-output", type=Path)
     parser.add_argument("--manifest-output", type=Path)
@@ -215,6 +235,7 @@ def main() -> None:
         end_date=args.end_date,
         cache_dir=args.cache_dir,
         pause_seconds=args.pause_seconds,
+        cache_only=args.cache_only,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(args.output, index=False)

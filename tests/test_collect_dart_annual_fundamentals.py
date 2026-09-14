@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from scripts.collect_dart_annual_fundamentals import collect
+from scripts.collect_dart_annual_fundamentals import PublicDartClient, collect
 
 
 def test_collector_refuses_to_open_post_development_filings(tmp_path: Path):
@@ -25,3 +25,10 @@ def test_collector_refuses_to_open_post_development_filings(tmp_path: Path):
             cache_dir=tmp_path / "cache",
             pause_seconds=0,
         )
+
+
+def test_cache_only_client_fails_without_network_retry(tmp_path: Path):
+    client = PublicDartClient(tmp_path / "cache", cache_only=True)
+
+    with pytest.raises(FileNotFoundError, match="cache entry is missing"):
+        client.get("missing.html", "https://dart.fss.or.kr/never-requested")

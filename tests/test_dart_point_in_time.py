@@ -129,6 +129,18 @@ def test_share_parser_selects_ordinary_issued_total_not_all_classes():
     assert parse_ordinary_issued_shares(html) == 5_969_782_550
 
 
+def test_share_parser_accepts_legacy_voting_share_header():
+    html = """
+    <table><thead><tr><th rowspan="2">구분</th><th colspan="3">주식의 종류</th></tr>
+      <tr><th>의결권 있는 주식</th><th>의결권 없는 주식</th><th>합계</th></tr></thead>
+      <tbody><tr><td>Ⅳ. 발행주식의 총수 (Ⅱ-Ⅲ)</td>
+      <td>87,186,835</td><td>-</td><td>87,186,835</td></tr></tbody>
+    </table>
+    """
+
+    assert parse_ordinary_issued_shares(html) == 87_186_835
+
+
 def test_asof_hides_future_filing_and_drops_stale_annual_data():
     data = pd.DataFrame(
         {

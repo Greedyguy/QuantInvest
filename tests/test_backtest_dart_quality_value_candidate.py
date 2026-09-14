@@ -2,9 +2,15 @@ import pandas as pd
 import pytest
 
 from scripts.backtest_dart_quality_value_candidate import (
+    TOTAL_FEE_PER_SIDE,
     assert_development_coverage,
     same_timing_kodex200_targets,
 )
+from config import FEE_PER_SIDE, VENUE_FEE_PER_SIDE
+
+
+def test_candidate_uses_commission_and_venue_fee():
+    assert TOTAL_FEE_PER_SIDE == FEE_PER_SIDE + VENUE_FEE_PER_SIDE
 
 
 def test_same_timing_benchmark_replaces_stock_sleeve_with_kodex200():

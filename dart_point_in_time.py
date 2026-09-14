@@ -280,7 +280,11 @@ def parse_ordinary_issued_shares(html_text: str) -> float:
         common_positions = [
             index
             for index, name in enumerate(columns)
-            if "보통주" in name and "우선" not in name
+            if (
+                "보통주" in name
+                or "의결권있는주식" in _compact(name)
+            )
+            and "우선" not in name
         ]
         if not common_positions:
             continue
