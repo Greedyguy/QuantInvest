@@ -89,7 +89,9 @@ def build_development_targets(
     )
 
 
-def load_development_tax_nav(path: Path) -> pd.DataFrame:
+def load_development_tax_nav(
+    path: Path, *, ticker: str = LEVERAGE_TICKER
+) -> pd.DataFrame:
     """Load only a normalized development panel; reject a broken seal."""
 
     frame = pd.read_csv(path, dtype={"ticker": "string"}, parse_dates=["date"])
@@ -98,8 +100,9 @@ def load_development_tax_nav(path: Path) -> pd.DataFrame:
     if missing:
         raise ValueError(f"tax-NAV panel is missing columns: {missing}")
     frame["ticker"] = frame["ticker"].str.zfill(6)
-    if set(frame["ticker"]) != {LEVERAGE_TICKER}:
-        raise ValueError("tax-NAV panel must contain only KODEX Leverage")
+    expected_ticker = str(ticker).zfill(6)
+    if set(frame["ticker"]) != {expected_ticker}:
+        raise ValueError(f"tax-NAV panel must contain only {expected_ticker}")
     if frame["date"].max() > DEVELOPMENT_END:
         raise ValueError("tax-NAV input opens the sealed post-development period")
     for column in ("market_close", "tax_nav"):
@@ -112,7 +115,10 @@ def load_development_tax_nav(path: Path) -> pd.DataFrame:
 
 
 def load_development_execution_inputs(
-    actual_ohlc_path: Path, tax_nav_path: Path
+    actual_ohlc_path: Path,
+    tax_nav_path: Path,
+    *,
+    secondary_ticker: str = LEVERAGE_TICKER,
 ) -> tuple[dict[str, pd.DataFrame], pd.Series]:
     """Require complete official OHLC and cross-source close agreement."""
 
@@ -123,18 +129,20 @@ def load_development_execution_inputs(
         ticker: actual_ohlc_for_ticker(panel, ticker).loc[
             DEVELOPMENT_START:DEVELOPMENT_END
         ]
-        for ticker in (CORE_TICKER, LEVERAGE_TICKER)
+        for ticker in (CORE_TICKER, secondary_ticker)
     }
-    if not prices[CORE_TICKER].index.equals(prices[LEVERAGE_TICKER].index):
-        raise ValueError("KODEX 200 and Leverage execution calendars differ")
-    tax_panel = load_development_tax_nav(tax_nav_path).set_index("date")
-    aligned = prices[LEVERAGE_TICKER][["close"]].join(
+    if not prices[CORE_TICKER].index.equals(prices[secondary_ticker].index):
+        raise ValueError("KODEX core and secondary execution calendars differ")
+    tax_panel = load_development_tax_nav(
+        tax_nav_path, ticker=secondary_ticker
+    ).set_index("date")
+    aligned = prices[secondary_ticker][["close"]].join(
         tax_panel[["market_close", "tax_nav"]], how="outer"
     )
     if aligned.isna().any(axis=None):
-        raise ValueError("KODEX Leverage official OHLC and tax NAV coverage differ")
+        raise ValueError("KODEX secondary official OHLC and tax NAV coverage differ")
     if not np.allclose(aligned["close"], aligned["market_close"], rtol=0, atol=0):
-        raise ValueError("KRX and Samsung KODEX Leverage market closes disagree")
+        raise ValueError("KRX and Samsung KODEX secondary market closes disagree")
     return prices, aligned["tax_nav"]
 
 
@@ -146,6 +154,7 @@ def _simulate(
     *,
     initial_cash: float,
     cost_multiplier: float = 1.0,
+    taxed_ticker: str = LEVERAGE_TICKER,
 ) -> tuple[pd.DataFrame, list[dict]]:
     return simulate(
         targets,
@@ -154,11 +163,11 @@ def _simulate(
         min_trade=50_000,
         price_band_pct=100.0,
         blocked_tickers=set(),
-        sell_tax_rate_by_ticker={CORE_TICKER: 0.0, LEVERAGE_TICKER: 0.0},
+        sell_tax_rate_by_ticker={CORE_TICKER: 0.0, taxed_ticker: 0.0},
         rebalance_only_on_target_change=True,
         distribution_events_by_ticker=distributions,
         holding_period_tax_by_ticker={
-            LEVERAGE_TICKER: HoldingPeriodTaxProfile(tax_nav=tax_nav)
+            taxed_ticker: HoldingPeriodTaxProfile(tax_nav=tax_nav)
         },
         fee_per_side=TOTAL_FEE_PER_SIDE * cost_multiplier,
         slippage_entry=0.002 * cost_multiplier,

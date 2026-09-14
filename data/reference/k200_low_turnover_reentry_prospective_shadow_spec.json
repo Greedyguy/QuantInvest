@@ -1,0 +1,32 @@
+{
+  "status": "paper_shadow_only_no_capital",
+  "frozen_on": "2026-09-15",
+  "first_eligible_signal_date": "2026-09-16",
+  "strategy": "K200LowTurnoverReentry",
+  "strategy_source_sha256": "c27df110f19e7eed5ed6adfb9a6d67fe89b4c094107ab88f0a81e8a479f568b4",
+  "parameters": {
+    "ticker": "069500",
+    "risk_on_exposure": 0.95,
+    "trend_window": 120,
+    "momentum_window": 60,
+    "fast_trend_window": 20,
+    "medium_trend_window": 60,
+    "entry_buffer": 0.01,
+    "exit_buffer": 0.01,
+    "exit_momentum": -0.03,
+    "emergency_drawdown": -0.12,
+    "emergency_momentum": -0.04
+  },
+  "shadow_account_krw": 2100000,
+  "benchmark": "continuous integer-share KODEX 200 with the same costs, taxes, and distributions",
+  "evidence_policy": {
+    "minimum_subsequent_sessions": 252,
+    "no_parameter_changes_during_measurement": true,
+    "interim_reviews_do_not_authorize_capital": true,
+    "final_annualised_excess_return_pct_point_min": 2.0,
+    "final_mdd_disadvantage_pct_point_max": 0.0,
+    "monthly_checkpoint_beat_rate_pct_min": 60.0
+  },
+  "promotion_policy": "Passing the prospective year makes the strategy eligible for a separate live-capital decision; it does not turn on orders automatically.",
+  "execution_guard": "NO_ORDERS_SENT"
+}
