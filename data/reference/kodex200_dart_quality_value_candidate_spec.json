@@ -1,0 +1,83 @@
+{
+  "status": "pre_registered_before_development_result",
+  "candidate": "kodex200_dart_quality_value_satellite_v1",
+  "development_period": {
+    "start": "2018-06-29",
+    "end": "2022-12-29"
+  },
+  "sealed_periods": {
+    "walk_forward": "2023-01-01/2024-12-31",
+    "unused_holdout": "2025-01-01/2026-12-31"
+  },
+  "universe": {
+    "source": "official point-in-time KODEX 200 top-30 PCF snapshots",
+    "rebalance": "quarterly snapshot close; execute next trading-day open",
+    "minimum_fundamental_members": 18,
+    "minimum_index_weight_coverage_pct": 55.0,
+    "fallback_when_coverage_fails": "same-timing KODEX 200"
+  },
+  "fundamental_availability": {
+    "source": "DART public original annual filing",
+    "available_date": "receipt date plus one calendar day",
+    "maximum_age_days": 550,
+    "corrections": "do not replace an original filing with a later correction"
+  },
+  "quality_score": {
+    "weight": 0.45,
+    "method": "mean cross-sectional percentile rank; higher is better",
+    "minimum_available_metrics": 3,
+    "metrics": [
+      "net_income / average_equity",
+      "operating_income / average_assets",
+      "cash_flow_from_operations / average_assets",
+      "(cash_flow_from_operations - net_income) / average_assets",
+      "equity / assets"
+    ]
+  },
+  "value_score": {
+    "weight": 0.35,
+    "method": "mean cross-sectional percentile rank; higher is cheaper",
+    "metrics": [
+      "net_income / (ordinary_issued_shares * signal_close)",
+      "equity / (ordinary_issued_shares * signal_close)"
+    ],
+    "plausibility_bounds": {
+      "earnings_yield": [-0.5, 0.5],
+      "book_to_market": [0.0, 3.0]
+    },
+    "missing_rule": "both value metrics must be plausible; otherwise ineligible"
+  },
+  "price_confirmation": {
+    "weight": 0.2,
+    "score": "12-1 month return percentile",
+    "eligibility": "12-1 month return > 0 and signal close > 200-day moving average"
+  },
+  "portfolio": {
+    "risk_timing": "frozen K200LowTurnoverReentry state",
+    "risk_on_core_weight": 0.4,
+    "risk_on_satellite_weight": 0.55,
+    "risk_on_cash_weight": 0.05,
+    "satellite_names": 4,
+    "satellite_weighting": "equal",
+    "empty_satellite_fallback": "same-timing KODEX 200",
+    "risk_off": "cash"
+  },
+  "execution": {
+    "small_account_krw": 2100000,
+    "integer_shares": true,
+    "minimum_trade_krw": 50000,
+    "commission_per_side": 0.000140527,
+    "venue_fee_per_side": 0.000036396,
+    "entry_slippage": 0.002,
+    "exit_slippage": 0.002,
+    "individual_stock_sell_tax": "historical date schedule",
+    "domestic_equity_etf_sell_tax": 0.0
+  },
+  "development_pass_gate": {
+    "same_timing_kodex200_cagr_excess_pct_point_min": 1.0,
+    "rolling_12m_beat_rate_pct_min": 55.0,
+    "maximum_drawdown_not_worse_by_pct_point": 3.0,
+    "must_pass_double_cost_stress": true
+  },
+  "decision_rule": "A development failure ends this candidate without opening either sealed period."
+}
