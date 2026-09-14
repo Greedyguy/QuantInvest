@@ -190,6 +190,49 @@ def restore_actual_ohlc(
     return result
 
 
+def adjust_ohlc_for_distributions(
+    actual_prices: pd.DataFrame,
+    events: pd.DataFrame,
+    *,
+    settlement_lag: int = 2,
+) -> pd.DataFrame:
+    """Back-adjust actual OHLC for cash distributions without future signals.
+
+    Each distribution factor is applied to the entitlement session and every
+    earlier row.  A later distribution therefore changes only the absolute
+    scale of an earlier prefix, not its returns or moving-average decisions.
+    """
+
+    prices = actual_prices.copy().sort_index()
+    prices.index = pd.to_datetime(prices.index)
+    prices = prices.loc[~prices.index.duplicated(keep="last")]
+    schedule = prepare_distribution_schedule(
+        events,
+        prices.index,
+        settlement_lag=settlement_lag,
+    )
+    cumulative_factor = pd.Series(1.0, index=prices.index)
+    for event in schedule.to_dict("records"):
+        entitlement_date = pd.Timestamp(event["entitlement_date"])
+        reference_close = float(prices.loc[entitlement_date, "close"])
+        distribution = float(event["gross_unit"])
+        factor = (reference_close - distribution) / reference_close
+        if not np.isfinite(factor) or factor <= 0 or factor > 1:
+            raise ValueError(
+                f"invalid distribution adjustment on {entitlement_date.date()}"
+            )
+        cumulative_factor.loc[cumulative_factor.index <= entitlement_date] *= factor
+
+    adjusted = prices.copy()
+    for column in ("open", "high", "low", "close"):
+        if column in adjusted:
+            adjusted[column] = (
+                pd.to_numeric(adjusted[column], errors="coerce")
+                * cumulative_factor
+            )
+    return adjusted
+
+
 def prepare_distribution_schedule(
     events: pd.DataFrame,
     trading_dates: pd.Index,

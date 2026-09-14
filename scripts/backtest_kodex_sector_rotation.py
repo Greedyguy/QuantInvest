@@ -20,6 +20,7 @@ from backtest_live_execution import simulate
 from config import FEE_PER_SIDE, SLIPPAGE_ENTRY, SLIPPAGE_EXIT
 from market_benchmark import (
     DOMESTIC_EQUITY_ETF,
+    adjust_ohlc_for_distributions,
     evaluate_market_outperformance,
     load_distribution_events,
     load_samsung_distribution_json,
@@ -37,6 +38,9 @@ from strategies.kodex_sector_rotation import KodexSectorRotation
 
 
 CORE_TICKER = "069500"
+LEGACY_DISTRIBUTIONS = (
+    PROJECT_ROOT / "data" / "reference" / "kodex_sector_distributions_2017_2019.csv"
+)
 SECTOR_PRODUCTS = {
     "091180": "자동차",
     "091170": "은행",
@@ -72,6 +76,21 @@ def _official_execution_prices(
 
 
 def _load_official_inputs(data_dir: Path):
+    legacy = pd.read_csv(LEGACY_DISTRIBUTIONS, dtype={"ticker": str})
+    legacy["record_date"] = pd.to_datetime(legacy["record_date"])
+    legacy["pay_date"] = pd.to_datetime(legacy["pay_date"])
+
+    def with_legacy(ticker: str, recent: pd.DataFrame) -> pd.DataFrame:
+        historical = legacy.loc[legacy["ticker"].eq(ticker)].drop(
+            columns=["ticker", "source_sheet"]
+        )
+        combined = pd.concat([historical, recent], ignore_index=True, sort=False)
+        return (
+            combined.sort_values("record_date")
+            .drop_duplicates("record_date", keep="last")
+            .reset_index(drop=True)
+        )
+
     execution = {
         CORE_TICKER: _official_execution_prices(
             CORE_TICKER,
@@ -81,8 +100,14 @@ def _load_official_inputs(data_dir: Path):
     }
     total_return = {}
     distributions = {
-        CORE_TICKER: load_distribution_events(
-            PROJECT_ROOT / "data" / "reference" / "kodex200_distributions.csv"
+        CORE_TICKER: with_legacy(
+            CORE_TICKER,
+            load_distribution_events(
+                PROJECT_ROOT
+                / "data"
+                / "reference"
+                / "kodex200_distributions.csv"
+            ),
         )
     }
     for ticker in SECTOR_PRODUCTS:
@@ -98,8 +123,9 @@ def _load_official_inputs(data_dir: Path):
             1.0 + pd.to_numeric(frame["SUIK_NAV"], errors="coerce").to_numpy() / 100.0,
             index=frame["date"],
         ).loc[lambda values: ~values.index.duplicated(keep="last")]
-        distributions[ticker] = load_samsung_distribution_json(
-            data_dir / f"kodex_div_{ticker}.json"
+        distributions[ticker] = with_legacy(
+            ticker,
+            load_samsung_distribution_json(data_dir / f"kodex_div_{ticker}.json"),
         )
     return execution, pd.DataFrame(total_return).sort_index(), distributions
 
@@ -198,6 +224,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--official-data-dir", required=True)
     parser.add_argument("--core-signal-file")
+    parser.add_argument(
+        "--core-signal-source",
+        choices=("cache", "distribution_adjusted_actual"),
+        default="cache",
+    )
     parser.add_argument("--start-date", default="2020-06-25")
     parser.add_argument("--end-date")
     parser.add_argument("--small-account", type=float, default=2_100_000.0)
@@ -207,11 +238,19 @@ def main() -> None:
 
     data_dir = Path(args.official_data_dir)
     execution, total_return, distributions = _load_official_inputs(data_dir)
-    signal_path = Path(args.core_signal_file) if args.core_signal_file else select_k200_file()
-    core_signal = load_prices(signal_path)
-    core_signal, _ = merge_adjusted_prices(
-        core_signal, load_naver_prices(data_dir / f"naver_{CORE_TICKER}.xml")
-    )
+    signal_path = None
+    if args.core_signal_source == "distribution_adjusted_actual":
+        core_signal = adjust_ohlc_for_distributions(
+            execution[CORE_TICKER], distributions[CORE_TICKER]
+        )
+    else:
+        signal_path = (
+            Path(args.core_signal_file) if args.core_signal_file else select_k200_file()
+        )
+        core_signal = load_prices(signal_path)
+        core_signal, _ = merge_adjusted_prices(
+            core_signal, load_naver_prices(data_dir / f"naver_{CORE_TICKER}.xml")
+        )
 
     common_end = min(frame.index.max() for frame in execution.values())
     end = min(pd.Timestamp(args.end_date), common_end) if args.end_date else common_end
@@ -364,7 +403,8 @@ def main() -> None:
         ),
         "data_start": str(targets.index.min().date()),
         "data_end": str(targets.index.max().date()),
-        "core_signal_file": str(signal_path.resolve()),
+        "core_signal_source": args.core_signal_source,
+        "core_signal_file": str(signal_path.resolve()) if signal_path else None,
         "sector_products": SECTOR_PRODUCTS,
         "parameters": {
             "core_weight": 0.40,
