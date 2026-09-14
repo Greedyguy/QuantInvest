@@ -160,3 +160,99 @@ def test_execution_uses_integer_shares_and_charges_every_sell():
     assert [trade["action"] for trade in executed] == ["BUY", "SELL"]
     assert equity.index[0] == dates[0]
     assert equity.iloc[-1]["equity"] < 210_000.0
+
+
+def test_execution_can_exempt_domestic_equity_etf_sell_tax():
+    dates = pd.bdate_range("2025-01-02", periods=3)
+    prices = pd.DataFrame(
+        {"close": [50_000.0] * 3, "open": [50_000.0] * 3}, index=dates
+    )
+    targets = pd.DataFrame(
+        {"069500": [0.50, 0.00, 0.00], "__CASH__": [0.50, 1.00, 1.00]},
+        index=dates,
+    )
+
+    taxed, _ = simulate(
+        targets,
+        {"069500": prices},
+        initial_cash=210_000.0,
+        min_trade=50_000,
+        price_band_pct=3.0,
+        blocked_tickers=set(),
+    )
+    exempt, _ = simulate(
+        targets,
+        {"069500": prices},
+        initial_cash=210_000.0,
+        min_trade=50_000,
+        price_band_pct=3.0,
+        blocked_tickers=set(),
+        sell_tax_rate_by_ticker={"069500": 0.0},
+    )
+
+    assert exempt.iloc[-1]["equity"] > taxed.iloc[-1]["equity"]
+
+
+def test_execution_can_avoid_daily_weight_maintenance_churn():
+    dates = pd.bdate_range("2025-01-02", periods=5)
+    prices = pd.DataFrame(
+        {"close": [50_000.0, 55_000.0, 70_000.0, 90_000.0, 100_000.0],
+         "open": [50_000.0, 55_000.0, 70_000.0, 90_000.0, 100_000.0]},
+        index=dates,
+    )
+    targets = pd.DataFrame(
+        {"AAA": [0.50] * 5, "__CASH__": [0.50] * 5}, index=dates
+    )
+
+    _, trades = simulate(
+        targets,
+        {"AAA": prices},
+        initial_cash=210_000.0,
+        min_trade=0,
+        price_band_pct=100.0,
+        blocked_tickers=set(),
+        rebalance_only_on_target_change=True,
+    )
+
+    executed = [trade for trade in trades if trade["action"] != "SKIP"]
+    assert [trade["action"] for trade in executed] == ["BUY"]
+
+
+def test_execution_credits_distribution_to_entitled_integer_shares():
+    dates = pd.bdate_range("2025-01-27", "2025-02-05")
+    prices = pd.DataFrame(
+        {"close": [50_000.0] * len(dates), "open": [50_000.0] * len(dates)},
+        index=dates,
+    )
+    targets = pd.DataFrame(
+        {"069500": [0.50] * len(dates), "__CASH__": [0.50] * len(dates)},
+        index=dates,
+    )
+    distributions = pd.DataFrame(
+        {
+            "record_date": [pd.Timestamp("2025-01-31")],
+            "pay_date": [pd.Timestamp("2025-02-04")],
+            "distribution_per_share": [100.0],
+            "taxable_per_share": [80.0],
+        }
+    )
+
+    equity, trades = simulate(
+        targets,
+        {"069500": prices},
+        initial_cash=210_000.0,
+        min_trade=0,
+        price_band_pct=3.0,
+        blocked_tickers=set(),
+        sell_tax_rate_by_ticker={"069500": 0.0},
+        rebalance_only_on_target_change=True,
+        distribution_events_by_ticker={"069500": distributions},
+    )
+
+    payments = [trade for trade in trades if trade["action"] == "DISTRIBUTION"]
+    assert len(payments) == 1
+    assert payments[0]["final_qty"] == 2
+    assert payments[0]["tax"] == pytest.approx(2 * 80.0 * 0.154)
+    prior_cash = equity.loc[pd.Timestamp("2025-02-03"), "cash"]
+    paid_cash = equity.loc[pd.Timestamp("2025-02-04"), "cash"]
+    assert paid_cash - prior_cash == pytest.approx(2 * (100.0 - 80.0 * 0.154))

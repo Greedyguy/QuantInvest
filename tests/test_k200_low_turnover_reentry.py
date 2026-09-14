@@ -1,9 +1,12 @@
+import json
+
 import pandas as pd
 import pytest
 
 from market_benchmark import (
     MarketOutperformanceCriteria,
     evaluate_market_outperformance,
+    load_samsung_distribution_json,
     prepare_distribution_schedule,
     restore_actual_ohlc,
 )
@@ -108,6 +111,32 @@ def test_distribution_schedule_uses_settlement_lag_and_net_taxable_amount():
     assert schedule.iloc[0]["credit_date"] == pd.Timestamp("2025-02-04")
     assert schedule.iloc[0]["tax_unit"] == pytest.approx(12.32)
     assert schedule.iloc[0]["net_unit"] == pytest.approx(87.68)
+
+
+def test_samsung_distribution_json_loader_maps_official_fields(tmp_path):
+    response = tmp_path / "distribution.json"
+    response.write_text(
+        json.dumps(
+            {
+                "dividList": [
+                    {
+                        "basicD": "20250430",
+                        "payD": "20250507",
+                        "dividA": "100",
+                        "taxDividA": "80",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = load_samsung_distribution_json(response)
+
+    assert result.iloc[0]["record_date"] == pd.Timestamp("2025-04-30")
+    assert result.iloc[0]["pay_date"] == pd.Timestamp("2025-05-07")
+    assert result.iloc[0]["distribution_per_share"] == 100
+    assert result.iloc[0]["taxable_per_share"] == 80
 
 
 def test_strategy_credits_net_distribution_only_when_eligible():

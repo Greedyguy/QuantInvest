@@ -112,6 +112,8 @@ def buy_and_hold(
     initial_cash: float,
     exposure: float,
     distribution_events: pd.DataFrame | None = None,
+    fee_per_side: float = FEE_PER_SIDE,
+    slippage_entry: float = SLIPPAGE_ENTRY,
 ) -> tuple[pd.DataFrame, list[dict]]:
     aligned = prices.reindex(dates).dropna(subset=["open", "close"])
     distribution_schedule = (
@@ -129,14 +131,14 @@ def buy_and_hold(
     trades = []
     for position, (date, row) in enumerate(aligned.iterrows()):
         if position == 1:
-            execution_price = float(row["open"]) * (1.0 + SLIPPAGE_ENTRY)
+            execution_price = float(row["open"]) * (1.0 + slippage_entry)
             target_value = initial_cash * exposure
             quantity = min(
                 int(target_value / execution_price),
-                int(cash / (execution_price * (1.0 + FEE_PER_SIDE))),
+                int(cash / (execution_price * (1.0 + fee_per_side))),
             )
             gross = quantity * execution_price
-            fee = gross * FEE_PER_SIDE
+            fee = gross * fee_per_side
             cash -= gross + fee
             trades.append(
                 {

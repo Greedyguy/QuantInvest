@@ -125,6 +125,39 @@ def load_distribution_events(path: str | Path) -> pd.DataFrame:
     return frame.sort_values("record_date").reset_index(drop=True)
 
 
+def load_samsung_distribution_json(path: str | Path) -> pd.DataFrame:
+    """Load Samsung's KODEX distribution API response."""
+
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    rows = payload.get("dividList", []) if isinstance(payload, dict) else []
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "record_date",
+                "pay_date",
+                "distribution_per_share",
+                "taxable_per_share",
+            ]
+        )
+    frame = pd.DataFrame(rows).rename(
+        columns={
+            "basicD": "record_date",
+            "payD": "pay_date",
+            "dividA": "distribution_per_share",
+            "taxDividA": "taxable_per_share",
+        }
+    )
+    frame["record_date"] = pd.to_datetime(frame["record_date"], format="%Y%m%d")
+    frame["pay_date"] = pd.to_datetime(frame["pay_date"], format="%Y%m%d")
+    frame["distribution_per_share"] = pd.to_numeric(
+        frame["distribution_per_share"], errors="raise"
+    )
+    frame["taxable_per_share"] = pd.to_numeric(
+        frame["taxable_per_share"], errors="coerce"
+    ).fillna(frame["distribution_per_share"])
+    return frame.sort_values("record_date").reset_index(drop=True)
+
+
 def restore_actual_ohlc(
     adjusted_prices: pd.DataFrame,
     official_market_close: pd.Series,

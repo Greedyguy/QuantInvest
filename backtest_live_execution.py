@@ -14,7 +14,7 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Mapping
 
 import numpy as np
 import pandas as pd
@@ -26,6 +26,7 @@ from config import (
     SLIPPAGE_EXIT,
     TAX_RATE_SELL,
 )
+from market_benchmark import prepare_distribution_schedule
 from reports import load_data
 from strategies import get_strategy
 from utils import perf_stats
@@ -43,6 +44,8 @@ class SimOrder:
     exec_price: float
     reason: str
     cash_after: float
+    fee: float = 0.0
+    tax: float = 0.0
 
 
 def _price_on(enriched: Dict[str, pd.DataFrame], ticker: str, day, field: str) -> float:
@@ -196,6 +199,12 @@ def simulate(
     min_trade: int,
     price_band_pct: float,
     blocked_tickers: set[str] | None = None,
+    sell_tax_rate_by_ticker: Mapping[str, float] | None = None,
+    rebalance_only_on_target_change: bool = False,
+    distribution_events_by_ticker: Mapping[str, pd.DataFrame] | None = None,
+    fee_per_side: float = FEE_PER_SIDE,
+    slippage_entry: float = SLIPPAGE_ENTRY,
+    slippage_exit: float = SLIPPAGE_EXIT,
 ) -> tuple[pd.DataFrame, list[dict]]:
     cash = float(initial_cash)
     holdings: Dict[str, int] = {}
@@ -203,6 +212,14 @@ def simulate(
     trade_rows: List[dict] = []
 
     dates = list(target_weights.index)
+    entitlement_by_date: dict[pd.Timestamp, list[tuple[str, dict]]] = {}
+    for ticker, events in (distribution_events_by_ticker or {}).items():
+        schedule = prepare_distribution_schedule(events, pd.Index(dates))
+        for event in schedule.to_dict("records"):
+            entitlement_by_date.setdefault(event["entitlement_date"], []).append(
+                (str(ticker), event)
+            )
+    pending_distributions: list[tuple[str, dict, int]] = []
     if dates:
         equity_rows.append(
             {"date": dates[0], "equity": cash, "cash": cash, "positions": 0}
@@ -211,16 +228,25 @@ def simulate(
         signal_date = dates[idx]
         exec_date = dates[idx + 1]
         targets = target_weights.loc[signal_date].fillna(0.0)
-        orders = _build_orders(
-            signal_date,
-            exec_date,
-            targets,
-            cash,
-            holdings,
-            enriched,
-            min_trade,
-            price_band_pct,
-            blocked_tickers=BLOCKED_TICKERS if blocked_tickers is None else blocked_tickers,
+        target_changed = idx == 0 or not targets.equals(
+            target_weights.loc[dates[idx - 1]].fillna(0.0)
+        )
+        orders = (
+            _build_orders(
+                signal_date,
+                exec_date,
+                targets,
+                cash,
+                holdings,
+                enriched,
+                min_trade,
+                price_band_pct,
+                blocked_tickers=(
+                    BLOCKED_TICKERS if blocked_tickers is None else blocked_tickers
+                ),
+            )
+            if target_changed or not rebalance_only_on_target_change
+            else []
         )
 
         for order in orders:
@@ -231,10 +257,15 @@ def simulate(
                 qty = min(int(order.final_qty), int(holdings.get(order.ticker, 0)))
                 if qty <= 0:
                     continue
-                exec_price = order.exec_price * (1 - SLIPPAGE_EXIT)
+                exec_price = order.exec_price * (1 - slippage_exit)
                 gross = qty * exec_price
-                fee = gross * FEE_PER_SIDE
-                tax = gross * TAX_RATE_SELL
+                fee = gross * fee_per_side
+                tax_rate = (
+                    float(sell_tax_rate_by_ticker.get(order.ticker, TAX_RATE_SELL))
+                    if sell_tax_rate_by_ticker is not None
+                    else TAX_RATE_SELL
+                )
+                tax = gross * tax_rate
                 cash += gross - fee - tax
                 holdings[order.ticker] = int(holdings.get(order.ticker, 0)) - qty
                 if holdings[order.ticker] <= 0:
@@ -242,10 +273,12 @@ def simulate(
                 order.final_qty = qty
                 order.exec_price = exec_price
                 order.cash_after = cash
+                order.fee = fee
+                order.tax = tax
                 trade_rows.append(asdict(order))
             elif order.action == "BUY":
-                exec_price = order.exec_price * (1 + SLIPPAGE_ENTRY)
-                cash_per_share = exec_price * (1 + FEE_PER_SIDE)
+                exec_price = order.exec_price * (1 + slippage_entry)
+                cash_per_share = exec_price * (1 + fee_per_side)
                 qty = min(int(order.final_qty), int(cash / cash_per_share) if cash_per_share > 0 else 0)
                 if qty <= 0:
                     order.action = "SKIP"
@@ -255,13 +288,47 @@ def simulate(
                     trade_rows.append(asdict(order))
                     continue
                 gross = qty * exec_price
-                fee = gross * FEE_PER_SIDE
+                fee = gross * fee_per_side
                 cash -= gross + fee
                 holdings[order.ticker] = int(holdings.get(order.ticker, 0)) + qty
                 order.final_qty = qty
                 order.exec_price = exec_price
                 order.cash_after = cash
+                order.fee = fee
                 trade_rows.append(asdict(order))
+
+        for ticker, event in entitlement_by_date.get(exec_date, []):
+            pending_distributions.append(
+                (ticker, event, int(holdings.get(ticker, 0)))
+            )
+        still_pending: list[tuple[str, dict, int]] = []
+        for ticker, event, eligible_quantity in pending_distributions:
+            if event["credit_date"] > exec_date:
+                still_pending.append((ticker, event, eligible_quantity))
+                continue
+            if eligible_quantity <= 0:
+                continue
+            gross = eligible_quantity * float(event["gross_unit"])
+            tax = eligible_quantity * float(event["tax_unit"])
+            cash += gross - tax
+            trade_rows.append(
+                {
+                    "signal_date": str(event["entitlement_date"].date()),
+                    "exec_date": str(exec_date.date()),
+                    "ticker": ticker,
+                    "action": "DISTRIBUTION",
+                    "planned_qty": eligible_quantity,
+                    "final_qty": eligible_quantity,
+                    "ref_price": float(event["gross_unit"]),
+                    "exec_price": float(event["gross_unit"]),
+                    "reason": "kodex_distribution",
+                    "cash_after": cash,
+                    "fee": 0.0,
+                    "tax": tax,
+                    "gross": gross,
+                }
+            )
+        pending_distributions = still_pending
 
         equity = _mark_to_market(cash, holdings, enriched, exec_date)
         equity_rows.append({"date": exec_date, "equity": equity, "cash": cash, "positions": len(holdings)})

@@ -1,0 +1,40 @@
+{
+  "spec_version": "2026-09-14",
+  "status": "paper_shadow_only_no_capital",
+  "shadow_start": "2026-09-14",
+  "earliest_promotion_review": "after_252_subsequent_trading_sessions",
+  "benchmark": {
+    "ticker": "069500",
+    "name": "KODEX 200",
+    "exposure": 0.95,
+    "basis": "investable total return after integer shares, fees, slippage and net distributions"
+  },
+  "candidate": {
+    "name": "kodex_sector_rotation",
+    "core_weight": 0.40,
+    "sector_weight": 0.55,
+    "cash_weight": 0.05,
+    "top_n": 2,
+    "short_momentum_weeks": 26,
+    "long_momentum_weeks": 52,
+    "rebalance": "monthly_or_risk_state_change",
+    "risk_state": "k200_low_turnover_reentry_defaults",
+    "universe": [
+      "091180", "091170", "091160", "102970", "102960",
+      "117460", "117700", "117680", "140700", "140710",
+      "266410", "266390", "266360", "266370", "266420"
+    ]
+  },
+  "promotion_gates": {
+    "minimum_annualised_excess_return": 0.02,
+    "minimum_rolling_12m_beat_rate": 0.60,
+    "maximum_mdd_disadvantage": 0.05,
+    "maximum_positive_excess_year_share": 0.60
+  },
+  "governance": {
+    "capital_allowed": false,
+    "parameter_changes_before_review": false,
+    "historical_replay_can_approve_production": false,
+    "notes": "This is a concentrated sector-beta experiment, not proven independent alpha."
+  }
+}
