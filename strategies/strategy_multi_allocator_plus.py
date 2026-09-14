@@ -373,8 +373,20 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
             return recovery, stress_levels
         return baseline, stress_levels
 
-    def compute_security_targets(self, enriched, market_index=None, secondary_index=None, weights_override=None, silent=True):
-        """자식 전략 결합 신호를 기반으로 티커별 목표 비중 계산"""
+    def compute_security_targets(
+        self,
+        enriched,
+        market_index=None,
+        secondary_index=None,
+        weights_override=None,
+        silent=True,
+        target_policy="legacy",
+    ):
+        """자식 전략 결합 신호를 기반으로 티커별 목표 비중 계산.
+
+        ``target_policy='preserve_child_cash'`` is reserved for audited
+        comparisons.  The default intentionally preserves production output.
+        """
         child_results = self._run_child_strategies(enriched, market_index, weights_override=weights_override, silent=silent)
         if not child_results:
             return pd.DataFrame()
@@ -382,6 +394,8 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
         child_returns = self._build_child_returns(child_results)
         ret_df = pd.concat(child_returns.values(), axis=1).fillna(0.0)
         ret_df.columns = list(child_returns.keys())
+        self.latest_child_results = child_results
+        self.latest_child_returns = ret_df.copy()
         shared_index = ret_df.index
         if shared_index.empty:
             return pd.DataFrame()
@@ -423,10 +437,22 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
                     shared_index,
                     enriched,
                 )
+            else:
+                frame = frame.copy()
+                frame.index = pd.to_datetime(frame.index)
+                frame = frame.loc[~frame.index.duplicated(keep="last")].sort_index()
             weight_frames[strat] = frame
+        self.latest_child_weight_frames = weight_frames
 
         security_style_map = self._build_security_style_map(enriched)
-        security_targets = self._combine_strategy_targets(
+        if target_policy == "legacy":
+            combine_targets = self._combine_strategy_targets
+        elif target_policy == "preserve_child_cash":
+            combine_targets = self._combine_strategy_targets_preserving_cash
+        else:
+            raise ValueError(f"unknown target policy: {target_policy}")
+
+        security_targets = combine_targets(
             weight_frames,
             strategy_weights,
             expos.reindex(shared_index),

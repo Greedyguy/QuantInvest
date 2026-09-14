@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from config import (
+    BLOCKED_TICKERS,
     FEE_PER_SIDE,
     SLIPPAGE_ENTRY,
     SLIPPAGE_EXIT,
@@ -54,10 +55,25 @@ def _price_on(enriched: Dict[str, pd.DataFrame], ticker: str, day, field: str) -
     return float(val) if np.isfinite(val) else np.nan
 
 
+def _price_on_or_before(
+    enriched: Dict[str, pd.DataFrame], ticker: str, day, field: str
+) -> float:
+    """Use the latest observable mark for suspensions and missing rows."""
+
+    df = enriched.get(ticker)
+    if df is None or df.empty or field not in df.columns:
+        return np.nan
+    observed = df.loc[df.index <= day, field].dropna()
+    if observed.empty:
+        return np.nan
+    value = float(observed.iloc[-1])
+    return value if np.isfinite(value) else np.nan
+
+
 def _mark_to_market(cash: float, holdings: Dict[str, int], enriched: Dict[str, pd.DataFrame], day) -> float:
     equity = cash
     for ticker, qty in holdings.items():
-        price = _price_on(enriched, ticker, day, "close")
+        price = _price_on_or_before(enriched, ticker, day, "close")
         if np.isfinite(price) and price > 0:
             equity += qty * price
     return equity
@@ -72,16 +88,21 @@ def _build_orders(
     enriched: Dict[str, pd.DataFrame],
     min_trade: int,
     price_band_pct: float,
+    blocked_tickers: set[str] | None = None,
 ) -> List[SimOrder]:
     equity = cash
     for ticker, qty in holdings.items():
         px = _price_on(enriched, ticker, exec_date, "open")
+        if not np.isfinite(px) or px <= 0:
+            px = _price_on_or_before(enriched, ticker, signal_date, "close")
         if np.isfinite(px) and px > 0:
             equity += qty * px
 
     orders: List[SimOrder] = []
+    blocked = {str(ticker) for ticker in (blocked_tickers or set())}
     asset_targets = targets.drop("__CASH__", errors="ignore")
     asset_targets = asset_targets[asset_targets > 0]
+    asset_targets = asset_targets.drop(list(blocked), errors="ignore")
     target_symbols = set(asset_targets.index)
 
     for ticker, weight in asset_targets.items():
@@ -113,7 +134,7 @@ def _build_orders(
         if delta == 0:
             continue
         diff_pct = abs(exec_open - ref_price) / ref_price * 100
-        if diff_pct > price_band_pct:
+        if delta > 0 and diff_pct > price_band_pct:
             orders.append(
                 SimOrder(
                     str(signal_date.date()),
@@ -174,6 +195,7 @@ def simulate(
     initial_cash: float,
     min_trade: int,
     price_band_pct: float,
+    blocked_tickers: set[str] | None = None,
 ) -> tuple[pd.DataFrame, list[dict]]:
     cash = float(initial_cash)
     holdings: Dict[str, int] = {}
@@ -181,6 +203,10 @@ def simulate(
     trade_rows: List[dict] = []
 
     dates = list(target_weights.index)
+    if dates:
+        equity_rows.append(
+            {"date": dates[0], "equity": cash, "cash": cash, "positions": 0}
+        )
     for idx in range(len(dates) - 1):
         signal_date = dates[idx]
         exec_date = dates[idx + 1]
@@ -194,6 +220,7 @@ def simulate(
             enriched,
             min_trade,
             price_band_pct,
+            blocked_tickers=BLOCKED_TICKERS if blocked_tickers is None else blocked_tickers,
         )
 
         for order in orders:

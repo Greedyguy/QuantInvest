@@ -16,6 +16,11 @@ from collections import defaultdict
 
 from utils import perf_stats
 from config import FEE_PER_SIDE, TAX_RATE_SELL
+from strategy_validation import (
+    apply_turnover_cap,
+    cap_security_weights_to_cash,
+    combine_child_targets_preserving_cash,
+)
 
 
 class MultiStrategyAllocator(BaseStrategy):
@@ -100,6 +105,9 @@ class MultiStrategyAllocator(BaseStrategy):
         self.large_trend_floor = large_trend_floor
         self.latest_style_context = None
         self.latest_security_style_map = {}
+        self.latest_child_results = {}
+        self.latest_child_weight_frames = {}
+        self.latest_child_returns = pd.DataFrame()
         self.role_floor_stress = role_floor_stress or {
             1: {"short": 0.22, "defensive": 0.28},
             2: {"short": 0.32, "defensive": 0.35},
@@ -634,7 +642,9 @@ class MultiStrategyAllocator(BaseStrategy):
         return child_results
 
     def _compute_daily_returns(self, equity_df):
-        eq = equity_df["equity"].astype(float)
+        eq = equity_df["equity"].astype(float).copy()
+        eq.index = pd.to_datetime(eq.index)
+        eq = eq.loc[~eq.index.duplicated(keep="last")].sort_index()
         return eq.pct_change().fillna(0.0)
 
     def _build_child_returns(self, child_results):
@@ -912,6 +922,36 @@ class MultiStrategyAllocator(BaseStrategy):
             target.loc[date, "__CASH__"] = max(1 - expo, 0.0)
         target = self._apply_security_style_caps(target, style_context, security_style_map)
         return self._apply_live_target_constraints(target)
+
+    def _combine_strategy_targets_preserving_cash(
+        self,
+        weight_frames,
+        sharpe_weights,
+        exposures,
+        style_context=None,
+        security_style_map=None,
+    ):
+        """Audited alternative that never scales a child's risky sleeve up.
+
+        Outer exposure is a ceiling and every residual remains ``__CASH__``.
+        Production continues to use the legacy method unless an audit caller
+        explicitly requests this policy.
+        """
+
+        target = combine_child_targets_preserving_cash(
+            weight_frames,
+            sharpe_weights,
+            exposures,
+            leverage_cap=1.0,
+        )
+        target = self._apply_security_style_caps(
+            target,
+            style_context,
+            security_style_map,
+        )
+        target = cap_security_weights_to_cash(target, self.max_security_weight)
+        target = apply_turnover_cap(target, self._turnover_cap_for_exposure)
+        return cap_security_weights_to_cash(target, self.max_security_weight)
 
     def _cap_security_weights(self, target_weights):
         max_weight = getattr(self, "max_security_weight", None)
