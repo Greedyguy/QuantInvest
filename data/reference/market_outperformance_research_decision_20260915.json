@@ -45,5 +45,16 @@
     "change_current_live_strategy": false,
     "prospective_shadow": "frozen K200LowTurnoverReentry only",
     "new_capital_at_risk": 0
+  },
+  "prospective_validation": {
+    "protocol_version": 2,
+    "deployment_state": "recovery_branch_only_not_live",
+    "first_eligible_signal_date": "2026-09-16",
+    "frozen_signal_history_start": "2020-01-02",
+    "daily_evidence": "immutable causal OHLC hash, frozen source hashes, state, target, integer-share candidate and benchmark account snapshots",
+    "stale_input_policy": "fail_closed",
+    "minimum_subsequent_sessions": 252,
+    "final_auditor": "scripts/audit_k200_reentry_shadow.py",
+    "automatic_order_authority": false
   }
 }

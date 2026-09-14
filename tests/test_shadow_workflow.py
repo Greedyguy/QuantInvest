@@ -20,3 +20,4 @@ def test_eod_workflow_records_frozen_kodex200_shadow_without_orders():
 
     assert "scripts/report_k200_reentry_shadow.py" in workflow
     assert "--output-dir reports/signals" in workflow
+    assert "--allow-stale-diagnostic" not in workflow
