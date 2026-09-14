@@ -26,6 +26,7 @@ from market_benchmark import (
     load_distribution_events,
     load_samsung_distribution_json,
     load_samsung_kodex_standard_xls,
+    load_samsung_kodex_total_return_json,
     restore_actual_ohlc,
 )
 from scripts.backtest_k200_reentry import (
@@ -36,6 +37,7 @@ from scripts.backtest_k200_reentry import (
     select_k200_file,
 )
 from strategies.kodex_sector_rotation import KodexSectorRotation
+from strategies.kodex_sector_relative_breakout import KodexSectorRelativeBreakout
 
 
 CORE_TICKER = "069500"
@@ -102,7 +104,12 @@ def _load_official_inputs(data_dir: Path):
             data_dir / "kodex200_standard.xls",
         )
     }
-    total_return = {}
+    core_total_return = load_samsung_kodex_total_return_json(
+        data_dir / "kodex200_total_return.json"
+    )
+    total_return = {
+        CORE_TICKER: core_total_return["nav_total_return_index"]
+    }
     distributions = {
         CORE_TICKER: with_legacy(
             CORE_TICKER,
@@ -156,6 +163,8 @@ def _validate_sealed_holdout(args: argparse.Namespace) -> dict:
         raise ValueError(f"sealed holdout dates must be {expected}, got {requested}")
     if args.core_signal_source != "distribution_adjusted_actual":
         raise ValueError("sealed holdout requires distribution_adjusted_actual signals")
+    if args.candidate != "rotation":
+        raise ValueError("registered sealed holdout requires the rotation candidate")
     strategy_path = PROJECT_ROOT / "strategies" / "kodex_sector_rotation.py"
     shadow_spec_path = (
         PROJECT_ROOT
@@ -261,6 +270,11 @@ def _run_market_benchmark(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--official-data-dir", required=True)
+    parser.add_argument(
+        "--candidate",
+        choices=("rotation", "relative_breakout"),
+        default="rotation",
+    )
     parser.add_argument("--core-signal-file")
     parser.add_argument(
         "--core-signal-source",
@@ -304,7 +318,12 @@ def main() -> None:
     core_signal = core_signal.loc[core_signal.index <= end]
     total_return = total_return.loc[total_return.index <= end]
 
-    strategy = KodexSectorRotation(
+    strategy_class = (
+        KodexSectorRelativeBreakout
+        if args.candidate == "relative_breakout"
+        else KodexSectorRotation
+    )
+    strategy = strategy_class(
         total_return_indices=total_return,
         signal_prices=core_signal,
         distribution_events_by_ticker=distributions,
@@ -428,7 +447,7 @@ def main() -> None:
     label = (
         "kodex_sector_rotation_holdout"
         if args.sealed_holdout
-        else "kodex_sector_rotation"
+        else strategy.get_name()
     )
     stem = f"{label}_{stamp}"
     summary_path = output_dir / f"{stem}.json"
@@ -450,7 +469,7 @@ def main() -> None:
             )
         )
     payload = {
-        "strategy": "kodex_sector_rotation",
+        "strategy": strategy.get_name(),
         "status": "paper_shadow_only_no_capital",
         "production_approved": False,
         "historical_gate_result": historical_pass,
@@ -476,6 +495,10 @@ def main() -> None:
             "rebalance": "monthly or on KODEX 200 risk-state change",
             "risk_state": "frozen k200_low_turnover_reentry defaults",
             "leverage_or_inverse": False,
+            "require_core_outperformance": getattr(
+                strategy, "require_core_outperformance", False
+            ),
+            "fallback_to_core": getattr(strategy, "fallback_to_core", False),
         },
         "execution_assumptions": {
             "integer_shares": True,

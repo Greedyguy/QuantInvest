@@ -7,6 +7,7 @@ import pytest
 from strategies import get_strategy
 from scripts.backtest_kodex_sector_rotation import _validate_sealed_holdout
 from strategies.kodex_sector_rotation import KodexSectorRotation
+from strategies.kodex_sector_relative_breakout import KodexSectorRelativeBreakout
 
 
 def _synthetic_data(periods: int = 430):
@@ -83,11 +84,40 @@ def test_sector_rotation_is_registered():
     assert isinstance(get_strategy("kodex_sector_rotation"), KodexSectorRotation)
 
 
+def test_relative_breakout_falls_back_to_core_when_sectors_lag():
+    execution, total_return, signal_core = _synthetic_data()
+    weekly_growth = np.exp(np.arange(len(total_return)) * 0.01)
+    total_return["069500"] = weekly_growth
+    for ticker in total_return.columns.drop("069500"):
+        total_return[ticker] = np.exp(np.arange(len(total_return)) * 0.001)
+    strategy = KodexSectorRelativeBreakout(
+        total_return_indices=total_return,
+        signal_prices=signal_core,
+        short_momentum_weeks=8,
+        long_momentum_weeks=16,
+    )
+
+    targets = strategy.compute_security_targets(execution)
+    invested = targets.loc[targets["069500"].gt(0)].iloc[-1]
+
+    assert invested["069500"] == pytest.approx(0.95)
+    assert invested["__CASH__"] == pytest.approx(0.05)
+    assert invested.drop(["069500", "__CASH__"]).eq(0.0).all()
+
+
+def test_relative_breakout_is_registered():
+    assert isinstance(
+        get_strategy("kodex_sector_relative_breakout"),
+        KodexSectorRelativeBreakout,
+    )
+
+
 def test_sealed_holdout_requires_preregistered_period_and_signal_source():
     valid = Namespace(
         start_date="2018-04-02",
         end_date="2019-12-30",
         core_signal_source="distribution_adjusted_actual",
+        candidate="rotation",
     )
     assert _validate_sealed_holdout(valid)["one_shot_evaluation"] is True
 
@@ -95,6 +125,7 @@ def test_sealed_holdout_requires_preregistered_period_and_signal_source():
         start_date="2018-05-01",
         end_date="2019-12-30",
         core_signal_source="distribution_adjusted_actual",
+        candidate="rotation",
     )
     with pytest.raises(ValueError, match="sealed holdout dates"):
         _validate_sealed_holdout(invalid)

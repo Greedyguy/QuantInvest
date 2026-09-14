@@ -22,6 +22,7 @@ from strategies.k200_trend_sleeve import K200TrendSleeve
 from strategies.k200_low_turnover_reentry import K200LowTurnoverReentry
 from strategies.k200_relative_strength_satellite import K200RelativeStrengthSatellite
 from strategies.kodex_sector_rotation import KodexSectorRotation
+from strategies.kodex_sector_relative_breakout import KodexSectorRelativeBreakout
 from strategies.strategy_kqm_small_cap_v2 import KQMSmallCapStrategyV21
 from strategies.kmr_midcap_reversion import KMRMidcapReversion
 from strategies.strategy_kqm_small_cap_v3 import KQMSmallCapStrategyV3
@@ -74,6 +75,7 @@ def _register_strategies():
         K200LowTurnoverReentry,
         K200RelativeStrengthSatellite,
         KodexSectorRotation,
+        KodexSectorRelativeBreakout,
         KQMSmallCapStrategyV21,
         KQMSmallCapStrategyV22,
         KQMSmallCapStrategyV22Regime,

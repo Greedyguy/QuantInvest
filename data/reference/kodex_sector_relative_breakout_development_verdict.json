@@ -1,0 +1,51 @@
+{
+  "candidate": "kodex_sector_relative_breakout",
+  "evaluated_at": "2026-09-14T15:55:33+09:00",
+  "evaluation_kind": "retrospective_seen_development_data",
+  "period": {
+    "start": "2018-04-02",
+    "end": "2026-09-11"
+  },
+  "source_report": {
+    "path": "reports/kodex_sector_relative_breakout_20260914_155533.json",
+    "sha256": "135686f7af4d959f332b7b454f0915f2483f367004b434079030ac3f3c575635"
+  },
+  "small_account_krw": 2100000,
+  "execution_assumptions": {
+    "integer_shares": true,
+    "buy_and_sell_slippage_pct": 0.2,
+    "broker_fee_per_side_pct": 0.0140527,
+    "domestic_equity_etf_sell_tax_pct": 0.0,
+    "distribution_income_tax_pct": 15.4
+  },
+  "observed_metrics": {
+    "candidate_return_pct": 370.5417510395192,
+    "market_buy_hold_return_pct": 249.90771321819324,
+    "candidate_cagr_pct": 20.131460167302116,
+    "market_buy_hold_cagr_pct": 15.990170663949943,
+    "market_buy_hold_cagr_excess_pct_point": 4.141289503352175,
+    "market_buy_hold_rolling_12m_beat_rate_pct": 62.54805052169138,
+    "same_timing_kodex200_cagr_pct": 18.50527924444112,
+    "same_timing_kodex200_cagr_excess_pct_point": 1.626180922860998,
+    "same_timing_kodex200_rolling_12m_beat_rate_pct": 61.61449752883031,
+    "double_cost_market_cagr_excess_pct_point": 3.3226102942565783,
+    "double_cost_market_rolling_12m_beat_rate_pct": 59.362987369577155,
+    "candidate_mdd_pct": -15.922336335304744
+  },
+  "failed_gates": [
+    "same_timing_kodex200 annualised excess return >= 2.0 percentage points",
+    "double-cost market rolling 12-month beat rate >= 60 percent"
+  ],
+  "diagnosis": [
+    "Requiring sector ETFs to beat KODEX 200 at both 26 and 52 weeks did not remove the 2019 and 2020 relative reversals.",
+    "The candidate still made 137 small-account orders and did not produce a sufficiently robust selection premium over the identical KODEX 200 risk timing.",
+    "Further threshold tuning on the same seen price history would create material overfitting risk."
+  ],
+  "decision": {
+    "production": "rejected",
+    "capital_allocation_pct": 0,
+    "paper_shadow": "not_required",
+    "sealed_2015_2017_holdout": "do_not_open",
+    "next_research_direction": "point-in-time fundamental quality/value plus price confirmation, subject to obtaining an approved official data source"
+  }
+}
