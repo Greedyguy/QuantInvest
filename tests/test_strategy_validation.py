@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backtest_live_execution import _build_orders, simulate
+from backtest_live_execution import HoldingPeriodTaxProfile, _build_orders, simulate
 from strategies.strategy_multi_allocator_plus import MultiStrategyAllocatorPlus
 from strategy_validation import (
     ValidationPeriod,
@@ -220,6 +220,90 @@ def test_execution_can_resolve_historical_sell_tax_by_date():
     assert sell["tax"] == pytest.approx(
         sell["final_qty"] * sell["exec_price"] * 0.0025
     )
+
+
+def test_execution_applies_etf_holding_period_tax_to_smaller_gain_base():
+    dates = pd.bdate_range("2020-01-02", periods=4)
+    prices = {
+        "122630": pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 100.0, 130.0],
+                "close": [100.0, 100.0, 100.0, 130.0],
+            },
+            index=dates,
+        )
+    }
+    targets = pd.DataFrame(
+        {
+            "122630": [1.0, 1.0, 0.0, 0.0],
+            "__CASH__": [0.0, 0.0, 1.0, 1.0],
+        },
+        index=dates,
+    )
+    tax_nav = pd.Series([100.0, 100.0, 110.0, 120.0], index=dates)
+
+    _, trades = simulate(
+        targets,
+        prices,
+        initial_cash=1_000.0,
+        min_trade=0,
+        price_band_pct=100.0,
+        blocked_tickers=set(),
+        sell_tax_rate_by_ticker={"122630": 0.0},
+        rebalance_only_on_target_change=True,
+        holding_period_tax_by_ticker={
+            "122630": HoldingPeriodTaxProfile(tax_nav)
+        },
+        fee_per_side=0.0,
+        slippage_entry=0.0,
+        slippage_exit=0.0,
+    )
+
+    sell = next(trade for trade in trades if trade["action"] == "SELL")
+    assert sell["holding_period_tax"] == pytest.approx(10 * 20 * 0.154)
+    assert sell["transaction_tax"] == 0.0
+    assert sell["tax"] == sell["holding_period_tax"]
+
+
+def test_execution_holding_period_tax_is_zero_on_market_loss():
+    dates = pd.bdate_range("2020-01-02", periods=4)
+    prices = {
+        "122630": pd.DataFrame(
+            {
+                "open": [100.0, 100.0, 100.0, 90.0],
+                "close": [100.0, 100.0, 100.0, 90.0],
+            },
+            index=dates,
+        )
+    }
+    targets = pd.DataFrame(
+        {
+            "122630": [1.0, 1.0, 0.0, 0.0],
+            "__CASH__": [0.0, 0.0, 1.0, 1.0],
+        },
+        index=dates,
+    )
+    tax_nav = pd.Series([100.0, 100.0, 110.0, 120.0], index=dates)
+
+    _, trades = simulate(
+        targets,
+        prices,
+        initial_cash=1_000.0,
+        min_trade=0,
+        price_band_pct=100.0,
+        blocked_tickers=set(),
+        sell_tax_rate_by_ticker={"122630": 0.0},
+        rebalance_only_on_target_change=True,
+        holding_period_tax_by_ticker={
+            "122630": HoldingPeriodTaxProfile(tax_nav)
+        },
+        fee_per_side=0.0,
+        slippage_entry=0.0,
+        slippage_exit=0.0,
+    )
+
+    sell = next(trade for trade in trades if trade["action"] == "SELL")
+    assert sell["holding_period_tax"] == 0.0
 
 
 def test_execution_can_avoid_daily_weight_maintenance_churn():

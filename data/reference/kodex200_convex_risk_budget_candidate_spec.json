@@ -2,6 +2,13 @@
   "status": "pre_registered_before_any_candidate_return",
   "candidate": "kodex200_convex_risk_budget_v1",
   "pre_registered_on": "2026-09-15",
+  "pre_return_amendments": [
+    {
+      "date": "2026-09-15",
+      "reason": "Official product terms confirmed that KODEX Leverage is subject to holding-period taxation; this was corrected before computing any candidate return.",
+      "return_metrics_seen_before_amendment": false
+    }
+  ],
   "development_period": {
     "start": "2018-06-29",
     "end": "2022-12-29"
@@ -38,7 +45,10 @@
     "venue_fee_per_side": 0.000036396,
     "entry_slippage": 0.002,
     "exit_slippage": 0.002,
-    "domestic_equity_etf_sell_tax": 0.0,
+    "kodex200_sell_transaction_tax": 0.0,
+    "kodex_leverage_sell_transaction_tax": 0.0,
+    "kodex_leverage_holding_period_tax": "15.4 percent of the positive minimum of simulated market-price gain and official tax-NAV gain, charged on each sale",
+    "kodex_leverage_tax_nav_source": "official Samsung Asset Management daily standard-price workbook, truncated to the development period before candidate calculation",
     "cash_distributions": "official payment events with 15.4 percent withholding on the taxable amount"
   },
   "development_pass_gate": {

@@ -29,6 +29,20 @@ def test_kodex_reference_manifest_proves_development_coverage():
     )
 
 
+def test_kodex_leverage_reference_proves_audited_zero_event_history():
+    reference = Path(__file__).resolve().parents[1] / "data" / "reference"
+
+    result = load_distribution_bundle(
+        reference / "kodex_leverage_distributions_2018_2022.csv",
+        reference / "kodex_leverage_distributions_2018_2022_manifest.json",
+        required_tickers={"122630"},
+        start_date="2018-06-29",
+        end_date="2022-12-29",
+    )
+
+    assert result == {}
+
+
 def _events() -> pd.DataFrame:
     return pd.DataFrame(
         {

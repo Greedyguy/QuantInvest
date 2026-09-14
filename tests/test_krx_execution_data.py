@@ -3,6 +3,7 @@ import pytest
 
 from krx_execution_data import (
     KrxExecutionDataError,
+    actual_ohlc_for_ticker,
     assert_no_unmodelled_corporate_actions,
     normalize_krx_actual_close,
     restore_actual_price_panel,
@@ -59,6 +60,48 @@ def test_normalizer_preserves_official_actual_close_level():
     assert result["ticker"].tolist() == ["005930", "005930"]
     assert result["close"].tolist() == [2_650_000, 2_650_000]
     assert result["price_basis"].eq("actual_traded").all()
+
+
+def test_normalizer_preserves_official_actual_ohlc():
+    raw = pd.DataFrame(
+        {
+            "일자": ["2022-12-29"],
+            "시가": ["13,100"],
+            "고가": ["13,165"],
+            "저가": ["12,805"],
+            "종가": ["12,805"],
+        }
+    )
+
+    panel = normalize_krx_actual_close(raw, ticker="122630")
+    result = actual_ohlc_for_ticker(panel, "122630")
+
+    assert result.loc[pd.Timestamp("2022-12-29")].to_dict() == {
+        "open": 13_100,
+        "high": 13_165,
+        "low": 12_805,
+        "close": 12_805,
+    }
+
+
+def test_normalizer_rejects_partial_or_inconsistent_actual_ohlc():
+    partial = pd.DataFrame(
+        {"일자": ["2022-12-29"], "시가": [100], "종가": [100]}
+    )
+    with pytest.raises(KrxExecutionDataError, match="open, high, and low"):
+        normalize_krx_actual_close(partial, ticker="122630")
+
+    inconsistent = pd.DataFrame(
+        {
+            "일자": ["2022-12-29"],
+            "시가": [100],
+            "고가": [99],
+            "저가": [98],
+            "종가": [100],
+        }
+    )
+    with pytest.raises(KrxExecutionDataError, match="actual high"):
+        normalize_krx_actual_close(inconsistent, ticker="122630")
 
 
 def test_validator_rejects_adjusted_price_basis():

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import raw KRX daily-close downloads into one immutable actual-price panel."""
+"""Import raw KRX daily-price downloads into one immutable actual-price panel."""
 
 from __future__ import annotations
 
@@ -109,6 +109,7 @@ def import_actual_closes(
     manifest_path: Path,
     *,
     required_tickers: set[str] | None = None,
+    allow_outside_constituents: bool = False,
 ) -> tuple[Path, Path]:
     """Write an immutable normalized panel and a content-addressed manifest."""
 
@@ -128,7 +129,7 @@ def import_actual_closes(
     if not required:
         raise ValueError("required KRX actual-close ticker set cannot be empty")
     unexpected = sorted(required - universe)
-    if unexpected:
+    if unexpected and not allow_outside_constituents:
         raise ValueError(f"requested tickers are outside the development universe: {unexpected}")
     panel, provenance = build_actual_close_panel(
         discover_raw_files(input_dir), required_tickers=required
@@ -147,6 +148,11 @@ def import_actual_closes(
         "sealed_after": DEVELOPMENT_END.date().isoformat(),
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "required_tickers": sorted(required),
+        "fields": [
+            column
+            for column in ("open", "high", "low", "close")
+            if column in panel
+        ],
         "normalized_rows": int(len(panel)),
         "normalized_file": {
             "filename": output_path.name,
@@ -180,6 +186,11 @@ def main() -> None:
         nargs="+",
         help="Optional selected development tickers; defaults to the full universe",
     )
+    parser.add_argument(
+        "--allow-outside-constituents",
+        action="store_true",
+        help="Allow explicitly named ETF or benchmark tickers outside the stock universe",
+    )
     args = parser.parse_args()
     manifest = args.manifest or args.output.with_suffix(".manifest.json")
     output_path, manifest_path = import_actual_closes(
@@ -188,6 +199,7 @@ def main() -> None:
         args.output,
         manifest,
         required_tickers=(set(args.required_tickers) if args.required_tickers else None),
+        allow_outside_constituents=args.allow_outside_constituents,
     )
     print(f"normalized actual closes: {output_path}")
     print(f"provenance manifest: {manifest_path}")

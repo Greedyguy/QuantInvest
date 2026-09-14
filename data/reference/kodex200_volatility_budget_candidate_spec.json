@@ -1,0 +1,71 @@
+{
+  "status": "pre_registered_before_any_candidate_return",
+  "candidate": "kodex200_volatility_budget_v2",
+  "pre_registered_on": "2026-09-15",
+  "development_period": {
+    "start": "2018-06-29",
+    "end": "2022-12-29"
+  },
+  "sealed_periods": {
+    "walk_forward": "2023-01-01/2024-12-31",
+    "unused_holdout": "2025-01-01/2026-12-31"
+  },
+  "rationale": "v1 showed that a permanent leverage sleeve produced development excess but concentrated it in one year. v2 changes only the leverage budget: it adds exposure in calm positive-momentum risk-on months and removes it when short-horizon volatility is high or momentum is non-positive. Thresholds are fixed economically without a parameter sweep.",
+  "signals": {
+    "base_risk_state": "frozen K200LowTurnoverReentry defaults using only KODEX 200 split-adjusted history",
+    "overlay_review_frequency": "first KRX session of each month",
+    "overlay_information_cutoff": "previous session close",
+    "momentum": "60-session KODEX 200 close return must be positive for any leveraged sleeve",
+    "volatility": "20-session KODEX 200 close-return standard deviation annualised with sqrt(252)",
+    "leverage_etf_has_no_independent_signal": true,
+    "execution": "a changed tier executes at the current first-session open using the previous close signal"
+  },
+  "portfolio": {
+    "risk_off": {
+      "cash_weight": 1.0
+    },
+    "risk_on_nonpositive_momentum_or_volatility_above_22pct": {
+      "kodex200_weight": 0.95,
+      "kodex_leverage_weight": 0.0,
+      "cash_weight": 0.05,
+      "approximate_index_exposure": 0.95
+    },
+    "risk_on_volatility_above_15pct_through_22pct": {
+      "kodex200_weight": 0.75,
+      "kodex_leverage_weight": 0.20,
+      "cash_weight": 0.05,
+      "approximate_index_exposure": 1.15
+    },
+    "risk_on_volatility_at_or_below_15pct": {
+      "kodex200_weight": 0.60,
+      "kodex_leverage_weight": 0.35,
+      "cash_weight": 0.05,
+      "approximate_index_exposure": 1.30
+    },
+    "rebalance_between_monthly_reviews": false,
+    "emergency_base_exit_to_cash": true
+  },
+  "execution": {
+    "small_account_krw": 2100000,
+    "actual_official_daily_ohlc_required": true,
+    "integer_shares": true,
+    "minimum_trade_krw": 50000,
+    "commission_per_side": 0.000140527,
+    "venue_fee_per_side": 0.000036396,
+    "entry_slippage": 0.002,
+    "exit_slippage": 0.002,
+    "kodex200_sell_transaction_tax": 0.0,
+    "kodex_leverage_sell_transaction_tax": 0.0,
+    "kodex_leverage_holding_period_tax": "15.4 percent of the positive minimum of simulated market-price gain and official tax-NAV gain, charged on each sale",
+    "cash_distributions": "official payment events with 15.4 percent withholding on the taxable amount"
+  },
+  "development_pass_gate": {
+    "continuous_kodex200_total_return_cagr_excess_pct_point_min": 2.0,
+    "same_timing_unlevered_kodex200_cagr_excess_pct_point_min": 1.5,
+    "rolling_12m_beat_rate_pct_min_for_both_benchmarks": 60.0,
+    "maximum_drawdown_disadvantage_vs_same_timing_pct_point_max": 5.0,
+    "positive_excess_year_concentration_pct_max_for_both_benchmarks": 60.0,
+    "must_pass_double_cost_stress": true
+  },
+  "decision_rule": "Any development gate failure rejects v2 without opening either sealed period. Passing development opens only the 2023-2024 walk-forward period."
+}

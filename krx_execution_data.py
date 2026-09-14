@@ -20,6 +20,10 @@ APPROVED_PRICE_SOURCE_PREFIXES = ("KRX Data Marketplace", "KRX Open API")
 DATE_ALIASES = ("date", "일자", "거래일자", "기준일", "TRD_DD")
 TICKER_ALIASES = ("ticker", "티커", "종목코드", "단축코드", "ISU_SRT_CD")
 CLOSE_ALIASES = ("close", "종가", "TDD_CLSPRC")
+OPEN_ALIASES = ("open", "시가", "TDD_OPNPRC")
+HIGH_ALIASES = ("high", "고가", "TDD_HGPRC")
+LOW_ALIASES = ("low", "저가", "TDD_LWPRC")
+OHLC_COLUMNS = ("open", "high", "low", "close")
 
 
 class KrxExecutionDataError(ValueError):
@@ -33,25 +37,52 @@ def _column(frame: pd.DataFrame, aliases: tuple[str, ...]) -> pd.Series:
     raise KrxExecutionDataError(f"none of the required columns exist: {aliases}")
 
 
+def _optional_column(
+    frame: pd.DataFrame, aliases: tuple[str, ...]
+) -> pd.Series | None:
+    for alias in aliases:
+        if alias in frame:
+            return frame[alias]
+    return None
+
+
 def validate_actual_close_panel(frame: pd.DataFrame) -> pd.DataFrame:
     """Validate an official, unadjusted KRX daily-close collection."""
 
     missing = sorted(set(REQUIRED_ACTUAL_CLOSE_COLUMNS) - set(frame.columns))
     if missing:
         raise KrxExecutionDataError(f"missing actual-close columns: {missing}")
-    result = frame.loc[:, REQUIRED_ACTUAL_CLOSE_COLUMNS].copy()
+    optional_ohlc = [column for column in OHLC_COLUMNS[:-1] if column in frame]
+    if optional_ohlc and len(optional_ohlc) != len(OHLC_COLUMNS) - 1:
+        raise KrxExecutionDataError(
+            "actual OHLC must contain open, high, and low together"
+        )
+    ordered_columns = ["date", "ticker"]
+    if optional_ohlc:
+        ordered_columns.extend(OHLC_COLUMNS[:-1])
+    ordered_columns.extend(["close", "source", "price_basis"])
+    result = frame.loc[:, ordered_columns].copy()
     result["date"] = pd.to_datetime(result["date"], errors="coerce").dt.normalize()
     if result["date"].isna().any():
         raise KrxExecutionDataError("actual-close dates must be valid")
     result["ticker"] = result["ticker"].astype("string").str.strip().str.zfill(6)
     if not result["ticker"].str.fullmatch(r"[0-9A-Z]{6}").all():
         raise KrxExecutionDataError("ticker must be a six-character KRX short code")
-    result["close"] = pd.to_numeric(
-        result["close"].astype("string").str.replace(",", "", regex=False),
-        errors="coerce",
-    )
-    if result["close"].isna().any() or result["close"].le(0.0).any():
-        raise KrxExecutionDataError("actual closes must be positive numbers")
+    price_columns = OHLC_COLUMNS if optional_ohlc else ("close",)
+    for column in price_columns:
+        result[column] = pd.to_numeric(
+            result[column].astype("string").str.replace(",", "", regex=False),
+            errors="coerce",
+        )
+    if result.loc[:, price_columns].isna().any(axis=None):
+        raise KrxExecutionDataError("actual prices must be valid numbers")
+    if result.loc[:, price_columns].le(0.0).any(axis=None):
+        raise KrxExecutionDataError("actual prices must be positive numbers")
+    if optional_ohlc:
+        if result["high"].lt(result[["open", "low", "close"]].max(axis=1)).any():
+            raise KrxExecutionDataError("actual high must cover open, low, and close")
+        if result["low"].gt(result[["open", "high", "close"]].min(axis=1)).any():
+            raise KrxExecutionDataError("actual low must cover open, high, and close")
     if not result["price_basis"].astype("string").eq("actual_traded").all():
         raise KrxExecutionDataError(
             "price_basis must be actual_traded; adjusted levels are forbidden"
@@ -77,15 +108,26 @@ def normalize_krx_actual_close(
         if ticker is not None
         else _column(raw, TICKER_ALIASES)
     )
-    normalized = pd.DataFrame(
-        {
-            "date": _column(raw, DATE_ALIASES),
-            "ticker": tickers,
-            "close": _column(raw, CLOSE_ALIASES),
-            "source": source,
-            "price_basis": "actual_traded",
-        }
-    )
+    open_price = _optional_column(raw, OPEN_ALIASES)
+    high = _optional_column(raw, HIGH_ALIASES)
+    low = _optional_column(raw, LOW_ALIASES)
+    optional_prices = (open_price, high, low)
+    if any(value is not None for value in optional_prices) and not all(
+        value is not None for value in optional_prices
+    ):
+        raise KrxExecutionDataError(
+            "raw actual OHLC must contain open, high, and low together"
+        )
+    columns = {
+        "date": _column(raw, DATE_ALIASES),
+        "ticker": tickers,
+        "close": _column(raw, CLOSE_ALIASES),
+        "source": source,
+        "price_basis": "actual_traded",
+    }
+    if open_price is not None:
+        columns.update({"open": open_price, "high": high, "low": low})
+    normalized = pd.DataFrame(columns)
     return validate_actual_close_panel(normalized)
 
 
@@ -100,6 +142,21 @@ def load_actual_close_panel(path: str | Path) -> pd.DataFrame:
     else:
         raise KrxExecutionDataError(f"unsupported actual-close format: {path.suffix}")
     return validate_actual_close_panel(frame)
+
+
+def actual_ohlc_for_ticker(
+    panel: pd.DataFrame, ticker: str
+) -> pd.DataFrame:
+    """Extract authoritative traded OHLC for one ticker from a strict panel."""
+
+    validated = validate_actual_close_panel(panel)
+    missing = sorted(set(OHLC_COLUMNS) - set(validated.columns))
+    if missing:
+        raise KrxExecutionDataError(f"actual OHLC columns are missing: {missing}")
+    selected = validated.loc[validated["ticker"].eq(str(ticker).zfill(6))]
+    if selected.empty:
+        raise KrxExecutionDataError(f"official actual OHLC missing for {ticker}")
+    return selected.set_index("date").loc[:, OHLC_COLUMNS].sort_index()
 
 
 def restore_actual_price_panel(

@@ -46,6 +46,54 @@ class SimOrder:
     cash_after: float
     fee: float = 0.0
     tax: float = 0.0
+    transaction_tax: float = 0.0
+    holding_period_tax: float = 0.0
+
+
+@dataclass(frozen=True)
+class HoldingPeriodTaxProfile:
+    """Daily tax NAV and withholding rate for non-equity domestic ETFs."""
+
+    tax_nav: pd.Series
+    rate: float = 0.154
+
+
+def _tax_nav_on(
+    profiles: Mapping[str, HoldingPeriodTaxProfile], ticker: str, day
+) -> float:
+    profile = profiles[ticker]
+    series = profile.tax_nav
+    value = series.loc[day] if day in series.index else np.nan
+    if not np.isfinite(value) or float(value) <= 0:
+        raise ValueError(f"tax NAV is missing for {ticker} on {pd.Timestamp(day).date()}")
+    return float(value)
+
+
+def _consume_holding_period_tax_lots(
+    lots: list[dict],
+    quantity: int,
+    *,
+    sell_price: float,
+    sell_tax_nav: float,
+    tax_rate: float,
+) -> float:
+    """Apply the Korean ETF min(market gain, tax-NAV gain) withholding rule."""
+
+    remaining = int(quantity)
+    tax = 0.0
+    while remaining > 0 and lots:
+        lot = lots[0]
+        sold = min(remaining, int(lot["quantity"]))
+        market_gain = max(float(sell_price) - float(lot["buy_price"]), 0.0)
+        tax_nav_gain = max(float(sell_tax_nav) - float(lot["buy_tax_nav"]), 0.0)
+        tax += sold * min(market_gain, tax_nav_gain) * float(tax_rate)
+        lot["quantity"] = int(lot["quantity"]) - sold
+        remaining -= sold
+        if int(lot["quantity"]) <= 0:
+            lots.pop(0)
+    if remaining:
+        raise ValueError("holding-period tax lots do not cover the sell quantity")
+    return tax
 
 
 def _price_on(enriched: Dict[str, pd.DataFrame], ticker: str, day, field: str) -> float:
@@ -210,6 +258,9 @@ def simulate(
     sell_tax_rate_resolver: Callable[[str, pd.Timestamp], float] | None = None,
     rebalance_only_on_target_change: bool = False,
     distribution_events_by_ticker: Mapping[str, pd.DataFrame] | None = None,
+    holding_period_tax_by_ticker: Mapping[
+        str, HoldingPeriodTaxProfile
+    ] | None = None,
     fee_per_side: float = FEE_PER_SIDE,
     slippage_entry: float = SLIPPAGE_ENTRY,
     slippage_exit: float = SLIPPAGE_EXIT,
@@ -218,6 +269,19 @@ def simulate(
     holdings: Dict[str, int] = {}
     equity_rows = []
     trade_rows: List[dict] = []
+    tax_profiles: dict[str, HoldingPeriodTaxProfile] = {}
+    for ticker, profile in (holding_period_tax_by_ticker or {}).items():
+        series = profile.tax_nav.copy()
+        series.index = pd.to_datetime(series.index)
+        series = pd.to_numeric(series, errors="coerce").sort_index()
+        if series.index.duplicated().any():
+            raise ValueError(f"duplicate tax NAV dates for {ticker}")
+        if not 0.0 <= float(profile.rate) <= 1.0:
+            raise ValueError("holding-period tax rate must be between zero and one")
+        tax_profiles[str(ticker)] = HoldingPeriodTaxProfile(
+            tax_nav=series, rate=float(profile.rate)
+        )
+    holding_period_tax_lots: dict[str, list[dict]] = {}
 
     dates = list(target_weights.index)
     entitlement_by_date: dict[pd.Timestamp, list[tuple[str, dict]]] = {}
@@ -286,7 +350,20 @@ def simulate(
                     tax_rate = TAX_RATE_SELL
                 if tax_rate < 0:
                     raise ValueError("sell tax rate cannot be negative")
-                tax = gross * tax_rate
+                transaction_tax = gross * tax_rate
+                holding_period_tax = 0.0
+                if order.ticker in tax_profiles:
+                    profile = tax_profiles[order.ticker]
+                    holding_period_tax = _consume_holding_period_tax_lots(
+                        holding_period_tax_lots.setdefault(order.ticker, []),
+                        qty,
+                        sell_price=exec_price,
+                        sell_tax_nav=_tax_nav_on(
+                            tax_profiles, order.ticker, exec_date
+                        ),
+                        tax_rate=profile.rate,
+                    )
+                tax = transaction_tax + holding_period_tax
                 cash += gross - fee - tax
                 holdings[order.ticker] = int(holdings.get(order.ticker, 0)) - qty
                 if holdings[order.ticker] <= 0:
@@ -296,6 +373,8 @@ def simulate(
                 order.cash_after = cash
                 order.fee = fee
                 order.tax = tax
+                order.transaction_tax = transaction_tax
+                order.holding_period_tax = holding_period_tax
                 trade_rows.append(asdict(order))
             elif order.action == "BUY":
                 exec_price = order.exec_price * (1 + slippage_entry)
@@ -312,6 +391,16 @@ def simulate(
                 fee = gross * fee_per_side
                 cash -= gross + fee
                 holdings[order.ticker] = int(holdings.get(order.ticker, 0)) + qty
+                if order.ticker in tax_profiles:
+                    holding_period_tax_lots.setdefault(order.ticker, []).append(
+                        {
+                            "quantity": qty,
+                            "buy_price": exec_price,
+                            "buy_tax_nav": _tax_nav_on(
+                                tax_profiles, order.ticker, exec_date
+                            ),
+                        }
+                    )
                 order.final_qty = qty
                 order.exec_price = exec_price
                 order.cash_after = cash

@@ -9,13 +9,17 @@ from scripts.import_krx_actual_closes import (
 )
 
 
-def _raw(path: Path, dates: list[str]) -> None:
-    pd.DataFrame(
-        {
-            "일자": dates,
-            "종가": ["50,000"] * len(dates),
-        }
-    ).to_csv(path, index=False, encoding="utf-8-sig")
+def _raw(path: Path, dates: list[str], *, with_ohlc: bool = False) -> None:
+    columns = {"일자": dates, "종가": ["50,000"] * len(dates)}
+    if with_ohlc:
+        columns.update(
+            {
+                "시가": ["49,000"] * len(dates),
+                "고가": ["51,000"] * len(dates),
+                "저가": ["48,000"] * len(dates),
+            }
+        )
+    pd.DataFrame(columns).to_csv(path, index=False, encoding="utf-8-sig")
 
 
 def test_discovery_groups_date_chunks_by_filename_ticker(tmp_path):
@@ -74,3 +78,19 @@ def test_builder_combines_nonoverlapping_chunks_and_records_hashes(tmp_path):
     )
     assert len(provenance) == 2
     assert all(len(item["sha256"]) == 64 for item in provenance)
+
+
+def test_builder_preserves_official_ohlc_when_download_contains_it(tmp_path):
+    leverage = tmp_path / "KRX_122630.csv"
+    _raw(leverage, ["2022-12-29"], with_ohlc=True)
+
+    panel, _ = build_actual_close_panel(
+        discover_raw_files(tmp_path), required_tickers={"122630"}
+    )
+
+    assert panel.loc[0, ["open", "high", "low", "close"]].tolist() == [
+        49_000,
+        51_000,
+        48_000,
+        50_000,
+    ]
