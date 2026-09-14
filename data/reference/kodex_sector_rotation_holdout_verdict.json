@@ -1,0 +1,34 @@
+{
+  "evaluated_at": "2026-09-14T15:49:40+09:00",
+  "protocol_commit": "9160b592",
+  "sealed_runner_commit": "f70a9729",
+  "frozen_candidate_commit": "9a9204b37d2bf13d7c54ed9bd230d23501e0a749",
+  "period": {
+    "start": "2018-04-02",
+    "end": "2019-12-30"
+  },
+  "report_sha256": "53bb35eacfa3fdf5be1cc85cb9ca7136f09b8fdcd698bd700b063657eec4514b",
+  "primary_protocol_pass": false,
+  "small_account": {
+    "candidate_return_pct": -2.673052403995324,
+    "kodex200_buy_hold_return_pct": -2.578436781806759,
+    "same_timing_kodex200_return_pct": 2.8972253200660436,
+    "candidate_vs_market_annualised_excess_pct_point": -0.054869967306536704,
+    "candidate_vs_market_rolling_12m_beat_rate_pct": 36.72316384180791,
+    "candidate_vs_same_timing_annualised_excess_pct_point": -3.192605610603627,
+    "candidate_vs_same_timing_rolling_12m_beat_rate_pct": 0.0,
+    "double_cost_annualised_excess_pct_point": -0.7233288069815935,
+    "orders": 27
+  },
+  "diagnosis": {
+    "2018": "Risk-off state preserved cash and beat the falling market.",
+    "2019": "Slow relative-strength sector choices lagged both KODEX 200 and the same timing control.",
+    "failure_mode": "The candidate ranked sectors against one another even when the leading sectors did not offer durable strength over KODEX 200."
+  },
+  "decision": {
+    "production": "rejected",
+    "capital": 0,
+    "shadow": "diagnostic_only",
+    "next_research_constraint": "A sector sleeve must fall back to KODEX 200 unless selected sectors beat KODEX 200 on every precommitted momentum horizon."
+  }
+}
