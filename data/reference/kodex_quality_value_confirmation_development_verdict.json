@@ -1,0 +1,88 @@
+{
+  "candidate": "kodex_point_in_time_quality_value_price_confirmation",
+  "evaluated_at": "2026-09-14T18:05:00+09:00",
+  "evaluation_kind": "retrospective_seen_development_data",
+  "period": {
+    "start": "2018-06-29",
+    "end": "2022-12-29"
+  },
+  "small_account_krw": 2100000,
+  "point_in_time_factor_proxies": {
+    "value_low_volatility": "Official historical top-30 holdings of KODEX 200 가치저변동",
+    "quality": "Official historical top-30 holdings of KODEX 퀄리티PLUS",
+    "availability": "Quarter-end close; executable from the next KRX session"
+  },
+  "candidate_structure": {
+    "risk_on_core_weight_pct": 40,
+    "value_low_volatility_sleeve_pct": 27.5,
+    "quality_sleeve_pct": 27.5,
+    "cash_weight_pct": 5,
+    "selection": "Top two 12-minus-1-month price-momentum names above their 200-session average within each point-in-time factor proxy",
+    "fallback": "An empty factor sleeve falls back to KODEX 200",
+    "rebalance": "Quarterly plus frozen KODEX 200 risk exits and re-entries"
+  },
+  "execution_assumptions": {
+    "signal_at_close_execute_next_open": true,
+    "integer_shares": true,
+    "buy_and_sell_slippage_pct": 0.2,
+    "broker_fee_per_side_pct": 0.0140527,
+    "conservative_stock_sell_tax_pct": 0.25,
+    "kodex200_sell_tax_pct": 0.0,
+    "stock_cash_dividends": "omitted, which is conservative for the candidate",
+    "small_account_orders": 72
+  },
+  "market_comparison": {
+    "candidate_return_pct": 18.779651798718966,
+    "benchmark_return_pct": 4.318410826519115,
+    "candidate_cagr_pct": 3.8975279285041076,
+    "benchmark_cagr_pct": 0.9436953625327149,
+    "annualised_excess_return_pct_point": 2.9538325659713927,
+    "rolling_12m_beat_rate_pct": 47.906976744186046,
+    "candidate_mdd_pct": -12.981473961716972,
+    "benchmark_mdd_pct": -32.75969056243846,
+    "positive_excess_year_concentration_pct": 65.64085569758409
+  },
+  "same_risk_timing_kodex200_comparison": {
+    "candidate_return_pct": 18.779651798718966,
+    "benchmark_return_pct": 29.382045676958768,
+    "candidate_cagr_pct": 3.8975279285041076,
+    "benchmark_cagr_pct": 5.8899420673209635,
+    "annualised_excess_return_pct_point": -1.992414138816856,
+    "rolling_12m_beat_rate_pct": 26.744186046511626,
+    "candidate_mdd_pct": -12.981473961716972,
+    "benchmark_mdd_pct": -13.54002909518136,
+    "annual_excess_return_pct_point": {
+      "2018": 0.0,
+      "2019": 6.908109236379456,
+      "2020": -20.053864043656212,
+      "2021": -6.456553557578415,
+      "2022": 7.252802995746299
+    }
+  },
+  "double_cost_market_comparison": {
+    "candidate_return_pct": 16.319822182158017,
+    "annualised_excess_return_pct_point": 2.471912788150976,
+    "rolling_12m_beat_rate_pct": 47.44186046511628,
+    "positive_excess_year_concentration_pct": 65.55079032020478
+  },
+  "failed_gates": [
+    "market rolling 12-month beat rate >= 60 percent",
+    "market positive-excess-year concentration <= 60 percent",
+    "same-timing KODEX 200 annualised excess return >= 2 percentage points",
+    "same-timing KODEX 200 rolling 12-month beat rate >= 60 percent"
+  ],
+  "diagnosis": [
+    "The risk overlay, not security selection, created the apparent advantage over continuous market buy-and-hold.",
+    "Security selection lost about 2.0 percentage points of CAGR versus KODEX 200 held on identical risk-on dates.",
+    "The 2020 same-timing selection contribution was approximately minus 20.1 percentage points.",
+    "Changing factor proxies, momentum horizons, or sleeve weights after this result would be development-set parameter mining."
+  ],
+  "decision": {
+    "production": "rejected",
+    "capital_allocation_pct": 0,
+    "paper_shadow": "not_required",
+    "walk_forward_2023_2024": "do_not_open",
+    "holdout_2025_2026": "do_not_open",
+    "next_research_direction": "raw point-in-time KRX fundamentals, requiring authenticated official downloads"
+  }
+}

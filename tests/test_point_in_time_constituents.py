@@ -20,6 +20,16 @@ REFERENCE = (
     / "reference"
     / "kodex200_top30_pcf_quarterly_2018_2025.csv"
 )
+FACTOR_REFERENCES = (
+    PROJECT_ROOT
+    / "data"
+    / "reference"
+    / "kodex_value_lowvol_top30_pcf_quarterly_2018_2025.csv",
+    PROJECT_ROOT
+    / "data"
+    / "reference"
+    / "kodex_quality_top30_pcf_quarterly_2018_2025.csv",
+)
 
 
 def _sample() -> pd.DataFrame:
@@ -72,3 +82,23 @@ def test_reference_hash_matches_immutable_manifest():
     assert hashlib.sha256(REFERENCE.read_bytes()).hexdigest() == (
         manifest["normalized_file"]["sha256"]
     )
+
+
+def test_factor_proxy_references_have_matching_quarterly_snapshots():
+    loaded = [load_point_in_time_constituents(path) for path in FACTOR_REFERENCES]
+
+    for data in loaded:
+        assert len(data) == 928
+        assert data.groupby("as_of_date").size().eq(29).all()
+    assert loaded[0]["as_of_date"].drop_duplicates().tolist() == (
+        loaded[1]["as_of_date"].drop_duplicates().tolist()
+    )
+
+
+def test_factor_proxy_hashes_match_manifest():
+    manifest_path = REFERENCE.with_name("kodex_factor_pcf_manifest.json")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    for path in FACTOR_REFERENCES:
+        expected = manifest["normalized_files"][path.name]["sha256"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
