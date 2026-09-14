@@ -16,7 +16,9 @@
     "sector_signal": "Samsung official weekly NAV total-return series, observed on or before each signal date",
     "core_risk_signal": "Daily KODEX 200 OHLC back-adjusted for official cash distributions only",
     "execution": "Next-session Naver OHLC normalized to Samsung official daily market close",
-    "cashflows": "Samsung official distribution record/payment/amount fields, net of 15.4% taxable distribution income",
+    "cashflows": "Samsung official distribution record dates and amounts, net of 15.4% taxable distribution income",
+    "legacy_payment_date_fallback": "For 2018-2019 PDFs without an explicit payment date, credit on the second subsequent KRX trading session, fixed before outcome inspection",
+    "legacy_taxable_amount_fallback": "For 2018-2019 PDFs without a taxable-base field, treat the full gross distribution as taxable; this is conservative and fixed before outcome inspection",
     "lookahead": "No row dated after the signal date may enter a decision"
   },
   "accounts": {
