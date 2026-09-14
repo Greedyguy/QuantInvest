@@ -22,7 +22,11 @@ from cash_distribution_data import (
 )
 from config import FEE_PER_SIDE, VENUE_FEE_PER_SIDE
 from fundamental_candidate import historical_kospi_sell_tax_rate
-from krx_execution_data import load_actual_close_panel, restore_actual_price_panel
+from krx_execution_data import (
+    assert_no_unmodelled_corporate_actions,
+    load_actual_close_panel,
+    restore_actual_price_panel,
+)
 from krx_small_account_candidate import CORE_TICKER, build_krx_small_account_targets
 from market_benchmark import (
     MarketOutperformanceCriteria,
@@ -91,7 +95,7 @@ def assert_development_coverage(decisions: pd.DataFrame) -> None:
         raise RuntimeError(f"KRX development coverage gate failed: {diagnostics}")
 
 
-def _load_actual_prices(
+def _load_price_bases(
     constituents: pd.DataFrame,
     *,
     actual_closes_path: Path,
@@ -99,7 +103,7 @@ def _load_actual_prices(
     adjusted_price_template: str,
     core_adjusted_price_file: Path,
     core_standard_file: Path,
-) -> dict[str, pd.DataFrame]:
+) -> tuple[dict[str, pd.DataFrame], dict[str, pd.DataFrame]]:
     actual_closes = load_actual_close_panel(actual_closes_path)
     if actual_closes["date"].max() > DEVELOPMENT_END:
         raise ValueError("actual-close input opens the sealed post-development period")
@@ -134,8 +138,9 @@ def _load_actual_prices(
         core_official.index.to_series().between(PRICE_WARMUP_START, DEVELOPMENT_END),
         "market_close",
     ]
+    adjusted[CORE_TICKER] = core_adjusted
     prices[CORE_TICKER] = restore_actual_ohlc(core_adjusted, core_close)
-    return prices
+    return adjusted, prices
 
 
 def _summary(equity: pd.DataFrame, initial_cash: float, trades: list[dict]) -> dict:
@@ -184,17 +189,24 @@ def _simulate(
 def run_development_backtest(
     constituents: pd.DataFrame,
     fundamentals: pd.DataFrame,
-    prices: dict[str, pd.DataFrame],
+    signal_prices: dict[str, pd.DataFrame],
+    actual_prices: dict[str, pd.DataFrame],
     stock_distributions: dict[str, pd.DataFrame],
     kodex_distributions: pd.DataFrame,
     *,
     initial_cash: float = 2_100_000.0,
 ) -> dict:
     targets, decisions = build_krx_small_account_targets(
-        constituents, fundamentals, prices
+        constituents,
+        fundamentals,
+        signal_prices,
+        actual_prices=actual_prices,
     )
     assert_development_coverage(decisions)
     targets = targets.loc[DEVELOPMENT_START:DEVELOPMENT_END]
+    assert_no_unmodelled_corporate_actions(
+        targets, signal_prices, actual_prices
+    )
     same_timing_targets = same_timing_kodex200_targets(targets)
     continuous_targets = continuous_kodex200_targets(targets.index)
     selected = {
@@ -217,25 +229,25 @@ def run_development_backtest(
 
     candidate_equity, candidate_trades = _simulate(
         targets,
-        prices,
+        actual_prices,
         candidate_distributions,
         initial_cash=initial_cash,
     )
     same_equity, same_trades = _simulate(
         same_timing_targets,
-        prices,
+        actual_prices,
         benchmark_distributions,
         initial_cash=initial_cash,
     )
     continuous_equity, continuous_trades = _simulate(
         continuous_targets,
-        prices,
+        actual_prices,
         benchmark_distributions,
         initial_cash=initial_cash,
     )
     stressed_equity, stressed_trades = _simulate(
         targets,
-        prices,
+        actual_prices,
         candidate_distributions,
         initial_cash=initial_cash,
         cost_multiplier=2.0,
@@ -337,7 +349,7 @@ def main() -> None:
     fundamentals = load_point_in_time_fundamentals(args.fundamentals)
     if fundamentals["snapshot_date"].max() > DEVELOPMENT_END:
         raise ValueError("fundamental input opens the sealed post-development period")
-    prices = _load_actual_prices(
+    signal_prices, actual_prices = _load_price_bases(
         constituents,
         actual_closes_path=args.actual_closes,
         adjusted_price_dir=args.adjusted_price_dir,
@@ -346,7 +358,10 @@ def main() -> None:
         core_standard_file=args.core_standard_file,
     )
     targets, decisions = build_krx_small_account_targets(
-        constituents, fundamentals, prices
+        constituents,
+        fundamentals,
+        signal_prices,
+        actual_prices=actual_prices,
     )
     assert_development_coverage(decisions)
     selected = {
@@ -377,7 +392,8 @@ def main() -> None:
     result = run_development_backtest(
         constituents,
         fundamentals,
-        prices,
+        signal_prices,
+        actual_prices,
         stock_distributions,
         load_distribution_events(args.kodex_distributions),
         initial_cash=args.initial_cash,

@@ -35,7 +35,7 @@
     "per": "2 through 50 inclusive",
     "pbr": "0.1 through 8 inclusive",
     "implied_roe": "0 through 1 inclusive",
-    "price_confirmation": "12-minus-1-month return > 0 and actual close > 200-session average",
+    "price_confirmation": "12-minus-1-month return > 0 and split-adjusted close > split-adjusted 200-session average",
     "maximum_actual_share_price_krw": 250000
   },
   "portfolio": {
@@ -49,7 +49,7 @@
   },
   "execution": {
     "small_account_krw": 2100000,
-    "prices": "official KRX actual historical OHLC; adjusted price levels forbidden for integer sizing",
+    "prices": "split-adjusted histories for signals; official KRX actual historical OHLC for affordability and integer sizing",
     "integer_shares": true,
     "minimum_trade_krw": 50000,
     "commission_per_side": 0.000140527,
@@ -58,7 +58,8 @@
     "exit_slippage": 0.002,
     "individual_stock_sell_tax": "historical effective-date schedule",
     "domestic_equity_etf_sell_tax": 0.0,
-    "cash_distributions": "include official payment events and applicable withholding for stocks and KODEX 200"
+    "cash_distributions": "include official payment events and applicable withholding for stocks and KODEX 200",
+    "corporate_actions": "fail closed if a selected holding crosses an unmodelled material actual-to-adjusted price scale change"
   },
   "development_pass_gate": {
     "continuous_kodex200_total_return_cagr_excess_pct_point_min": 1.0,

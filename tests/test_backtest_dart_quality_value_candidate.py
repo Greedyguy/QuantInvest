@@ -4,6 +4,7 @@ import pytest
 from scripts.backtest_dart_quality_value_candidate import (
     TOTAL_FEE_PER_SIDE,
     assert_development_coverage,
+    continuous_kodex200_targets,
     same_timing_kodex200_targets,
 )
 from config import FEE_PER_SIDE, VENUE_FEE_PER_SIDE
@@ -11,6 +12,15 @@ from config import FEE_PER_SIDE, VENUE_FEE_PER_SIDE
 
 def test_candidate_uses_commission_and_venue_fee():
     assert TOTAL_FEE_PER_SIDE == FEE_PER_SIDE + VENUE_FEE_PER_SIDE
+
+
+def test_continuous_benchmark_is_fully_invested_kodex200():
+    dates = pd.bdate_range("2020-01-02", periods=3)
+
+    target = continuous_kodex200_targets(dates)
+
+    assert target["069500"].eq(1.0).all()
+    assert target["__CASH__"].eq(0.0).all()
 
 
 def test_same_timing_benchmark_replaces_stock_sleeve_with_kodex200():

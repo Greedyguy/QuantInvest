@@ -122,3 +122,59 @@ def restore_actual_price_panel(
                 f"could not restore actual prices for {ticker}: {error}"
             ) from error
     return result
+
+
+def assert_no_unmodelled_corporate_actions(
+    targets: pd.DataFrame,
+    signal_prices: dict[str, pd.DataFrame],
+    actual_prices: dict[str, pd.DataFrame],
+    *,
+    material_scale_change: float = 0.02,
+) -> None:
+    """Fail when a held name crosses a split or similar price-scale change.
+
+    Actual/adjusted close ratios are stable between corporate actions.  The
+    basic integer-share simulator does not mutate share counts or create
+    spin-off entitlements, so it must not silently cross a material ratio
+    change while the strategy is invested in that ticker.
+    """
+
+    target_index = pd.DatetimeIndex(pd.to_datetime(targets.index))
+    failures: dict[str, list[str]] = {}
+    for ticker in sorted(set(targets.columns) - {"__CASH__"}):
+        if ticker not in signal_prices or ticker not in actual_prices:
+            continue
+        signal_close = pd.to_numeric(
+            signal_prices[ticker]["close"], errors="coerce"
+        ).rename("signal")
+        actual_close = pd.to_numeric(
+            actual_prices[ticker]["close"], errors="coerce"
+        ).rename("actual")
+        aligned = pd.concat([signal_close, actual_close], axis=1, join="inner").dropna()
+        if aligned.empty:
+            continue
+        scale = aligned["actual"] / aligned["signal"]
+        material = scale.pct_change().abs().gt(float(material_scale_change))
+        event_dates = aligned.index[material]
+        if event_dates.empty:
+            continue
+        intended_holdings = (
+            pd.to_numeric(targets[ticker], errors="coerce")
+            .reindex(target_index)
+            .fillna(0.0)
+            .shift(1, fill_value=0.0)
+            .gt(0.0)
+        )
+        intended_holdings.index = target_index
+        held_events = [
+            pd.Timestamp(date)
+            for date in event_dates
+            if date in intended_holdings.index and bool(intended_holdings.loc[date])
+        ]
+        if held_events:
+            failures[ticker] = [date.date().isoformat() for date in held_events]
+    if failures:
+        raise KrxExecutionDataError(
+            "selected holdings cross unmodelled corporate-action price scales: "
+            f"{failures}"
+        )

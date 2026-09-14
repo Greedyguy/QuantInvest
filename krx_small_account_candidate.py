@@ -30,14 +30,15 @@ def compute_krx_small_account_scores(
     prices: dict[str, pd.DataFrame],
     signal_date: str | pd.Timestamp,
     *,
+    actual_prices: dict[str, pd.DataFrame] | None = None,
     maximum_share_price: float = 250_000.0,
     max_snapshot_age_days: int = 100,
 ) -> tuple[pd.DataFrame, dict[str, float | bool]]:
     """Build one leakage-safe cross-section from observable KRX snapshots.
 
-    Price frames must contain actual traded prices, not split-adjusted price
-    levels. Adjusted levels would distort integer-share affordability before a
-    corporate action even though their returns look correct.
+    ``prices`` contains split-adjusted signal histories. ``actual_prices``
+    contains traded price levels for the affordability check. Passing the same
+    mapping for both remains useful for fixtures without corporate actions.
     """
 
     signal = pd.Timestamp(signal_date).normalize()
@@ -63,15 +64,18 @@ def compute_krx_small_account_scores(
         and member_snapshot == factor_snapshot
     )
     rows: list[dict[str, object]] = []
+    execution_prices = prices if actual_prices is None else actual_prices
     if snapshots_aligned:
         for ticker, member in members.iterrows():
             if ticker not in factors.index:
                 continue
-            close = _asof_close(prices, ticker, signal)
-            if len(close) < 252:
+            signal_close = _asof_close(prices, ticker, signal)
+            actual_close = _asof_close(execution_prices, ticker, signal)
+            if len(signal_close) < 252 or actual_close.empty:
                 continue
             factor = factors.loc[ticker]
-            current_close = float(close.iloc[-1])
+            current_signal_close = float(signal_close.iloc[-1])
+            current_actual_close = float(actual_close.iloc[-1])
             eps = float(factor["eps"])
             bps = float(factor["bps"])
             per = float(factor["per"])
@@ -79,7 +83,9 @@ def compute_krx_small_account_scores(
             earnings_yield = 1.0 / per if np.isfinite(per) and per > 0 else np.nan
             book_to_market = 1.0 / pbr if np.isfinite(pbr) and pbr > 0 else np.nan
             implied_roe = eps / bps if np.isfinite(eps) and bps > 0 else np.nan
-            momentum_12_1 = float(close.iloc[-21] / close.iloc[-252] - 1.0)
+            momentum_12_1 = float(
+                signal_close.iloc[-21] / signal_close.iloc[-252] - 1.0
+            )
             rows.append(
                 {
                     "ticker": ticker,
@@ -87,8 +93,9 @@ def compute_krx_small_account_scores(
                     "index_weight_pct": float(member["weight_pct"]),
                     "snapshot_date": factor["snapshot_date"],
                     "available_date": factor["available_date"],
-                    "close": current_close,
-                    "ma200": float(close.tail(200).mean()),
+                    "close": current_actual_close,
+                    "signal_close": current_signal_close,
+                    "ma200": float(signal_close.tail(200).mean()),
                     "momentum_12_1": momentum_12_1,
                     "eps": eps,
                     "bps": bps,
@@ -128,7 +135,7 @@ def compute_krx_small_account_scores(
         & scored["pbr"].between(0.1, 8.0, inclusive="both")
         & scored["implied_roe"].between(0.0, 1.0, inclusive="both")
         & scored["momentum_12_1"].gt(0.0)
-        & scored["close"].gt(scored["ma200"])
+        & scored["signal_close"].gt(scored["ma200"])
         & scored["close"].le(float(maximum_share_price))
     )
     scored["composite_score"] = (
@@ -174,6 +181,7 @@ def build_krx_small_account_targets(
     fundamentals: pd.DataFrame,
     prices: dict[str, pd.DataFrame],
     *,
+    actual_prices: dict[str, pd.DataFrame] | None = None,
     core_ticker: str = CORE_TICKER,
     core_weight: float = 0.40,
     satellite_weight: float = 0.55,
@@ -219,7 +227,11 @@ def build_krx_small_account_targets(
                 fallback = "risk_off_cash"
                 if risk_on:
                     scores, coverage = compute_krx_small_account_scores(
-                        constituents, fundamentals, prices, signal_date
+                        constituents,
+                        fundamentals,
+                        prices,
+                        signal_date,
+                        actual_prices=actual_prices,
                     )
                     selected = select_krx_small_account_satellite(
                         scores, coverage, top_n=top_n

@@ -3,10 +3,46 @@ import pytest
 
 from krx_execution_data import (
     KrxExecutionDataError,
+    assert_no_unmodelled_corporate_actions,
     normalize_krx_actual_close,
     restore_actual_price_panel,
     validate_actual_close_panel,
 )
+
+
+def test_corporate_action_guard_rejects_scale_change_while_held():
+    dates = pd.bdate_range("2020-01-02", periods=5)
+    signal = {
+        "005930": pd.DataFrame({"close": [100, 101, 102, 103, 104]}, index=dates)
+    }
+    actual = {
+        "005930": pd.DataFrame({"close": [500, 505, 102, 103, 104]}, index=dates)
+    }
+    targets = pd.DataFrame(
+        {"005930": [1.0] * 5, "__CASH__": [0.0] * 5}, index=dates
+    )
+
+    with pytest.raises(KrxExecutionDataError, match="corporate-action"):
+        assert_no_unmodelled_corporate_actions(targets, signal, actual)
+
+
+def test_corporate_action_guard_allows_change_before_entry():
+    dates = pd.bdate_range("2020-01-02", periods=5)
+    signal = {
+        "005930": pd.DataFrame({"close": [100, 101, 102, 103, 104]}, index=dates)
+    }
+    actual = {
+        "005930": pd.DataFrame({"close": [500, 505, 102, 103, 104]}, index=dates)
+    }
+    targets = pd.DataFrame(
+        {
+            "005930": [0.0, 0.0, 0.0, 1.0, 1.0],
+            "__CASH__": [1.0, 1.0, 1.0, 0.0, 0.0],
+        },
+        index=dates,
+    )
+
+    assert_no_unmodelled_corporate_actions(targets, signal, actual)
 
 
 def test_normalizer_preserves_official_actual_close_level():

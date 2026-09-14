@@ -108,6 +108,28 @@ def test_split_mismatch_value_outlier_is_ineligible():
     assert not bool(row["eligible"])
 
 
+def test_reported_share_count_is_rescaled_across_a_later_stock_split():
+    signal_prices = _prices()
+    actual_prices = {
+        ticker: frame.copy() for ticker, frame in signal_prices.items()
+    }
+    actual_prices["000001"].loc[:"2019-12-31", ["open", "close"]] *= 50.0
+
+    scores, _ = compute_dart_quality_value_scores(
+        _constituents(),
+        _fundamentals(),
+        signal_prices,
+        "2020-03-30",
+        actual_prices=actual_prices,
+    )
+
+    row = scores.set_index("ticker").loc["000001"]
+    assert row["split_adjusted_issued_shares"] == 50_000_000
+    assert row["signal_close"] == signal_prices["000001"].loc[
+        :"2020-03-30", "close"
+    ].iloc[-1]
+
+
 def test_historical_kospi_sell_tax_schedule_and_etf_exemption():
     assert historical_kospi_sell_tax_rate("005930", "2019-06-02") == 0.0030
     assert historical_kospi_sell_tax_rate("005930", "2019-06-03") == 0.0025

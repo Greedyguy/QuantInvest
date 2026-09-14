@@ -97,6 +97,27 @@ def test_expensive_share_is_ineligible_for_fixed_small_account_sleeve():
     assert not bool(expensive["eligible"])
 
 
+def test_signal_indicators_use_adjusted_prices_but_affordability_uses_actual_price():
+    signal_prices = _prices()
+    actual_prices = {ticker: frame.copy() for ticker, frame in signal_prices.items()}
+    # The adjusted signal scale can be much lower than the traded price level
+    # before a future split embedded in today's adjusted history.
+    actual_prices["000025"].loc[:, "close"] *= 6.0
+    scores, _ = compute_krx_small_account_scores(
+        _constituents(),
+        _fundamentals(),
+        signal_prices,
+        "2020-04-01",
+        actual_prices=actual_prices,
+    )
+
+    row = scores.set_index("ticker").loc["000025"]
+    assert row["signal_close"] < 250_000
+    assert row["close"] > 250_000
+    assert row["momentum_12_1"] > 0
+    assert not bool(row["eligible"])
+
+
 def test_coverage_gate_rejects_22_members_even_with_high_weight():
     scores, coverage = compute_krx_small_account_scores(
         _constituents(count=22),
