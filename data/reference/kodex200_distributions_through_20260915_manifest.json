@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "product": "KODEX 200",
+  "ticker": "069500",
+  "source": "Samsung Asset Management official API, product page, and historical product PDFs",
+  "source_urls": [
+    "https://www.samsungfund.com/etf/product/view.do?id=2ETF01",
+    "https://m.samsungfund.com/api/v1/kodex/divid-info.do?id=2ETF01"
+  ],
+  "queried_on": "2026-09-15",
+  "history_coverage_start": "2018-01-01",
+  "history_coverage_end": "2026-09-15",
+  "complete_cash_distribution_history": true,
+  "audited_tickers": [
+    "069500"
+  ],
+  "event_count": 33,
+  "latest_event_record_date": "2026-07-31",
+  "latest_event_pay_date": "2026-08-04",
+  "coverage_note": "The official product states quarterly distributions at the ends of January, April, July, and October; the official history available on the query date contains no additional August or September event.",
+  "historical_completion_manifest": "data/reference/kodex200_distributions_manifest.json",
+  "normalized_file": {
+    "filename": "kodex200_distributions.csv",
+    "sha256": "2433b59f6d146a4dad5bb6e444f872a0b15ec9a14330d60d84c24d2b8e76a208"
+  }
+}

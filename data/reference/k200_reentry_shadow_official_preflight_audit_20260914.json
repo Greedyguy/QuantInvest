@@ -1,0 +1,29 @@
+{
+  "strategy": "K200LowTurnoverReentry",
+  "audit_end": "2026-09-14",
+  "expected_exchange_sessions": 0,
+  "recorded_exchange_sessions": 0,
+  "missing_signal_dates": [],
+  "unexpected_signal_dates": [],
+  "observation_evidence_valid": true,
+  "observation_errors": [],
+  "signal_recomputation": {
+    "basis": "official_krx_actual_ohlc_adjusted_for_cash_distributions",
+    "comparison_basis": "scale_invariant_indicators_and_exact_state"
+  },
+  "official_input_audit": {
+    "price_input_complete": true,
+    "distribution_input_complete": true,
+    "price_errors": [],
+    "distribution_errors": [],
+    "complete": true
+  },
+  "paper_accounts": {
+    "status": "not_started",
+    "subsequent_sessions": 0,
+    "required_subsequent_sessions": 252,
+    "capital_authorized": false
+  },
+  "decision": "collecting_prospective_sessions",
+  "capital_authorized": false
+}

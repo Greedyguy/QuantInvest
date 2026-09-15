@@ -6,7 +6,7 @@
   "strategy": "K200LowTurnoverReentry",
   "strategy_source_sha256": "c27df110f19e7eed5ed6adfb9a6d67fe89b4c094107ab88f0a81e8a479f568b4",
   "execution_simulator_source_sha256": "b5ec0bb8e89595c6e8321adfea5679a80a3a33210a7a3531b97f4088ffe36e19",
-  "cash_flow_source_sha256": "cbc335dc51bf822e94d4b2441028d2d5a80ca76fd55642cb54cef4b6685e14e0",
+  "cash_flow_source_sha256": "38de81c45390d19fbad49f2fecd9ffa1773275f9fcb70f50dc95c1acd97e7e8f",
   "parameters": {
     "ticker": "069500",
     "risk_on_exposure": 0.95,
@@ -37,6 +37,13 @@
   },
   "observation_policy": {
     "timezone": "Asia/Seoul",
+    "observation_version": 3,
+    "daily_signal_price_basis": "cash_distribution_adjusted",
+    "daily_signal_price_authority": "provisional_naver_adjusted",
+    "daily_signal_price_source": "project pykrx cache; the current dependency resolves ETF OHLC through the Naver chart endpoint",
+    "daily_execution_price_basis": "actual_traded",
+    "daily_execution_price_authority": "provisional_reconstructed_actual_from_adjusted",
+    "daily_execution_price_source": "reverse cash-distribution adjustment of the provisional signal cache; replaced by official KRX OHLC in the final audit",
     "max_source_business_day_gap": 3,
     "one_immutable_record_per_exchange_session": true,
     "stale_input_is_ineligible": true
@@ -51,10 +58,12 @@
     "monthly_checkpoint_definition": "candidate cumulative net return exceeds benchmark at the last recorded session of each fully completed calendar month"
   },
   "final_audit_requirements": [
-    "Replace cached OHLC with immutable official KRX open and close data for every measured session.",
+    "Keep signal generation on cash-distribution-adjusted OHLC and execution accounting on actual-traded OHLC.",
+    "Replace provisional reconstructed execution OHLC with immutable official KRX open and close data for every measured session.",
     "Complete Samsung or KSD official KODEX 200 cash-distribution history through the final measurement date.",
+    "Rebuild adjusted signal OHLC from official KRX prices and distributions, then verify daily states and scale-invariant indicators.",
     "Recompute both integer-share accounts from the frozen first signal with the registered execution model.",
-    "Verify every daily observation hash and strategy source hash before evaluating promotion gates."
+    "Verify every daily signal/execution source hash is present and every frozen source hash matches before evaluating promotion gates."
   ],
   "promotion_policy": "Passing the prospective year makes the strategy eligible for a separate live-capital decision; it does not turn on orders automatically.",
   "execution_guard": "NO_ORDERS_SENT"

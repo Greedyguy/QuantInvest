@@ -233,6 +233,57 @@ def adjust_ohlc_for_distributions(
     return adjusted
 
 
+def reconstruct_actual_ohlc_from_adjusted(
+    adjusted_prices: pd.DataFrame,
+    events: pd.DataFrame,
+    *,
+    settlement_lag: int = 2,
+) -> pd.DataFrame:
+    """Approximately restore traded OHLC from a cash-adjusted price history.
+
+    The project cache rounds adjusted ETF prices to whole won, so this inverse
+    is suitable only for daily provisional paper accounting.  A final audit
+    must replace it with official actual-traded KRX OHLC.
+    """
+
+    adjusted = adjusted_prices.copy().sort_index()
+    adjusted.index = pd.to_datetime(adjusted.index)
+    adjusted = adjusted.loc[~adjusted.index.duplicated(keep="last")]
+    schedule = prepare_distribution_schedule(
+        events,
+        adjusted.index,
+        settlement_lag=settlement_lag,
+    )
+    event_factors: list[tuple[pd.Timestamp, float]] = []
+    later_factor = 1.0
+    for event in reversed(schedule.to_dict("records")):
+        entitlement_date = pd.Timestamp(event["entitlement_date"])
+        adjusted_close = float(adjusted.loc[entitlement_date, "close"])
+        distribution = float(event["gross_unit"])
+        actual_close = adjusted_close / later_factor + distribution
+        factor = (actual_close - distribution) / actual_close
+        if not np.isfinite(factor) or factor <= 0 or factor > 1:
+            raise ValueError(
+                f"invalid reverse distribution adjustment on "
+                f"{entitlement_date.date()}"
+            )
+        event_factors.append((entitlement_date, factor))
+        later_factor *= factor
+
+    cumulative_factor = pd.Series(1.0, index=adjusted.index)
+    for entitlement_date, factor in event_factors:
+        cumulative_factor.loc[cumulative_factor.index <= entitlement_date] *= factor
+
+    actual = adjusted.copy()
+    for column in ("open", "high", "low", "close"):
+        if column in actual:
+            actual[column] = (
+                pd.to_numeric(actual[column], errors="coerce")
+                / cumulative_factor
+            )
+    return actual
+
+
 def prepare_distribution_schedule(
     events: pd.DataFrame,
     trading_dates: pd.Index,

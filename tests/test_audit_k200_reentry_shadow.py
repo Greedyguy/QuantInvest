@@ -98,6 +98,28 @@ def test_audit_detects_a_tampered_frozen_signal():
     assert result["capital_authorized"] is False
 
 
+def test_audit_exactly_recomputes_injected_official_signal_and_execution_hashes():
+    prices = _prices("2026-09-16")
+    day = prices.index[-1]
+    record = build_shadow_payload(
+        prices,
+        source_path=Path("official.parquet"),
+        execution_prices=prices,
+        execution_source_path=Path("official.parquet"),
+        distribution_events=_no_distributions(),
+        signal_price_authority="official_krx_derived_distribution_adjusted",
+        execution_price_authority="official_krx_actual_traded",
+        generated_at=datetime(day.year, day.month, day.day, 7, tzinfo=timezone.utc),
+    )
+
+    result = audit_shadow_records(
+        [record], prices, _no_distributions(), audit_end=day
+    )
+
+    assert result["observation_evidence_valid"] is True
+    assert result["observation_errors"] == []
+
+
 def test_audit_treats_current_distribution_manifest_as_incomplete_for_future_end():
     prices = _prices("2025-12-10")
     reference = Path(__file__).resolve().parents[1] / "data" / "reference"

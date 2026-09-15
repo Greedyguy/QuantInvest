@@ -12,6 +12,7 @@ from market_benchmark import (
     load_samsung_distribution_json,
     prepare_distribution_schedule,
     restore_actual_ohlc,
+    reconstruct_actual_ohlc_from_adjusted,
 )
 from scripts.audit_strategy_validation import select_enriched_cache_paths
 from scripts.backtest_k200_reentry import load_naver_prices, merge_adjusted_prices
@@ -253,6 +254,26 @@ def test_distribution_adjustment_removes_ex_distribution_price_gap():
 
     assert adjusted.loc[pd.Timestamp("2025-01-29"), "close"] == pytest.approx(90.0)
     assert adjusted.loc[pd.Timestamp("2025-01-30"), "close"] == pytest.approx(90.0)
+
+
+def test_distribution_adjustment_can_be_reversed_for_provisional_execution():
+    dates = pd.bdate_range("2025-01-27", "2025-02-05")
+    close = pd.Series(100.0, index=dates)
+    close.loc[dates >= pd.Timestamp("2025-01-30")] = 90.0
+    actual = pd.DataFrame({"open": close, "close": close})
+    events = pd.DataFrame(
+        {
+            "record_date": [pd.Timestamp("2025-01-31")],
+            "pay_date": [pd.Timestamp("2025-02-04")],
+            "distribution_per_share": [10.0],
+            "taxable_per_share": [10.0],
+        }
+    )
+
+    adjusted = adjust_ohlc_for_distributions(actual, events)
+    reconstructed = reconstruct_actual_ohlc_from_adjusted(adjusted, events)
+
+    pd.testing.assert_frame_equal(reconstructed, actual)
 
 
 def test_distribution_adjustment_does_not_change_frozen_prefix_states():

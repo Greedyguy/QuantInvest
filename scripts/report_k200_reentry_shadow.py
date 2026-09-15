@@ -20,7 +20,12 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from strategies.k200_low_turnover_reentry import K200LowTurnoverReentry
 from backtest_live_execution import simulate
-from market_benchmark import load_distribution_events
+from krx_execution_data import actual_ohlc_for_ticker, load_actual_close_panel
+from market_benchmark import (
+    adjust_ohlc_for_distributions,
+    load_distribution_events,
+    reconstruct_actual_ohlc_from_adjusted,
+)
 
 
 SPEC_PATH = (
@@ -258,7 +263,7 @@ def _provisional_comparison(
 
 
 def _paper_account_snapshot(
-    frame: pd.DataFrame,
+    execution_frame: pd.DataFrame,
     states: pd.DataFrame,
     distributions: pd.DataFrame,
     spec: dict,
@@ -282,7 +287,7 @@ def _paper_account_snapshot(
     execution = spec["execution_model"]
     initial_cash = float(spec["shadow_account_krw"])
     common = {
-        "enriched": {"069500": frame},
+        "enriched": {"069500": execution_frame},
         "initial_cash": initial_cash,
         "min_trade": int(execution["minimum_trade_krw"]),
         "price_band_pct": float(execution["price_band_pct"]),
@@ -343,16 +348,73 @@ def select_kodex200_price_file() -> Path:
     return max(candidates, key=coverage)
 
 
-def build_shadow_payload(
+def load_shadow_prices(path: Path, *, official_krx_input: bool = False) -> pd.DataFrame:
+    if official_krx_input:
+        return actual_ohlc_for_ticker(load_actual_close_panel(path), "069500")
+    if path.suffix.lower() == ".parquet":
+        return pd.read_parquet(path)
+    if path.suffix.lower() == ".csv":
+        frame = pd.read_csv(path)
+        if "date" in frame:
+            frame["date"] = pd.to_datetime(frame["date"], errors="raise")
+            frame = frame.set_index("date")
+        return frame
+    raise ValueError(f"unsupported shadow price format: {path.suffix}")
+
+
+def _normalize_shadow_frame(
     prices: pd.DataFrame,
     *,
+    history_start: pd.Timestamp,
+    label: str,
+) -> pd.DataFrame:
+    frame = prices.copy().sort_index()
+    frame.index = pd.to_datetime(frame.index).normalize()
+    frame = frame.loc[~frame.index.duplicated(keep="last")]
+    if frame.empty or frame.index.min() > history_start:
+        raise ValueError(f"{label} history does not reach the frozen history start")
+    frame = frame.loc[history_start:]
+    required_columns = {"open", "close"}
+    missing = sorted(required_columns - set(frame.columns))
+    if missing:
+        raise ValueError(f"{label} history is missing columns: {missing}")
+    for column in required_columns:
+        frame[column] = pd.to_numeric(frame[column], errors="coerce")
+    if frame[list(required_columns)].isna().any(axis=None):
+        raise ValueError(f"{label} history contains invalid prices")
+    if frame[list(required_columns)].le(0).any(axis=None):
+        raise ValueError(f"{label} prices must be positive")
+    return frame
+
+
+def _relative_indicator_context(indicator: pd.Series) -> dict:
+    close = float(indicator["close"])
+    return {
+        "close_to_trend_ma": close / float(indicator["trend_ma"]),
+        "close_to_fast_ma": close / float(indicator["fast_ma"]),
+        "close_to_medium_ma": close / float(indicator["medium_ma"]),
+        "momentum": float(indicator["momentum"]),
+        "fast_momentum": float(indicator["fast_momentum"]),
+        "drawdown": float(indicator["drawdown"]),
+    }
+
+
+def build_shadow_payload(
+    signal_prices: pd.DataFrame,
+    *,
     source_path: Path,
+    execution_prices: pd.DataFrame | None = None,
+    execution_source_path: Path | None = None,
     spec_path: Path = SPEC_PATH,
     distribution_events: pd.DataFrame | None = None,
     distribution_path: Path = DEFAULT_DISTRIBUTIONS_PATH,
     generated_at: datetime | None = None,
+    signal_price_authority: str | None = None,
+    signal_price_source: str | None = None,
+    execution_price_authority: str | None = None,
+    execution_price_source: str | None = None,
 ) -> dict:
-    """Freeze the observable state and indicators without planning any order."""
+    """Freeze adjusted-price signals and actual-price paper accounting."""
 
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     strategy_path = PROJECT_ROOT / "strategies" / "k200_low_turnover_reentry.py"
@@ -365,28 +427,52 @@ def build_shadow_payload(
         raise RuntimeError("frozen paper-account execution simulator hash changed")
     if _sha256(cash_flow_path) != spec["cash_flow_source_sha256"]:
         raise RuntimeError("frozen paper-account cash-flow engine hash changed")
-    frame = prices.copy().sort_index()
-    frame.index = pd.to_datetime(frame.index)
-    frame = frame.loc[~frame.index.duplicated(keep="last")]
+
+    distributions = (
+        distribution_events.copy()
+        if distribution_events is not None
+        else load_distribution_events(distribution_path)
+    )
+    distribution_hash = (
+        _table_sha256(distributions)
+        if distribution_events is not None
+        else _sha256(distribution_path)
+    )
     history_start = pd.Timestamp(spec["signal_history_start"])
-    if frame.empty or frame.index.min() > history_start:
-        raise ValueError(
-            "KODEX 200 history does not reach the frozen signal-history start"
+    signal_frame = _normalize_shadow_frame(
+        signal_prices,
+        history_start=history_start,
+        label="KODEX 200 adjusted signal",
+    )
+    if execution_prices is None:
+        execution_frame = reconstruct_actual_ohlc_from_adjusted(
+            signal_frame, distributions
         )
-    frame = frame.loc[history_start:]
-    required_columns = {"open", "close"}
-    missing = sorted(required_columns - set(frame.columns))
-    if missing:
-        raise ValueError(f"KODEX 200 history is missing columns: {missing}")
-    for column in required_columns:
-        frame[column] = pd.to_numeric(frame[column], errors="coerce")
-    if frame[list(required_columns)].isna().any(axis=None):
-        raise ValueError("KODEX 200 history contains invalid execution prices")
-    if frame[list(required_columns)].le(0).any(axis=None):
-        raise ValueError("KODEX 200 execution prices must be positive")
+        execution_authority = (
+            execution_price_authority
+            or spec["observation_policy"]["daily_execution_price_authority"]
+        )
+        execution_source = (
+            execution_price_source
+            or spec["observation_policy"]["daily_execution_price_source"]
+        )
+        execution_file = source_path
+    else:
+        execution_frame = _normalize_shadow_frame(
+            execution_prices,
+            history_start=history_start,
+            label="KODEX 200 actual execution",
+        )
+        execution_authority = execution_price_authority or "injected_actual_prices"
+        execution_source = execution_price_source or "injected actual execution OHLC"
+        execution_file = execution_source_path or source_path
+    execution_frame = execution_frame.reindex(signal_frame.index)
+    if execution_frame[["open", "close"]].isna().any(axis=None):
+        raise ValueError("execution history does not cover every signal session")
+
     strategy = K200LowTurnoverReentry(**spec["parameters"])
-    indicators = strategy._indicators(frame)
-    states = strategy.compute_state_history(frame)
+    indicators = strategy._indicators(signal_frame)
+    states = strategy.compute_state_history(signal_frame)
     if indicators.empty or states.empty:
         raise ValueError("KODEX 200 history is too short for the frozen strategy")
     as_of = states.index[-1]
@@ -403,18 +489,21 @@ def build_shadow_payload(
         status = "eligible_observation"
     else:
         status = "pre_start_diagnostic"
-    distributions = (
-        distribution_events.copy()
-        if distribution_events is not None
-        else load_distribution_events(distribution_path)
+
+    signal_authority = (
+        signal_price_authority
+        or spec["observation_policy"]["daily_signal_price_authority"]
     )
-    distribution_hash = (
-        _table_sha256(distributions)
-        if distribution_events is not None
-        else _sha256(distribution_path)
+    signal_source = (
+        signal_price_source
+        or spec["observation_policy"]["daily_signal_price_source"]
+    )
+    source_file_hash = _sha256(source_path) if source_path.exists() else None
+    execution_file_hash = (
+        _sha256(execution_file) if execution_file.exists() else None
     )
     return {
-        "observation_version": 2,
+        "observation_version": 3,
         "mode": "prospective_paper_shadow",
         "status": status,
         "generated_at_utc": timestamp.astimezone(timezone.utc).isoformat(),
@@ -448,12 +537,30 @@ def build_shadow_payload(
                 "drawdown",
             )
         },
+        "scale_invariant_close_context": _relative_indicator_context(indicator_row),
         "source": {
-            "filename": source_path.name,
-            "data_start": frame.index.min().date().isoformat(),
-            "data_end": frame.index.max().date().isoformat(),
-            "causal_ohlc_prefix_sha256": _frame_sha256(frame),
-            "source_file_sha256": _sha256(source_path) if source_path.exists() else None,
+            "signal": {
+                "filename": source_path.name,
+                "price_basis": "cash_distribution_adjusted",
+                "price_authority": signal_authority,
+                "price_source": signal_source,
+                "data_start": signal_frame.index.min().date().isoformat(),
+                "data_end": signal_frame.index.max().date().isoformat(),
+                "causal_ohlc_prefix_sha256": _frame_sha256(signal_frame),
+                "source_file_sha256": source_file_hash,
+            },
+            "execution": {
+                "filename": execution_file.name,
+                "price_basis": "actual_traded",
+                "price_authority": execution_authority,
+                "price_source": execution_source,
+                "data_start": execution_frame.index.min().date().isoformat(),
+                "data_end": execution_frame.index.max().date().isoformat(),
+                "causal_ohlc_prefix_sha256": _frame_sha256(execution_frame),
+                "source_file_sha256": execution_file_hash,
+                "provisional": execution_authority
+                != "official_krx_actual_traded",
+            },
             "distribution_filename": distribution_path.name,
             "distribution_source_sha256": distribution_hash,
             "latest_known_distribution_record_date": (
@@ -468,7 +575,7 @@ def build_shadow_payload(
             spec["evidence_policy"]["minimum_subsequent_sessions"]
         ),
         "paper_accounts": _paper_account_snapshot(
-            frame, states, distributions, spec
+            execution_frame, states, distributions, spec
         ),
     }
 
@@ -513,14 +620,51 @@ def main() -> None:
         action="store_true",
         help="write a rejected diagnostic instead of failing on stale input",
     )
+    parser.add_argument(
+        "--official-krx-input",
+        action="store_true",
+        help=(
+            "treat --price-file as normalized KRX actual OHLC, derive adjusted "
+            "signals from distributions, and use the original OHLC for execution"
+        ),
+    )
     args = parser.parse_args()
     price_path = args.price_file or select_kodex200_price_file()
-    prices = pd.read_parquet(price_path)
+    loaded_prices = load_shadow_prices(
+        price_path, official_krx_input=args.official_krx_input
+    )
+    distributions = load_distribution_events(args.distributions)
+    if args.official_krx_input:
+        signal_prices = adjust_ohlc_for_distributions(loaded_prices, distributions)
+        execution_prices = loaded_prices
+    else:
+        signal_prices = loaded_prices
+        execution_prices = None
     payload = build_shadow_payload(
-        prices,
+        signal_prices,
         source_path=price_path,
+        execution_prices=execution_prices,
+        execution_source_path=price_path if args.official_krx_input else None,
         spec_path=args.spec,
         distribution_path=args.distributions,
+        signal_price_authority=(
+            "official_krx_derived_distribution_adjusted"
+            if args.official_krx_input
+            else None
+        ),
+        signal_price_source=(
+            "KRX Data Marketplace screen 13103 adjusted with official distributions"
+            if args.official_krx_input
+            else None
+        ),
+        execution_price_authority=(
+            "official_krx_actual_traded" if args.official_krx_input else None
+        ),
+        execution_price_source=(
+            "KRX Data Marketplace screen 13103"
+            if args.official_krx_input
+            else None
+        ),
     )
     if payload["status"] == "stale_input_rejected" and not args.allow_stale_diagnostic:
         raise RuntimeError(

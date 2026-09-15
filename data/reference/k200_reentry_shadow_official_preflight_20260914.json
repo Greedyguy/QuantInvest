@@ -1,0 +1,82 @@
+{
+  "observation_version": 3,
+  "mode": "prospective_paper_shadow",
+  "status": "pre_start_diagnostic",
+  "generated_at_utc": "2026-09-14T22:26:30.290113+00:00",
+  "signal_date": "2026-09-14",
+  "strategy": "K200LowTurnoverReentry",
+  "strategy_source_sha256": "c27df110f19e7eed5ed6adfb9a6d67fe89b4c094107ab88f0a81e8a479f568b4",
+  "execution_simulator_source_sha256": "b5ec0bb8e89595c6e8321adfea5679a80a3a33210a7a3531b97f4088ffe36e19",
+  "cash_flow_source_sha256": "38de81c45390d19fbad49f2fecd9ffa1773275f9fcb70f50dc95c1acd97e7e8f",
+  "spec_sha256": "e106137c8cfcb987893edbd11508e2b42920fe0c5ce65d2f0ffe9de067391c22",
+  "execution_guard": "NO_ORDERS_SENT",
+  "target_weights_effective_at_signal_open": {
+    "069500": 0.0,
+    "__CASH__": 1.0
+  },
+  "state": "cash",
+  "last_transition_signal_date": null,
+  "reason": "no_monthly_decision",
+  "observable_close_context": {
+    "close": 105410.0,
+    "trend_ma": 110291.86713397884,
+    "fast_ma": 107682.75,
+    "medium_ma": 112698.9387301676,
+    "momentum": -0.2811887504683853,
+    "fast_momentum": -0.04224968199164092,
+    "drawdown": -0.2880204977087182
+  },
+  "scale_invariant_close_context": {
+    "close_to_trend_ma": 0.9557368348107798,
+    "close_to_fast_ma": 0.9788940197013913,
+    "close_to_medium_ma": 0.9353238032913572,
+    "momentum": -0.2811887504683853,
+    "fast_momentum": -0.04224968199164092,
+    "drawdown": -0.2880204977087182
+  },
+  "source": {
+    "signal": {
+      "filename": "kodex200_krx_preflight_actual_20200102_20260914.parquet",
+      "price_basis": "cash_distribution_adjusted",
+      "price_authority": "official_krx_derived_distribution_adjusted",
+      "price_source": "KRX Data Marketplace screen 13103 adjusted with official distributions",
+      "data_start": "2020-01-02",
+      "data_end": "2026-09-14",
+      "causal_ohlc_prefix_sha256": "d65099da7cad54cc0ea1a478bbd1c2d34cf248fabfea0d449be3c614d2723583",
+      "source_file_sha256": "14d9672281d595b12ee1bda6c07f6518a8240f9f7a9385e9b8c149a176d326c7"
+    },
+    "execution": {
+      "filename": "kodex200_krx_preflight_actual_20200102_20260914.parquet",
+      "price_basis": "actual_traded",
+      "price_authority": "official_krx_actual_traded",
+      "price_source": "KRX Data Marketplace screen 13103",
+      "data_start": "2020-01-02",
+      "data_end": "2026-09-14",
+      "causal_ohlc_prefix_sha256": "9c03f06b99dfa73e8f16a1e66dcc5c851d8c47f5241f597b47df51c663e393bf",
+      "source_file_sha256": "14d9672281d595b12ee1bda6c07f6518a8240f9f7a9385e9b8c149a176d326c7",
+      "provisional": false
+    },
+    "distribution_filename": "kodex200_distributions.csv",
+    "distribution_source_sha256": "2433b59f6d146a4dad5bb6e444f872a0b15ec9a14330d60d84c24d2b8e76a208",
+    "latest_known_distribution_record_date": "2026-07-31"
+  },
+  "data_freshness": {
+    "requested_local_date": "2026-09-15",
+    "source_date": "2026-09-14",
+    "business_day_gap": 1,
+    "tolerance_business_days": 3,
+    "future_dated": false,
+    "fresh": true
+  },
+  "benchmark_target": {
+    "069500": 1.0,
+    "__CASH__": 0.0
+  },
+  "measurement_sessions_required": 252,
+  "paper_accounts": {
+    "status": "not_started",
+    "subsequent_sessions": 0,
+    "required_subsequent_sessions": 252,
+    "capital_authorized": false
+  }
+}

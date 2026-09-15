@@ -7,6 +7,7 @@ import pytest
 
 from scripts.report_k200_reentry_shadow import (
     build_shadow_payload,
+    load_shadow_prices,
     write_immutable_shadow_record,
 )
 
@@ -53,7 +54,12 @@ def test_shadow_report_is_sanitized_and_never_plans_orders():
     }
     assert "account" not in payload
     assert "orders" not in payload
-    assert payload["source"]["filename"] == "069500_test.parquet"
+    assert payload["source"]["signal"]["filename"] == "069500_test.parquet"
+    assert payload["source"]["signal"]["price_basis"] == (
+        "cash_distribution_adjusted"
+    )
+    assert payload["source"]["execution"]["price_basis"] == "actual_traded"
+    assert payload["source"]["execution"]["provisional"] is True
     assert payload["paper_accounts"]["capital_authorized"] is False
 
 
@@ -93,6 +99,32 @@ def test_shadow_report_tracks_integer_share_candidate_and_benchmark_accounts():
     assert accounts["comparison"]["subsequent_sessions"] > 0
     assert accounts["comparison"]["registered_gates"] is None
     assert accounts["capital_authorized"] is False
+
+
+def test_shadow_report_uses_separate_actual_prices_for_integer_share_execution():
+    signal_prices = _prices("2027-04-30")
+    actual_prices = signal_prices * 2.0
+    as_of = signal_prices.index[-1]
+
+    payload = build_shadow_payload(
+        signal_prices,
+        source_path=Path("069500_adjusted.parquet"),
+        execution_prices=actual_prices,
+        execution_source_path=Path("069500_actual.parquet"),
+        distribution_events=_no_distributions(),
+        execution_price_authority="official_krx_actual_traded",
+        generated_at=datetime(
+            as_of.year, as_of.month, as_of.day, 7, tzinfo=timezone.utc
+        ),
+    )
+    candidate = payload["paper_accounts"]["candidate"]
+
+    assert payload["source"]["execution"]["provisional"] is False
+    assert candidate["equity_krw"] == pytest.approx(
+        candidate["cash_krw"]
+        + candidate["quantity"] * float(actual_prices["close"].iloc[-1])
+    )
+    assert candidate["quantity"] < 2_100_000 / float(signal_prices["close"].iloc[-1])
 
 
 def test_shadow_report_opens_registered_gates_only_after_252_subsequent_sessions():
@@ -135,3 +167,24 @@ def test_shadow_records_are_idempotent_but_conflicts_fail_closed(tmp_path):
     conflict["evidence"] = "revised"
     with pytest.raises(RuntimeError, match="immutable shadow record conflicts"):
         write_immutable_shadow_record(conflict, tmp_path)
+
+
+def test_official_shadow_input_requires_strict_krx_actual_price_panel(tmp_path):
+    path = tmp_path / "official.csv"
+    pd.DataFrame(
+        {
+            "date": ["2020-01-02"],
+            "ticker": ["069500"],
+            "open": [29_805],
+            "high": [29_880],
+            "low": [29_410],
+            "close": [29_465],
+            "source": ["KRX Data Marketplace screen 13103"],
+            "price_basis": ["actual_traded"],
+        }
+    ).to_csv(path, index=False)
+
+    result = load_shadow_prices(path, official_krx_input=True)
+
+    assert result.index.tolist() == [pd.Timestamp("2020-01-02")]
+    assert result.iloc[0]["close"] == 29_465
