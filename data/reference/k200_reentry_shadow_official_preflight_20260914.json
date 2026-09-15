@@ -2,17 +2,24 @@
   "observation_version": 3,
   "mode": "prospective_paper_shadow",
   "status": "pre_start_diagnostic",
-  "generated_at_utc": "2026-09-14T22:26:30.290113+00:00",
+  "generated_at_utc": "2026-09-15T01:47:03.472984+00:00",
   "signal_date": "2026-09-14",
   "strategy": "K200LowTurnoverReentry",
   "strategy_source_sha256": "c27df110f19e7eed5ed6adfb9a6d67fe89b4c094107ab88f0a81e8a479f568b4",
   "execution_simulator_source_sha256": "b5ec0bb8e89595c6e8321adfea5679a80a3a33210a7a3531b97f4088ffe36e19",
   "cash_flow_source_sha256": "38de81c45390d19fbad49f2fecd9ffa1773275f9fcb70f50dc95c1acd97e7e8f",
-  "spec_sha256": "e106137c8cfcb987893edbd11508e2b42920fe0c5ce65d2f0ffe9de067391c22",
+  "spec_sha256": "2309e12778d44f9392612f731dbf529a44cbcfa396f610fb2ca035526b570edc",
   "execution_guard": "NO_ORDERS_SENT",
-  "target_weights_effective_at_signal_open": {
+  "state_weights_effective_at_observation_open": {
     "069500": 0.0,
     "__CASH__": 1.0
+  },
+  "next_open_transition_commitment": {
+    "decision_input_date": "2026-09-14",
+    "state_before_transition": "cash",
+    "emergency_rule_evaluated_each_session": true,
+    "monthly_rule_condition": "next observed exchange session is in a different calendar month",
+    "resolution": "the frozen strategy deterministically resolves the next-open state when the next exchange session date is observed"
   },
   "state": "cash",
   "last_transition_signal_date": null,

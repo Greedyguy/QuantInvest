@@ -51,7 +51,7 @@
     "deployment_state": "recovery_branch_only_not_live",
     "first_eligible_signal_date": "2026-09-16",
     "frozen_signal_history_start": "2020-01-02",
-    "daily_evidence": "immutable adjusted-signal and separately reconstructed-actual execution hashes, frozen source hashes, scale-invariant indicators, state, target, and integer-share account snapshots",
+    "daily_evidence": "immutable adjusted-signal and separately reconstructed-actual execution hashes, frozen source hashes, scale-invariant indicators, observation-open state, deterministic next-open transition commitment, and integer-share account snapshots",
     "final_price_authority": "Signals are rebuilt as distribution-adjusted prices from KRX actual traded OHLC; integer-share execution is recomputed directly on KRX actual traded OHLC, and provisional daily execution prices are not accepted for the final decision",
     "stale_input_policy": "fail_closed",
     "minimum_subsequent_sessions": 252,

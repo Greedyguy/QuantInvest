@@ -44,6 +44,8 @@
     "daily_execution_price_basis": "actual_traded",
     "daily_execution_price_authority": "provisional_reconstructed_actual_from_adjusted",
     "daily_execution_price_source": "reverse cash-distribution adjustment of the provisional signal cache; replaced by official KRX OHLC in the final audit",
+    "recorded_state_semantics": "state weights effective at the observation-session open",
+    "next_open_commitment": "the observation-session close and frozen strategy source deterministically commit the transition for the next observed exchange session",
     "max_source_business_day_gap": 3,
     "one_immutable_record_per_exchange_session": true,
     "stale_input_is_ineligible": true

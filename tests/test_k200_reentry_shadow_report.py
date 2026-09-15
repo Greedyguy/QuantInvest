@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -6,6 +7,8 @@ import pandas as pd
 import pytest
 
 from scripts.report_k200_reentry_shadow import (
+    SPEC_PATH,
+    _provisional_comparison,
     build_shadow_payload,
     load_shadow_prices,
     write_immutable_shadow_record,
@@ -37,6 +40,10 @@ def _no_distributions() -> pd.DataFrame:
     )
 
 
+def _spec() -> dict:
+    return json.loads(SPEC_PATH.read_text(encoding="utf-8"))
+
+
 def test_shadow_report_is_sanitized_and_never_plans_orders():
     prices = _prices("2026-09-10")
 
@@ -48,10 +55,13 @@ def test_shadow_report_is_sanitized_and_never_plans_orders():
     )
 
     assert payload["execution_guard"] == "NO_ORDERS_SENT"
-    assert set(payload["target_weights_effective_at_signal_open"]) == {
+    assert set(payload["state_weights_effective_at_observation_open"]) == {
         "069500",
         "__CASH__",
     }
+    assert payload["next_open_transition_commitment"]["decision_input_date"] == (
+        payload["signal_date"]
+    )
     assert "account" not in payload
     assert "orders" not in payload
     assert payload["source"]["signal"]["filename"] == "069500_test.parquet"
@@ -144,6 +154,41 @@ def test_shadow_report_opens_registered_gates_only_after_252_subsequent_sessions
     assert comparison["evidence_complete"] is True
     assert comparison["registered_gates"] is not None
     assert comparison["capital_authorized"] is False
+
+
+def test_registered_gates_accept_defensive_excess_but_never_authorize_capital():
+    dates = pd.bdate_range("2026-09-16", periods=253)
+    candidate = pd.DataFrame({"equity": 2_100_000.0}, index=dates)
+    benchmark = pd.DataFrame(
+        {"equity": np.linspace(2_100_000.0, 1_680_000.0, len(dates))},
+        index=dates,
+    )
+
+    result = _provisional_comparison(candidate, benchmark, spec=_spec())
+
+    assert result["evidence_complete"] is True
+    assert result["provisional_passes_all_gates"] is True
+    assert result["eligible_for_final_official_input_audit"] is True
+    assert result["capital_authorized"] is False
+
+
+def test_registered_gates_reject_market_lag_even_after_full_measurement():
+    dates = pd.bdate_range("2026-09-16", periods=253)
+    candidate = pd.DataFrame(
+        {"equity": np.linspace(2_100_000.0, 2_310_000.0, len(dates))},
+        index=dates,
+    )
+    benchmark = pd.DataFrame(
+        {"equity": np.linspace(2_100_000.0, 2_520_000.0, len(dates))},
+        index=dates,
+    )
+
+    result = _provisional_comparison(candidate, benchmark, spec=_spec())
+
+    assert result["evidence_complete"] is True
+    assert result["provisional_passes_all_gates"] is False
+    assert result["eligible_for_final_official_input_audit"] is False
+    assert result["capital_authorized"] is False
 
 
 def test_shadow_records_are_idempotent_but_conflicts_fail_closed(tmp_path):

@@ -514,9 +514,21 @@ def build_shadow_payload(
         "cash_flow_source_sha256": _sha256(cash_flow_path),
         "spec_sha256": _sha256(spec_path),
         "execution_guard": "NO_ORDERS_SENT",
-        "target_weights_effective_at_signal_open": {
+        "state_weights_effective_at_observation_open": {
             "069500": exposure,
             "__CASH__": 1.0 - exposure,
+        },
+        "next_open_transition_commitment": {
+            "decision_input_date": as_of.date().isoformat(),
+            "state_before_transition": state,
+            "emergency_rule_evaluated_each_session": True,
+            "monthly_rule_condition": (
+                "next observed exchange session is in a different calendar month"
+            ),
+            "resolution": (
+                "the frozen strategy deterministically resolves the next-open state "
+                "when the next exchange session date is observed"
+            ),
         },
         "state": state,
         "last_transition_signal_date": (

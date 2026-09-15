@@ -246,10 +246,18 @@ def audit_shadow_records(
             )
             is False,
         }
-        weights = record.get("target_weights_effective_at_signal_open", {})
-        checks["target_weight"] = bool(
+        weights = record.get("state_weights_effective_at_observation_open", {})
+        checks["observation_open_state_weight"] = bool(
             np.isclose(weights.get("069500", np.nan), expected_exposure)
             and np.isclose(weights.get("__CASH__", np.nan), 1.0 - expected_exposure)
+        )
+        commitment = record.get("next_open_transition_commitment", {})
+        checks["next_open_transition_commitment"] = bool(
+            commitment.get("decision_input_date") == day.date().isoformat()
+            and commitment.get("state_before_transition") == str(row["state"])
+            and commitment.get("emergency_rule_evaluated_each_session") is True
+            and commitment.get("monthly_rule_condition")
+            == "next observed exchange session is in a different calendar month"
         )
         observed = record.get("scale_invariant_close_context", {})
         expected_context = _relative_indicator_context(indicator)

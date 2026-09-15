@@ -84,10 +84,13 @@ def test_official_preflight_is_before_measurement_and_authorizes_no_capital():
         NORMALIZED
     )
     assert payload["state"] == "cash"
-    assert payload["target_weights_effective_at_signal_open"] == {
+    assert payload["state_weights_effective_at_observation_open"] == {
         "069500": 0.0,
         "__CASH__": 1.0,
     }
+    assert payload["next_open_transition_commitment"]["decision_input_date"] == (
+        "2026-09-14"
+    )
     assert payload["execution_guard"] == "NO_ORDERS_SENT"
     assert payload["paper_accounts"]["status"] == "not_started"
     assert payload["paper_accounts"]["capital_authorized"] is False
