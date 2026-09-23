@@ -14,17 +14,19 @@ import json
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Callable, Dict, List, Mapping
 
 import numpy as np
 import pandas as pd
 
 from config import (
+    BLOCKED_TICKERS,
     FEE_PER_SIDE,
     SLIPPAGE_ENTRY,
     SLIPPAGE_EXIT,
     TAX_RATE_SELL,
 )
+from market_benchmark import prepare_distribution_schedule
 from reports import load_data
 from strategies import get_strategy
 from utils import perf_stats
@@ -42,6 +44,56 @@ class SimOrder:
     exec_price: float
     reason: str
     cash_after: float
+    fee: float = 0.0
+    tax: float = 0.0
+    transaction_tax: float = 0.0
+    holding_period_tax: float = 0.0
+
+
+@dataclass(frozen=True)
+class HoldingPeriodTaxProfile:
+    """Daily tax NAV and withholding rate for non-equity domestic ETFs."""
+
+    tax_nav: pd.Series
+    rate: float = 0.154
+
+
+def _tax_nav_on(
+    profiles: Mapping[str, HoldingPeriodTaxProfile], ticker: str, day
+) -> float:
+    profile = profiles[ticker]
+    series = profile.tax_nav
+    value = series.loc[day] if day in series.index else np.nan
+    if not np.isfinite(value) or float(value) <= 0:
+        raise ValueError(f"tax NAV is missing for {ticker} on {pd.Timestamp(day).date()}")
+    return float(value)
+
+
+def _consume_holding_period_tax_lots(
+    lots: list[dict],
+    quantity: int,
+    *,
+    sell_price: float,
+    sell_tax_nav: float,
+    tax_rate: float,
+) -> float:
+    """Apply the Korean ETF min(market gain, tax-NAV gain) withholding rule."""
+
+    remaining = int(quantity)
+    tax = 0.0
+    while remaining > 0 and lots:
+        lot = lots[0]
+        sold = min(remaining, int(lot["quantity"]))
+        market_gain = max(float(sell_price) - float(lot["buy_price"]), 0.0)
+        tax_nav_gain = max(float(sell_tax_nav) - float(lot["buy_tax_nav"]), 0.0)
+        tax += sold * min(market_gain, tax_nav_gain) * float(tax_rate)
+        lot["quantity"] = int(lot["quantity"]) - sold
+        remaining -= sold
+        if int(lot["quantity"]) <= 0:
+            lots.pop(0)
+    if remaining:
+        raise ValueError("holding-period tax lots do not cover the sell quantity")
+    return tax
 
 
 def _price_on(enriched: Dict[str, pd.DataFrame], ticker: str, day, field: str) -> float:
@@ -54,10 +106,32 @@ def _price_on(enriched: Dict[str, pd.DataFrame], ticker: str, day, field: str) -
     return float(val) if np.isfinite(val) else np.nan
 
 
-def _mark_to_market(cash: float, holdings: Dict[str, int], enriched: Dict[str, pd.DataFrame], day) -> float:
-    equity = cash
+def _price_on_or_before(
+    enriched: Dict[str, pd.DataFrame], ticker: str, day, field: str
+) -> float:
+    """Use the latest observable mark for suspensions and missing rows."""
+
+    df = enriched.get(ticker)
+    if df is None or df.empty or field not in df.columns:
+        return np.nan
+    observed = df.loc[df.index <= day, field].dropna()
+    if observed.empty:
+        return np.nan
+    value = float(observed.iloc[-1])
+    return value if np.isfinite(value) else np.nan
+
+
+def _mark_to_market(
+    cash: float,
+    holdings: Dict[str, int],
+    enriched: Dict[str, pd.DataFrame],
+    day,
+    *,
+    distribution_receivable: float = 0.0,
+) -> float:
+    equity = cash + float(distribution_receivable)
     for ticker, qty in holdings.items():
-        price = _price_on(enriched, ticker, day, "close")
+        price = _price_on_or_before(enriched, ticker, day, "close")
         if np.isfinite(price) and price > 0:
             equity += qty * price
     return equity
@@ -72,16 +146,21 @@ def _build_orders(
     enriched: Dict[str, pd.DataFrame],
     min_trade: int,
     price_band_pct: float,
+    blocked_tickers: set[str] | None = None,
 ) -> List[SimOrder]:
     equity = cash
     for ticker, qty in holdings.items():
         px = _price_on(enriched, ticker, exec_date, "open")
+        if not np.isfinite(px) or px <= 0:
+            px = _price_on_or_before(enriched, ticker, signal_date, "close")
         if np.isfinite(px) and px > 0:
             equity += qty * px
 
     orders: List[SimOrder] = []
+    blocked = {str(ticker) for ticker in (blocked_tickers or set())}
     asset_targets = targets.drop("__CASH__", errors="ignore")
     asset_targets = asset_targets[asset_targets > 0]
+    asset_targets = asset_targets.drop(list(blocked), errors="ignore")
     target_symbols = set(asset_targets.index)
 
     for ticker, weight in asset_targets.items():
@@ -113,7 +192,7 @@ def _build_orders(
         if delta == 0:
             continue
         diff_pct = abs(exec_open - ref_price) / ref_price * 100
-        if diff_pct > price_band_pct:
+        if delta > 0 and diff_pct > price_band_pct:
             orders.append(
                 SimOrder(
                     str(signal_date.date()),
@@ -174,26 +253,78 @@ def simulate(
     initial_cash: float,
     min_trade: int,
     price_band_pct: float,
+    blocked_tickers: set[str] | None = None,
+    sell_tax_rate_by_ticker: Mapping[str, float] | None = None,
+    sell_tax_rate_resolver: Callable[[str, pd.Timestamp], float] | None = None,
+    rebalance_only_on_target_change: bool = False,
+    distribution_events_by_ticker: Mapping[str, pd.DataFrame] | None = None,
+    holding_period_tax_by_ticker: Mapping[
+        str, HoldingPeriodTaxProfile
+    ] | None = None,
+    fee_per_side: float = FEE_PER_SIDE,
+    slippage_entry: float = SLIPPAGE_ENTRY,
+    slippage_exit: float = SLIPPAGE_EXIT,
 ) -> tuple[pd.DataFrame, list[dict]]:
     cash = float(initial_cash)
     holdings: Dict[str, int] = {}
     equity_rows = []
     trade_rows: List[dict] = []
+    tax_profiles: dict[str, HoldingPeriodTaxProfile] = {}
+    for ticker, profile in (holding_period_tax_by_ticker or {}).items():
+        series = profile.tax_nav.copy()
+        series.index = pd.to_datetime(series.index)
+        series = pd.to_numeric(series, errors="coerce").sort_index()
+        if series.index.duplicated().any():
+            raise ValueError(f"duplicate tax NAV dates for {ticker}")
+        if not 0.0 <= float(profile.rate) <= 1.0:
+            raise ValueError("holding-period tax rate must be between zero and one")
+        tax_profiles[str(ticker)] = HoldingPeriodTaxProfile(
+            tax_nav=series, rate=float(profile.rate)
+        )
+    holding_period_tax_lots: dict[str, list[dict]] = {}
 
     dates = list(target_weights.index)
+    entitlement_by_date: dict[pd.Timestamp, list[tuple[str, dict]]] = {}
+    for ticker, events in (distribution_events_by_ticker or {}).items():
+        schedule = prepare_distribution_schedule(events, pd.Index(dates))
+        for event in schedule.to_dict("records"):
+            entitlement_by_date.setdefault(event["entitlement_date"], []).append(
+                (str(ticker), event)
+            )
+    pending_distributions: list[tuple[str, dict, int]] = []
+    if dates:
+        equity_rows.append(
+            {
+                "date": dates[0],
+                "equity": cash,
+                "cash": cash,
+                "distribution_receivable": 0.0,
+                "positions": 0,
+            }
+        )
     for idx in range(len(dates) - 1):
         signal_date = dates[idx]
         exec_date = dates[idx + 1]
         targets = target_weights.loc[signal_date].fillna(0.0)
-        orders = _build_orders(
-            signal_date,
-            exec_date,
-            targets,
-            cash,
-            holdings,
-            enriched,
-            min_trade,
-            price_band_pct,
+        target_changed = idx == 0 or not targets.equals(
+            target_weights.loc[dates[idx - 1]].fillna(0.0)
+        )
+        orders = (
+            _build_orders(
+                signal_date,
+                exec_date,
+                targets,
+                cash,
+                holdings,
+                enriched,
+                min_trade,
+                price_band_pct,
+                blocked_tickers=(
+                    BLOCKED_TICKERS if blocked_tickers is None else blocked_tickers
+                ),
+            )
+            if target_changed or not rebalance_only_on_target_change
+            else []
         )
 
         for order in orders:
@@ -204,10 +335,35 @@ def simulate(
                 qty = min(int(order.final_qty), int(holdings.get(order.ticker, 0)))
                 if qty <= 0:
                     continue
-                exec_price = order.exec_price * (1 - SLIPPAGE_EXIT)
+                exec_price = order.exec_price * (1 - slippage_exit)
                 gross = qty * exec_price
-                fee = gross * FEE_PER_SIDE
-                tax = gross * TAX_RATE_SELL
+                fee = gross * fee_per_side
+                if sell_tax_rate_resolver is not None:
+                    tax_rate = float(
+                        sell_tax_rate_resolver(order.ticker, pd.Timestamp(exec_date))
+                    )
+                elif sell_tax_rate_by_ticker is not None:
+                    tax_rate = float(
+                        sell_tax_rate_by_ticker.get(order.ticker, TAX_RATE_SELL)
+                    )
+                else:
+                    tax_rate = TAX_RATE_SELL
+                if tax_rate < 0:
+                    raise ValueError("sell tax rate cannot be negative")
+                transaction_tax = gross * tax_rate
+                holding_period_tax = 0.0
+                if order.ticker in tax_profiles:
+                    profile = tax_profiles[order.ticker]
+                    holding_period_tax = _consume_holding_period_tax_lots(
+                        holding_period_tax_lots.setdefault(order.ticker, []),
+                        qty,
+                        sell_price=exec_price,
+                        sell_tax_nav=_tax_nav_on(
+                            tax_profiles, order.ticker, exec_date
+                        ),
+                        tax_rate=profile.rate,
+                    )
+                tax = transaction_tax + holding_period_tax
                 cash += gross - fee - tax
                 holdings[order.ticker] = int(holdings.get(order.ticker, 0)) - qty
                 if holdings[order.ticker] <= 0:
@@ -215,10 +371,14 @@ def simulate(
                 order.final_qty = qty
                 order.exec_price = exec_price
                 order.cash_after = cash
+                order.fee = fee
+                order.tax = tax
+                order.transaction_tax = transaction_tax
+                order.holding_period_tax = holding_period_tax
                 trade_rows.append(asdict(order))
             elif order.action == "BUY":
-                exec_price = order.exec_price * (1 + SLIPPAGE_ENTRY)
-                cash_per_share = exec_price * (1 + FEE_PER_SIDE)
+                exec_price = order.exec_price * (1 + slippage_entry)
+                cash_per_share = exec_price * (1 + fee_per_side)
                 qty = min(int(order.final_qty), int(cash / cash_per_share) if cash_per_share > 0 else 0)
                 if qty <= 0:
                     order.action = "SKIP"
@@ -228,16 +388,79 @@ def simulate(
                     trade_rows.append(asdict(order))
                     continue
                 gross = qty * exec_price
-                fee = gross * FEE_PER_SIDE
+                fee = gross * fee_per_side
                 cash -= gross + fee
                 holdings[order.ticker] = int(holdings.get(order.ticker, 0)) + qty
+                if order.ticker in tax_profiles:
+                    holding_period_tax_lots.setdefault(order.ticker, []).append(
+                        {
+                            "quantity": qty,
+                            "buy_price": exec_price,
+                            "buy_tax_nav": _tax_nav_on(
+                                tax_profiles, order.ticker, exec_date
+                            ),
+                        }
+                    )
                 order.final_qty = qty
                 order.exec_price = exec_price
                 order.cash_after = cash
+                order.fee = fee
                 trade_rows.append(asdict(order))
 
-        equity = _mark_to_market(cash, holdings, enriched, exec_date)
-        equity_rows.append({"date": exec_date, "equity": equity, "cash": cash, "positions": len(holdings)})
+        for ticker, event in entitlement_by_date.get(exec_date, []):
+            pending_distributions.append(
+                (ticker, event, int(holdings.get(ticker, 0)))
+            )
+        still_pending: list[tuple[str, dict, int]] = []
+        for ticker, event, eligible_quantity in pending_distributions:
+            if event["credit_date"] > exec_date:
+                still_pending.append((ticker, event, eligible_quantity))
+                continue
+            if eligible_quantity <= 0:
+                continue
+            gross = eligible_quantity * float(event["gross_unit"])
+            tax = eligible_quantity * float(event["tax_unit"])
+            cash += gross - tax
+            trade_rows.append(
+                {
+                    "signal_date": str(event["entitlement_date"].date()),
+                    "exec_date": str(exec_date.date()),
+                    "ticker": ticker,
+                    "action": "DISTRIBUTION",
+                    "planned_qty": eligible_quantity,
+                    "final_qty": eligible_quantity,
+                    "ref_price": float(event["gross_unit"]),
+                    "exec_price": float(event["gross_unit"]),
+                    "reason": "kodex_distribution",
+                    "cash_after": cash,
+                    "fee": 0.0,
+                    "tax": tax,
+                    "gross": gross,
+                }
+            )
+        pending_distributions = still_pending
+
+        distribution_receivable = sum(
+            eligible_quantity * float(event["net_unit"])
+            for _, event, eligible_quantity in pending_distributions
+            if eligible_quantity > 0
+        )
+        equity = _mark_to_market(
+            cash,
+            holdings,
+            enriched,
+            exec_date,
+            distribution_receivable=distribution_receivable,
+        )
+        equity_rows.append(
+            {
+                "date": exec_date,
+                "equity": equity,
+                "cash": cash,
+                "distribution_receivable": distribution_receivable,
+                "positions": len(holdings),
+            }
+        )
 
     equity_curve = pd.DataFrame(equity_rows)
     if not equity_curve.empty:

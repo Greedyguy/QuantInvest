@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "retrieved_at": "2026-09-14T16:00:00+09:00",
+  "tickers": ["211900", "223190", "244620", "244660", "252650"],
+  "normalized_file": "data/reference/kodex_factor_distributions_2018_2026.csv",
+  "sha256": "41128c94efe69774f0177ff1214487e1daddee66336a1acfaab8d19532625862",
+  "official_sources": {
+    "2018_2021_distribution_amounts": "Samsung Asset Management official monthly KODEX product sheets",
+    "2022_2026_events": "Samsung Asset Management official KODEX distribution API"
+  },
+  "conservative_assumptions": [
+    "For 2018-2021, the official product sheets disclose distribution amounts but not payment dates in the historical table.",
+    "Those payment dates are inferred as the second subsequent KRX trading session and the full gross amount is treated as taxable.",
+    "From 2022 onward, record dates, payment dates, gross amounts, and taxable amounts use the official API values."
+  ]
+}

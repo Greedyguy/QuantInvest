@@ -1,0 +1,27 @@
+{
+  "source": "KRX Data Marketplace screen 13103",
+  "source_url": "https://data.krx.co.kr/contents/MDC/MDI/mdiLoader/index.cmd?menuId=MDC0201030103",
+  "price_basis": "actual_traded",
+  "purpose": "prospective_shadow_official_input_audit",
+  "created_at_utc": "2026-09-14T22:13:30.052463+00:00",
+  "required_tickers": [
+    "069500"
+  ],
+  "fields": [
+    "open",
+    "high",
+    "low",
+    "close"
+  ],
+  "history_coverage_start": "2020-01-02",
+  "history_coverage_end": "2026-09-14",
+  "normalized_rows": 1645,
+  "normalized_file": {
+    "filename": "kodex200_krx_preflight_actual_20200102_20260914.parquet",
+    "sha256": "14d9672281d595b12ee1bda6c07f6518a8240f9f7a9385e9b8c149a176d326c7"
+  },
+  "raw_input": {
+    "filename": "kodex200_krx_preflight_raw_20200102_20260914.csv",
+    "sha256": "16947dfb8f0dd9a9928619d304c8c612830579789ec938fd80e74763e1537776"
+  }
+}

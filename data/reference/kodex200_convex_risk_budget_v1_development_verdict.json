@@ -1,0 +1,33 @@
+{
+  "candidate": "kodex200_convex_risk_budget_v1",
+  "development_period": "2018-06-29/2022-12-29",
+  "verdict": "rejected_in_development",
+  "development_passes": false,
+  "sealed_periods_opened": false,
+  "candidate_metrics": {
+    "return_pct": 41.33450431853749,
+    "cagr_pct": 7.989166088300137,
+    "mdd_pct": -17.341322556635895,
+    "orders": 14,
+    "holding_period_tax_pct_initial": 0.1271931466666669
+  },
+  "continuous_kodex200_metrics": {
+    "return_pct": 6.573999909013906,
+    "cagr_pct": 1.4245753349224843,
+    "mdd_pct": -33.53381398264954
+  },
+  "same_timing_kodex200_metrics": {
+    "return_pct": 31.89956739256916,
+    "cagr_pct": 6.344272727782774,
+    "mdd_pct": -13.612551122105554
+  },
+  "failed_registered_gates": {
+    "rolling_12m_vs_same_timing_pct": 54.30232558139535,
+    "positive_year_concentration_vs_same_timing_pct": 83.49020751957083,
+    "double_cost_cagr_excess_vs_same_timing_pct_point": 1.1720004427759445,
+    "double_cost_rolling_12m_vs_same_timing_pct": 46.627906976744185,
+    "double_cost_positive_year_concentration_vs_same_timing_pct": 88.54694698533575
+  },
+  "diagnosis": "The fixed 25 percent leverage sleeve raised full-period return but its incremental result was not persistent: most positive excess versus the same-timing unlevered comparator came from 2020, and the advantage did not survive the registered double-cost gates.",
+  "next_step": "reject_without_opening_sealed_periods"
+}

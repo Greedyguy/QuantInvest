@@ -1,0 +1,73 @@
+{
+  "decision_date": "2026-09-15",
+  "objective": "Beat continuous KODEX 200 after integer-share execution, fees, slippage, taxes, and cash distributions without relying on a single regime.",
+  "development_period": "2018-06-29/2022-12-29",
+  "candidate_decisions": [
+    {
+      "candidate": "krx_small_account_value_profitability_momentum_v1",
+      "decision": "reject",
+      "primary_failure": "No selection premium over the same KODEX 200 risk timing"
+    },
+    {
+      "candidate": "kodex200_convex_risk_budget_v1",
+      "decision": "reject",
+      "primary_failure": "Fixed leverage excess was concentrated in 2020 and failed double-cost persistence"
+    },
+    {
+      "candidate": "kodex200_volatility_budget_v2",
+      "decision": "reject",
+      "primary_failure": "Improved rolling persistence but insufficient and still concentrated excess over same timing"
+    },
+    {
+      "candidate": "kodex200_bear_participation_v3",
+      "decision": "reject",
+      "primary_failure": "Inverse sleeve lagged recoveries and underperformed risk-off cash"
+    }
+  ],
+  "strongest_common_component": {
+    "strategy": "frozen K200LowTurnoverReentry risk timing with 95 percent KODEX 200 when risk-on and cash otherwise",
+    "development_return_pct": 31.89956739256916,
+    "development_cagr_pct": 6.344272727782774,
+    "development_mdd_pct": -13.612551122105554,
+    "continuous_kodex200_return_pct": 6.573999909013906,
+    "continuous_kodex200_cagr_pct": 1.4245753349224843,
+    "continuous_kodex200_mdd_pct": -33.53381398264954,
+    "interpretation": "The historical edge came from low-turnover risk timing, not stock ranking, permanent leverage, volatility-tier leverage, or delayed inverse exposure."
+  },
+  "bias_control": {
+    "stop_2018_2022_candidate_mining": true,
+    "open_2023_2024_for_rejected_candidates": false,
+    "treat_2024_2026_kodex200_history_as_seen": true,
+    "reason": "Existing project reports already inspected these KODEX 200 periods, so they cannot honestly serve as a new sealed holdout."
+  },
+  "capital_decision": {
+    "promote_new_candidate_to_live": false,
+    "change_current_live_strategy": false,
+    "prospective_shadow": "frozen K200LowTurnoverReentry only",
+    "new_capital_at_risk": 0
+  },
+  "prospective_validation": {
+    "protocol_version": 3,
+    "deployment_state": "recovery_branch_only_not_live",
+    "first_eligible_signal_date": "2026-09-16",
+    "frozen_signal_history_start": "2020-01-02",
+    "daily_evidence": "immutable adjusted-signal and separately reconstructed-actual execution hashes, frozen source hashes, scale-invariant indicators, observation-open state, deterministic next-open transition commitment, and integer-share account snapshots",
+    "final_price_authority": "Signals are rebuilt as distribution-adjusted prices from KRX actual traded OHLC; integer-share execution is recomputed directly on KRX actual traded OHLC, and provisional daily execution prices are not accepted for the final decision",
+    "stale_input_policy": "fail_closed",
+    "minimum_subsequent_sessions": 252,
+    "final_auditor": "scripts/audit_k200_reentry_shadow.py",
+    "automatic_order_authority": false
+  },
+  "official_preflight": {
+    "as_of": "2026-09-14",
+    "krx_exchange_sessions": 1645,
+    "signal_basis": "KRX actual OHLC adjusted for verified KODEX 200 cash distributions",
+    "execution_basis": "KRX actual traded OHLC",
+    "current_state": "cash",
+    "target_kodex200_weight": 0.0,
+    "input_audit_passed": true,
+    "measurement_sessions_recorded": 0,
+    "capital_authorized": false,
+    "interpretation": "The pipeline is ready for forward paper observation, but the pre-start diagnostic is not evidence of market outperformance."
+  }
+}

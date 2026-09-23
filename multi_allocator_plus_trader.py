@@ -73,8 +73,13 @@ logger.setLevel(logging.INFO)
 
 INDEX_ETF_TICKERS = {
     "069500", "102110", "152100", "229200", "091160", "091180",
-    "305720", "233740", "114800", "122630",
+    "305720", "233740", "114800", "122630", "423160",
 }
+
+CASH_PARKING_TICKER = "423160"  # KODEX KOFR금리액티브(합성)
+CASH_EQUIVALENT_TICKERS = {CASH_PARKING_TICKER}
+CASH_PARKING_LIQUID_RESERVE_WEIGHT = 0.30
+CASH_PARKING_MAX_WEIGHT = 0.50
 
 SENSITIVE_REPORT_KEYS = {
     "account", "account_no", "available_cash", "total_cash", "total_value",
@@ -114,6 +119,7 @@ class MultiAllocatorPlusTrader:
         us_universe_limit: int = 50,
         skip_if_executed: bool = True,
         small_account_shadow: bool = False,
+        stress_recovery_mode: str = "shadow",
     ):
         self.start_date = start_date
         self.use_cache = use_cache
@@ -131,6 +137,9 @@ class MultiAllocatorPlusTrader:
         self.us_universe_limit = us_universe_limit
         self.skip_if_executed = skip_if_executed
         self.small_account_shadow = small_account_shadow
+        if stress_recovery_mode not in {"off", "shadow", "live"}:
+            raise ValueError("stress_recovery_mode must be one of: off, shadow, live")
+        self.stress_recovery_mode = stress_recovery_mode
         self.run_id = uuid4().hex[:12]
         self.execution_log_path = self._execution_log_path()
 
@@ -140,6 +149,8 @@ class MultiAllocatorPlusTrader:
         self.strategy = get_strategy("multi_allocator_plus_safe_etf_kqm")
         if self.strategy is None:
             raise RuntimeError("multi_allocator_plus 전략을 찾을 수 없습니다.")
+        if hasattr(self.strategy, "stress_recovery_enabled"):
+            self.strategy.stress_recovery_enabled = stress_recovery_mode == "live"
 
         self.enriched = {}
         self.market_index = None
@@ -372,6 +383,22 @@ class MultiAllocatorPlusTrader:
             for key in ["regime", "close", "ma60", "mom5", "mom20", "mom1m", "mom3m", "vol20"]:
                 if key in regime_row.index:
                     regime_payload[key] = self._json_scalar(regime_row.get(key))
+        recovery_row = self._row_asof(
+            getattr(self.strategy, "latest_recovery_context", None), signal_date
+        )
+        recovery_payload = {
+            "mode": self.stress_recovery_mode,
+            "candidate": self._series_value_asof(
+                getattr(self.strategy, "latest_recovery_candidate_exposure", None),
+                signal_date,
+            ),
+        }
+        if recovery_row is not None:
+            recovery_payload.update({
+                str(key): self._json_scalar(value)
+                for key, value in recovery_row.to_dict().items()
+            })
+
         return {
             "signal_date": str(signal_date.date()),
             "regime": regime_payload,
@@ -382,6 +409,10 @@ class MultiAllocatorPlusTrader:
                 "after_stress": self._series_value_asof(
                     getattr(self.strategy, "latest_stress_exposure", None), signal_date
                 ),
+                "stress_baseline": self._series_value_asof(
+                    getattr(self.strategy, "latest_stress_baseline_exposure", None),
+                    signal_date,
+                ),
                 "final": self._series_value_asof(
                     getattr(self.strategy, "latest_final_exposure", None), signal_date
                 ),
@@ -391,6 +422,7 @@ class MultiAllocatorPlusTrader:
                 "fast_signal": self._series_value_asof(
                     getattr(self.strategy, "latest_fast_signal", None), signal_date
                 ),
+                "recovery": recovery_payload,
             },
         }
 
@@ -492,6 +524,7 @@ class MultiAllocatorPlusTrader:
                 "data_as_of": self._data_as_of(targets),
                 "max_security_weight": getattr(self.strategy, "max_security_weight", None),
                 "target_turnover_cap": getattr(self.strategy, "target_turnover_cap", None),
+                "stress_recovery_mode": self.stress_recovery_mode,
             },
         }
         snapshot_path = self._signal_snapshot_path(signal_date)
@@ -863,14 +896,26 @@ class MultiAllocatorPlusTrader:
                     "reference_price": float(price or 0),
                 })
 
-        plans.sort(key=lambda x: (-1 if x.action == "SELL" else 1, -x.est_value))
+        # Cash-equivalent buys are residual-cash operations.  Execute every
+        # risk reduction and risk-asset buy first so parking can never crowd
+        # out the strategy portfolio.
+        plans.sort(key=lambda plan: (
+            0
+            if plan.action == "SELL"
+            else (2 if self._normalize_symbol(plan.symbol) in CASH_EQUIVALENT_TICKERS else 1),
+            -plan.est_value,
+        ))
         if return_decisions:
             return plans, decisions
         return plans
 
-    def _safe_get_current_price(self, symbol: str) -> float | None:
+    def _safe_get_current_price(
+        self,
+        symbol: str,
+        allow_dry_run_read: bool = False,
+    ) -> float | None:
         code = self._normalize_symbol(symbol)
-        if self.dry_run:
+        if self.dry_run and not allow_dry_run_read:
             return None
         method_names = [
             "get_current_price",
@@ -1133,6 +1178,7 @@ class MultiAllocatorPlusTrader:
         plans: List[OrderPlan],
         price_cache_override: Dict[str, float] | None = None,
         planning_decisions: List[Dict] | None = None,
+        cash_equivalent_tickers: set[str] | None = None,
     ) -> Dict:
         total = float(account.get("total_value", 0) or 0)
         if total <= 0:
@@ -1145,11 +1191,20 @@ class MultiAllocatorPlusTrader:
                 "reason": "total_equity_unavailable",
             }
 
+        cash_equivalents = {
+            self._normalize_symbol(ticker)
+            for ticker in (cash_equivalent_tickers or set())
+        }
         target_assets = targets.drop("__CASH__", errors="ignore").fillna(0.0)
         target_assets = target_assets[target_assets > 0]
-        target_map = {
+        all_target_map = {
             self._normalize_symbol(str(ticker)): float(weight)
             for ticker, weight in target_assets.items()
+        }
+        target_map = {
+            ticker: weight
+            for ticker, weight in all_target_map.items()
+            if ticker not in cash_equivalents
         }
         prices = {
             self._normalize_symbol(str(ticker)): float(price)
@@ -1183,7 +1238,7 @@ class MultiAllocatorPlusTrader:
                 0,
             )
 
-        all_symbols = sorted(set(target_map) | set(current_qty) | set(projected_qty))
+        all_symbols = sorted(set(all_target_map) | set(current_qty) | set(projected_qty))
         position_rows = []
         current_position_weight_sum = 0.0
         for symbol in all_symbols:
@@ -1192,17 +1247,25 @@ class MultiAllocatorPlusTrader:
             executable_value = projected_qty.get(symbol, 0) * price
             current_weight = current_value / total
             executable_weight = executable_value / total
-            current_position_weight_sum += current_weight
+            is_cash_equivalent = symbol in cash_equivalents
+            if not is_cash_equivalent:
+                current_position_weight_sum += current_weight
             position_rows.append({
                 "ticker": symbol,
-                "target_weight": target_map.get(symbol, 0.0),
+                "target_weight": all_target_map.get(symbol, 0.0),
+                "risk_target_weight": target_map.get(symbol, 0.0),
                 "current_actual_weight": current_weight,
                 "executable_weight": executable_weight,
                 "current_qty": int(current_qty.get(symbol, 0)),
                 "executable_qty": int(projected_qty.get(symbol, 0)),
+                "cash_equivalent": is_cash_equivalent,
             })
 
-        account_stock_weight = self._account_allocation(account).get("stock_weight")
+        account_stock_weight = (
+            None
+            if cash_equivalents
+            else self._account_allocation(account).get("stock_weight")
+        )
         current_actual = (
             float(account_stock_weight)
             if account_stock_weight is not None
@@ -1211,14 +1274,20 @@ class MultiAllocatorPlusTrader:
         executable = current_actual + sum(
             (1 if plan.action == "BUY" else -1) * plan.quantity * plan.est_price / total
             for plan in plans
+            if self._normalize_symbol(plan.symbol) not in cash_equivalents
         )
-        target_exposure = float(target_assets.sum())
-        target_cash = float(targets.get("__CASH__", max(1.0 - target_exposure, 0.0)))
+        target_exposure = float(sum(target_map.values()))
+        target_cash = (
+            max(1.0 - target_exposure, 0.0)
+            if cash_equivalents
+            else float(targets.get("__CASH__", max(1.0 - target_exposure, 0.0)))
+        )
         executable_cash = 1.0 - executable
         tracking_l1 = 0.5 * (
             sum(
-                abs(row["target_weight"] - row["executable_weight"])
+                abs(row["risk_target_weight"] - row["executable_weight"])
                 for row in position_rows
+                if not row["cash_equivalent"]
             )
             + abs(target_cash - executable_cash)
         )
@@ -1259,6 +1328,96 @@ class MultiAllocatorPlusTrader:
             )
         return result
 
+    def _cash_parking_shadow_targets(
+        self,
+        targets: pd.Series,
+        account: Dict,
+        holdings: Dict,
+        price_cache_override: Dict[str, float] | None,
+    ) -> Tuple[pd.Series, Dict, Dict[str, float]]:
+        """Create a KOFR parking target for shadow comparison only.
+
+        The method never sends an order.  It preserves at least 30% of total
+        equity as immediately available cash and caps the parking sleeve at
+        50%.  Existing orderable cash limits any proposed incremental buy.
+        """
+        parked = targets.copy()
+        prices = {
+            self._normalize_symbol(str(ticker)): float(price)
+            for ticker, price in (price_cache_override or {}).items()
+            if price is not None and float(price) > 0
+        }
+        metadata = {
+            "status": "skipped",
+            "execution_guard": "SHADOW_ONLY",
+            "ticker": CASH_PARKING_TICKER,
+            "liquid_reserve_weight": CASH_PARKING_LIQUID_RESERVE_WEIGHT,
+            "maximum_parking_weight": CASH_PARKING_MAX_WEIGHT,
+        }
+        if self.market != "kr":
+            metadata["reason"] = "kr_market_only"
+            return parked, metadata, prices
+
+        total = float(account.get("total_value", 0) or 0)
+        if total <= 0:
+            total = float(account.get("available_cash", 0) or 0) + float(
+                account.get("stock_value", 0) or 0
+            )
+        if total <= 0:
+            metadata["reason"] = "total_equity_unavailable"
+            return parked, metadata, prices
+
+        holding = holdings.get(CASH_PARKING_TICKER, {})
+        price = float(
+            prices.get(CASH_PARKING_TICKER)
+            or holding.get("current_price", 0)
+            or 0
+        )
+        if price <= 0:
+            price = float(
+                self._safe_get_current_price(
+                    CASH_PARKING_TICKER,
+                    allow_dry_run_read=True,
+                )
+                or 0
+            )
+        if price <= 0:
+            metadata["reason"] = "reference_price_unavailable"
+            return parked, metadata, prices
+        prices[CASH_PARKING_TICKER] = price
+
+        strategic_cash_weight = max(float(targets.get("__CASH__", 0.0)), 0.0)
+        desired_weight = min(
+            max(strategic_cash_weight - CASH_PARKING_LIQUID_RESERVE_WEIGHT, 0.0),
+            CASH_PARKING_MAX_WEIGHT,
+        )
+        current_qty = int(holding.get("quantity", 0) or 0)
+        current_value = float(holding.get("market_value", 0) or current_qty * price)
+        available_cash = max(float(account.get("available_cash", 0) or 0), 0.0)
+        incremental_capacity = max(
+            available_cash - total * CASH_PARKING_LIQUID_RESERVE_WEIGHT,
+            0.0,
+        )
+        max_target_value = current_value + incremental_capacity
+        desired_value = min(total * desired_weight, max_target_value)
+        target_qty = int(desired_value / price)
+        actual_target_weight = target_qty * price / total
+
+        parked.loc[CASH_PARKING_TICKER] = actual_target_weight
+        parked.loc["__CASH__"] = max(
+            strategic_cash_weight - actual_target_weight,
+            0.0,
+        )
+        metadata.update({
+            "status": "ready",
+            "strategic_cash_weight": strategic_cash_weight,
+            "parking_target_weight": actual_target_weight,
+            "remaining_liquid_cash_weight": float(parked.loc["__CASH__"]),
+            "target_quantity": target_qty,
+            "reference_price": price,
+        })
+        return parked, metadata, prices
+
     def run_small_account_shadow(
         self,
         signal_date: pd.Timestamp,
@@ -1298,6 +1457,39 @@ class MultiAllocatorPlusTrader:
                 "plans": [self._sanitized_plan(plan) for plan in plans],
                 "decisions": self._sanitize_report_value(decisions),
             })
+
+        parking_targets, parking_meta, parking_prices = self._cash_parking_shadow_targets(
+            targets,
+            account,
+            holdings,
+            price_cache_override,
+        )
+        parking_plans, parking_decisions = self.build_order_plan(
+            parking_targets,
+            account,
+            holdings,
+            price_cache_override=parking_prices,
+            min_trade_value_override=50_000,
+            quantity_rounding="floor",
+            return_decisions=True,
+        )
+        comparisons.append({
+            "policy": "kofr_parking_50k_shadow",
+            "minimum_trade_value": 50_000,
+            "quantity_rounding": "floor",
+            "cash_parking": parking_meta,
+            "exposure": self._exposure_diagnostics(
+                parking_targets,
+                account,
+                holdings,
+                parking_plans,
+                price_cache_override=parking_prices,
+                planning_decisions=parking_decisions,
+                cash_equivalent_tickers=CASH_EQUIVALENT_TICKERS,
+            ),
+            "plans": [self._sanitized_plan(plan) for plan in parking_plans],
+            "decisions": self._sanitize_report_value(parking_decisions),
+        })
 
         payload = {
             "run_id": self.run_id,
@@ -1826,7 +2018,17 @@ def main():
     parser.add_argument(
         "--small-account-shadow",
         action="store_true",
-        help="실계좌 잔고를 읽어 소액계좌 집행 정책 3종을 비교하되 주문은 전송하지 않음",
+        help="실계좌 잔고를 읽어 소액계좌 집행 정책 4종을 비교하되 주문은 전송하지 않음",
+    )
+    parser.add_argument(
+        "--stress-recovery-mode",
+        type=str,
+        default="shadow",
+        choices=["off", "shadow", "live"],
+        help=(
+            "방어 해제 로직 모드 (off: 미적용, shadow: 후보만 기록, "
+            "live: 목표 비중에 반영)"
+        ),
     )
     parser.add_argument(
         "--skip-if-executed",
@@ -1864,6 +2066,7 @@ def main():
         us_universe_limit=args.us_universe_limit,
         skip_if_executed=args.skip_if_executed,
         small_account_shadow=args.small_account_shadow,
+        stress_recovery_mode=args.stress_recovery_mode,
     )
     trader.run()
 

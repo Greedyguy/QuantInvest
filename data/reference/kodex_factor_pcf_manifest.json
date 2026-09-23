@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "retrieved_at": "2026-09-14T17:40:00+09:00",
+  "source": "Samsung Asset Management official KODEX product pages, historical portfolio deposit file views",
+  "products": {
+    "223190": {
+      "name": "KODEX 200 가치저변동",
+      "fund_id": "2ETF51",
+      "source_product_url": "https://m.samsungfund.com/etf/product/view.do?id=2ETF51"
+    },
+    "244660": {
+      "name": "KODEX 퀄리티PLUS",
+      "fund_id": "2ETF61",
+      "source_product_url": "https://m.samsungfund.com/etf/product/view.do?id=2ETF61"
+    }
+  },
+  "timing_rule": "A snapshot observed after its as-of-date close may first drive an order at the next trading-session open.",
+  "coverage": {
+    "first_snapshot": "2018-03-30",
+    "last_snapshot": "2025-12-30",
+    "snapshot_count_per_product": 32,
+    "security_rows_per_snapshot": 29,
+    "note": "Each official top-30 table includes one KRW cash/deposit row; normalized files retain the 29 six-digit equity rows."
+  },
+  "normalized_files": {
+    "kodex_value_lowvol_top30_pcf_quarterly_2018_2025.csv": {
+      "sha256": "1b4ea5712a07e53b870d5ca3fc652a619d9d0b2714fe1b397ea53db3f3bdcff1",
+      "rows": 928,
+      "unique_tickers": 62
+    },
+    "kodex_quality_top30_pcf_quarterly_2018_2025.csv": {
+      "sha256": "e2ad5df935005bad600622d4baf47dd9bbf343c7086ecdf363d263c52c1174fd",
+      "rows": 928,
+      "unique_tickers": 157
+    }
+  },
+  "limitations": [
+    "ETF membership is a point-in-time proxy for the provider's factor methodology, not the underlying raw accounting fields.",
+    "The public product-page table exposes only its top 30 portfolio rows.",
+    "A strategy failing on development data must not inspect later snapshots for parameter selection."
+  ]
+}

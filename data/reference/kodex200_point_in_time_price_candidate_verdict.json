@@ -1,0 +1,78 @@
+{
+  "evaluated_at": "2026-09-14T17:05:00+09:00",
+  "evaluation_kind": "retrospective_seen_development_data",
+  "period": {
+    "start": "2018-06-29",
+    "end": "2022-12-29"
+  },
+  "small_account_krw": 2100000,
+  "universe": "Point-in-time official KODEX 200 top-30 PCF table, excluding its KRW cash row",
+  "common_execution_assumptions": {
+    "signal_at_close_execute_next_open": true,
+    "integer_shares": true,
+    "buy_and_sell_slippage_pct": 0.2,
+    "broker_fee_per_side_pct": 0.0140527,
+    "conservative_stock_sell_tax_pct": 0.25,
+    "kodex200_sell_tax_pct": 0.0,
+    "stock_cash_dividends": "omitted, which is conservative for candidates",
+    "rebalance": "quarterly plus frozen KODEX 200 risk-state exits and re-entries"
+  },
+  "candidates": {
+    "top3_12_minus_1_month_momentum": {
+      "structure": "40% KODEX 200 core, 55% equal-weight top-three price momentum stocks, 5% cash",
+      "market_comparison": {
+        "candidate_return_pct": 16.63933301553593,
+        "benchmark_return_pct": 4.318410826519115,
+        "annualised_excess_return_pct_point": 2.5349553709193007,
+        "rolling_12m_beat_rate_pct": 45.23255813953489,
+        "candidate_mdd_pct": -17.84121261534529
+      },
+      "same_risk_timing_kodex200_comparison": {
+        "candidate_return_pct": 16.63933301553593,
+        "benchmark_return_pct": 29.382045676958768,
+        "annualised_excess_return_pct_point": -2.411291333868948,
+        "rolling_12m_beat_rate_pct": 31.976744186046513,
+        "candidate_mdd_pct": -17.84121261534529,
+        "benchmark_mdd_pct": -13.54002909518136
+      },
+      "decision": "rejected_before_walk_forward"
+    },
+    "top3_index_weight_leaders": {
+      "structure": "40% KODEX 200 core, 55% equal-weight top-three PCF-weight stocks, 5% cash",
+      "market_comparison": {
+        "candidate_return_pct": 24.594173641823613,
+        "benchmark_return_pct": 4.318410826519115,
+        "annualised_excess_return_pct_point": 4.062867296870043,
+        "rolling_12m_beat_rate_pct": 56.16279069767442,
+        "candidate_mdd_pct": -16.16569069107181
+      },
+      "same_risk_timing_kodex200_comparison": {
+        "candidate_return_pct": 24.594173641823613,
+        "benchmark_return_pct": 29.382045676958768,
+        "annualised_excess_return_pct_point": -0.8833794079182056,
+        "rolling_12m_beat_rate_pct": 43.372093023255815,
+        "candidate_mdd_pct": -16.16569069107181,
+        "benchmark_mdd_pct": -13.54002909518136
+      },
+      "double_cost_market_comparison": {
+        "annualised_excess_return_pct_point": 3.634005093209036,
+        "rolling_12m_beat_rate_pct": 53.72093023255814
+      },
+      "decision": "rejected_before_walk_forward"
+    }
+  },
+  "diagnosis": [
+    "Both candidates looked superior to continuous market buy-and-hold only because the frozen KODEX 200 risk rule avoided part of the drawdown.",
+    "Both stock sleeves reduced growth versus holding KODEX 200 on the exact same risk-on dates.",
+    "Neither candidate reached a 60 percent rolling 12-month market beat rate in development data.",
+    "Opening 2023-2024 walk-forward or 2025-2026 holdout data would add selection bias after the development failure."
+  ],
+  "decision": {
+    "production": "rejected",
+    "capital_allocation_pct": 0,
+    "paper_shadow": "not_required",
+    "walk_forward_2023_2024": "do_not_open",
+    "holdout_2025_2026": "do_not_open",
+    "next_research_direction": "point-in-time fundamental quality/value plus price confirmation"
+  }
+}

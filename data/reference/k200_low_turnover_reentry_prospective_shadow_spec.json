@@ -1,0 +1,72 @@
+{
+  "status": "paper_shadow_only_no_capital",
+  "frozen_on": "2026-09-15",
+  "signal_history_start": "2020-01-02",
+  "first_eligible_signal_date": "2026-09-16",
+  "strategy": "K200LowTurnoverReentry",
+  "strategy_source_sha256": "c27df110f19e7eed5ed6adfb9a6d67fe89b4c094107ab88f0a81e8a479f568b4",
+  "execution_simulator_source_sha256": "b5ec0bb8e89595c6e8321adfea5679a80a3a33210a7a3531b97f4088ffe36e19",
+  "cash_flow_source_sha256": "38de81c45390d19fbad49f2fecd9ffa1773275f9fcb70f50dc95c1acd97e7e8f",
+  "parameters": {
+    "ticker": "069500",
+    "risk_on_exposure": 0.95,
+    "trend_window": 120,
+    "momentum_window": 60,
+    "fast_trend_window": 20,
+    "medium_trend_window": 60,
+    "entry_buffer": 0.01,
+    "exit_buffer": 0.01,
+    "exit_momentum": -0.03,
+    "emergency_drawdown": -0.12,
+    "emergency_momentum": -0.04
+  },
+  "shadow_account_krw": 2100000,
+  "benchmark": "continuous integer-share KODEX 200 with the same costs, taxes, and distributions",
+  "execution_model": {
+    "signal_timing": "close_t",
+    "execution_timing": "open_t_plus_1",
+    "integer_shares": true,
+    "minimum_trade_krw": 50000,
+    "price_band_pct": 100.0,
+    "fee_per_side": 0.000176923,
+    "slippage_entry": 0.002,
+    "slippage_exit": 0.002,
+    "sell_tax_rate": 0.0,
+    "distribution_income_tax_rate": 0.154,
+    "rebalance_only_on_target_change": true
+  },
+  "observation_policy": {
+    "timezone": "Asia/Seoul",
+    "observation_version": 3,
+    "daily_signal_price_basis": "cash_distribution_adjusted",
+    "daily_signal_price_authority": "provisional_naver_adjusted",
+    "daily_signal_price_source": "project pykrx cache; the current dependency resolves ETF OHLC through the Naver chart endpoint",
+    "daily_execution_price_basis": "actual_traded",
+    "daily_execution_price_authority": "provisional_reconstructed_actual_from_adjusted",
+    "daily_execution_price_source": "reverse cash-distribution adjustment of the provisional signal cache; replaced by official KRX OHLC in the final audit",
+    "recorded_state_semantics": "state weights effective at the observation-session open",
+    "next_open_commitment": "the observation-session close and frozen strategy source deterministically commit the transition for the next observed exchange session",
+    "max_source_business_day_gap": 3,
+    "one_immutable_record_per_exchange_session": true,
+    "stale_input_is_ineligible": true
+  },
+  "evidence_policy": {
+    "minimum_subsequent_sessions": 252,
+    "no_parameter_changes_during_measurement": true,
+    "interim_reviews_do_not_authorize_capital": true,
+    "final_annualised_excess_return_pct_point_min": 2.0,
+    "final_mdd_disadvantage_pct_point_max": 0.0,
+    "monthly_checkpoint_beat_rate_pct_min": 60.0,
+    "monthly_checkpoint_definition": "candidate cumulative net return exceeds benchmark at the last recorded session of each fully completed calendar month"
+  },
+  "final_audit_requirements": [
+    "Keep signal generation on cash-distribution-adjusted OHLC and execution accounting on actual-traded OHLC.",
+    "Replace provisional reconstructed execution OHLC with immutable official KRX open and close data for every measured session.",
+    "Complete Samsung or KSD official KODEX 200 cash-distribution history through the final measurement date.",
+    "Rebuild adjusted signal OHLC from official KRX prices and distributions, then verify daily states and scale-invariant indicators.",
+    "Recompute both integer-share accounts from the frozen first signal with the registered execution model.",
+    "Verify every daily signal/execution source hash is present and every frozen source hash matches before evaluating promotion gates."
+  ],
+  "promotion_policy": "Passing the prospective year makes the strategy eligible for a separate live-capital decision; it does not turn on orders automatically.",
+  "execution_guard": "NO_ORDERS_SENT"
+}

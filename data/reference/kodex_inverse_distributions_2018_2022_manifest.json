@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "product": "KODEX Inverse",
+  "ticker": "114800",
+  "isin": "KR7114800006",
+  "source": "KSD SEIBro ETF distribution payment status",
+  "source_url": "https://seibro.or.kr/websquare/control.jsp?w2xPath=/IPORTAL/user/etf/BIP_CNTS06030V.xml&menuNo=179",
+  "queried_on": "2026-09-15",
+  "query_name": "삼성KODEX인버스증권상장지수투자신탁",
+  "history_coverage_start": "2018-01-01",
+  "history_coverage_end": "2022-12-31",
+  "complete_cash_distribution_history": true,
+  "audited_tickers": [
+    "114800"
+  ],
+  "event_count": 0,
+  "query_result": "조회 결과가 없습니다.",
+  "normalized_file": "data/reference/kodex_inverse_distributions_2018_2022.csv"
+}

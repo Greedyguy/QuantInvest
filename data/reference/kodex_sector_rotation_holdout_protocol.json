@@ -1,0 +1,51 @@
+{
+  "protocol_version": "2026-09-14.1",
+  "registered_before_outcome_inspection": true,
+  "one_shot_evaluation": true,
+  "frozen_candidate": {
+    "git_commit": "9a9204b37d2bf13d7c54ed9bd230d23501e0a749",
+    "strategy_file_sha256": "78cae16bb47a33b542f8f0d3d7cea45d6bc2285ae1118d68638d3d237d91b46f",
+    "shadow_spec_sha256": "507505cd9efaa8cb674b783baac0e5a0139a6d14168299d83674301181f3fd98"
+  },
+  "sealed_period": {
+    "start": "2018-04-02",
+    "end": "2019-12-30",
+    "reason": "Oldest common post-52-week-warmup interval whose performance was not inspected during candidate design"
+  },
+  "data_policy": {
+    "sector_signal": "Samsung official weekly NAV total-return series, observed on or before each signal date",
+    "core_risk_signal": "Daily KODEX 200 OHLC back-adjusted for official cash distributions only",
+    "execution": "Next-session Naver OHLC normalized to Samsung official daily market close",
+    "cashflows": "Samsung official distribution record dates and amounts, net of 15.4% taxable distribution income",
+    "legacy_payment_date_fallback": "For 2018-2019 PDFs without an explicit payment date, credit on the second subsequent KRX trading session, fixed before outcome inspection",
+    "legacy_taxable_amount_fallback": "For 2018-2019 PDFs without a taxable-base field, treat the full gross distribution as taxable; this is conservative and fixed before outcome inspection",
+    "lookahead": "No row dated after the signal date may enter a decision"
+  },
+  "accounts": {
+    "small": 2100000,
+    "reference": 100000000
+  },
+  "costs": {
+    "integer_shares": true,
+    "minimum_trade_krw": 50000,
+    "fee_per_side": 0.000140527,
+    "slippage_per_side": 0.002,
+    "domestic_equity_etf_sell_tax": 0.0,
+    "distribution_income_tax": 0.154
+  },
+  "primary_acceptance": {
+    "account": "small",
+    "candidate_vs_kodex200_buy_hold": {
+      "minimum_annualised_excess_return": 0.02,
+      "minimum_rolling_12m_beat_rate": 0.60,
+      "maximum_mdd_disadvantage": 0.05,
+      "maximum_positive_excess_year_share": 0.60
+    },
+    "candidate_vs_same_timing_kodex200": "must_pass_the_same_four_gates",
+    "double_cost_candidate_vs_market": "must_pass_the_same_four_gates"
+  },
+  "decision_policy": {
+    "pass": "Remain paper-shadow only; production eligibility still requires 252 subsequent sessions after 2026-09-14",
+    "fail": "Production remains unchanged; candidate cannot be promoted from historical evidence"
+  }
+}

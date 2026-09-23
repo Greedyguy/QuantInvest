@@ -1,0 +1,33 @@
+{
+  "candidate": "kodex200_bear_participation_v3",
+  "development_period": "2018-06-29/2022-12-29",
+  "verdict": "rejected_in_development",
+  "development_passes": false,
+  "sealed_periods_opened": false,
+  "candidate_metrics": {
+    "return_pct": 23.411609461817196,
+    "cagr_pct": 4.784317587409848,
+    "mdd_pct": -15.77272558598537,
+    "orders": 27,
+    "holding_period_tax_pct_initial": 0.001783540000001394
+  },
+  "continuous_kodex200_metrics": {
+    "return_pct": 6.573999909013906,
+    "cagr_pct": 1.4245753349224843,
+    "mdd_pct": -33.53381398264954
+  },
+  "same_timing_kodex200_metrics": {
+    "return_pct": 31.89956739256916,
+    "cagr_pct": 6.344272727782774,
+    "mdd_pct": -13.612551122105554
+  },
+  "failed_registered_gates": {
+    "cagr_excess_vs_same_timing_pct_point": -1.5599551403729262,
+    "rolling_12m_vs_continuous_pct": 59.76744186046512,
+    "rolling_12m_vs_same_timing_pct": 43.604651162790695,
+    "positive_year_concentration_vs_same_timing_pct": 60.55574647202181,
+    "double_cost_cagr_excess_vs_same_timing_pct_point": -2.1878081352319834
+  },
+  "diagnosis": "The delayed bear confirmation sometimes profited during sustained declines, but the inverse ETF remained exposed through recoveries before the base model re-entered. It reduced both wealth and rolling consistency versus leaving risk-off capital in cash.",
+  "next_step": "reject_and_stop_2018_2022_candidate_search"
+}

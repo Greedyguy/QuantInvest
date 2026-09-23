@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "purpose": "Prevent survivorship bias and future-information leakage in Korean equity factor research.",
+  "allowed_primary_sources": [
+    "KRX Data Marketplace authenticated historical downloads",
+    "KRX Open API after user approval and authentication-key issuance"
+  ],
+  "required_tables_per_month_end": [
+    "KOSPI all-stock trading snapshot with close, market cap, and trading value",
+    "KOSPI all-stock PER/PBR/dividend-yield snapshot with BPS, EPS, and DPS"
+  ],
+  "required_normalized_columns": [
+    "snapshot_date",
+    "available_date",
+    "ticker",
+    "market",
+    "name",
+    "close",
+    "market_cap",
+    "trading_value",
+    "bps",
+    "eps",
+    "per",
+    "pbr",
+    "dps",
+    "dividend_yield",
+    "source"
+  ],
+  "timing_rules": [
+    "A month-end snapshot downloaded after the close is first usable at the next KRX trading session.",
+    "A signal may only read rows whose available_date is on or before the signal date.",
+    "Rows more than 45 calendar days old are ineligible.",
+    "Ticker membership comes from each historical snapshot; a current ticker list must never be projected backward.",
+    "Raw downloads are immutable and each file must be recorded with SHA-256 before normalization."
+  ],
+  "development_period": {
+    "start": "2018-01-01",
+    "end": "2026-09-11",
+    "status": "seen_data"
+  },
+  "sealed_holdout_period": {
+    "start": "2015-01-02",
+    "end": "2017-12-28",
+    "status": "do_not_load_until_candidate_and_gates_are_frozen"
+  },
+  "fail_closed_conditions": [
+    "missing snapshot_date or available_date",
+    "available_date before snapshot_date",
+    "missing market cap, trading value, or close",
+    "duplicate ticker records for the same snapshot and availability date",
+    "data source other than an approved official source",
+    "development strategy attempts to read the sealed holdout directory"
+  ]
+}

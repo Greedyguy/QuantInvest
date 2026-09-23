@@ -53,6 +53,17 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
                 "ultra_bear": {"offensive": 0.20, "defensive": 0.42, "short": 0.38},
             },
         )
+        # Recovery is calculated on every run so it can be observed in shadow
+        # reports, but it must be explicitly enabled before it changes orders.
+        self.stress_recovery_enabled = False
+        self.stress_recovery_step = 0.05
+        # One day must satisfy four independent confirmations at once; further
+        # rungs are separated by a cooldown so exposure still rises gradually.
+        self.stress_recovery_confirm_days = 1
+        self.stress_recovery_cooldown_days = 3
+        self.latest_stress_baseline_exposure = None
+        self.latest_recovery_candidate_exposure = None
+        self.latest_recovery_context = None
 
     def get_name(self):
         return "multi_allocator_plus"
@@ -145,6 +156,145 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
                 adj.loc[date] = max(adj.loc[date], 0.72)
         return adj
 
+    def _stress_recovery_candidate(self, exposures, stressed, stress_levels, blended_ret):
+        """Build a slow recovery path without weakening the fast risk cut.
+
+        A recovery rung is earned only after a rebound from a recent trough,
+        positive short-term returns, and easing volatility are confirmed.  A
+        fresh low or sharp loss removes every rung immediately.  The loop only
+        uses data available at each date, keeping the result prefix invariant.
+        """
+        if stressed is None or stressed.empty:
+            return stressed, pd.DataFrame(index=getattr(stressed, "index", None))
+
+        index = stressed.index
+        base = exposures.reindex(index).ffill().fillna(self.exposure_floor)
+        levels = stress_levels.reindex(index).fillna(0).astype(int)
+        blended = blended_ret.reindex(index).fillna(0.0)
+        equity = (1.0 + blended).cumprod()
+        prior_trough = equity.shift(1).rolling(20, min_periods=5).min()
+        trough = equity.rolling(20, min_periods=1).min().replace(0, pd.NA)
+        rebound = (equity / trough - 1.0).fillna(0.0)
+        ret5 = equity.pct_change(5).fillna(0.0)
+        ret10 = equity.pct_change(10).fillna(0.0)
+        vol5 = blended.rolling(5, min_periods=5).std()
+        vol20 = blended.rolling(20, min_periods=10).std()
+
+        candidate = stressed.copy()
+        rows = []
+        rung = 0
+        recovery_anchor = None
+        confirm_window = []
+        cooldown = 0
+        prior_level = 0
+
+        for date in index:
+            daily_ret = float(blended.loc[date])
+            five_day = float(ret5.loc[date])
+            ten_day = float(ret10.loc[date])
+            rebound_at_date = float(rebound.loc[date])
+            short_vol = vol5.loc[date]
+            long_vol = vol20.loc[date]
+            vol_easing = bool(
+                pd.notna(short_vol)
+                and pd.notna(long_vol)
+                and float(short_vol) <= float(long_vol) * 0.95
+            )
+            previous_low = prior_trough.loc[date]
+            fresh_low = bool(
+                pd.notna(previous_low)
+                and float(equity.loc[date]) < float(previous_low) * 0.995
+            )
+            level = int(levels.loc[date])
+            shock = (
+                daily_ret <= -0.025
+                or five_day <= -0.04
+                or fresh_low
+                or level > prior_level
+            )
+            confirmed = (
+                level >= 1
+                and rebound_at_date >= 0.025
+                and five_day >= 0.012
+                and ten_day > 0.0
+                and vol_easing
+            )
+
+            if shock:
+                rung = 0
+                recovery_anchor = None
+                confirm_window = []
+                cooldown = 0
+            else:
+                confirm_window.append(bool(confirmed))
+                confirm_window = confirm_window[
+                    -max(self.stress_recovery_confirm_days + 1, 3):
+                ]
+                if cooldown > 0:
+                    cooldown -= 1
+                if (
+                    sum(confirm_window) >= self.stress_recovery_confirm_days
+                    and cooldown == 0
+                ):
+                    rung += 1
+                    stressed_now = float(stressed.loc[date])
+                    recovery_anchor = (
+                        max(stressed_now, recovery_anchor or stressed_now)
+                        + self.stress_recovery_step
+                    )
+                    confirm_window = []
+                    cooldown = self.stress_recovery_cooldown_days
+                elif rung > 0 and (
+                    five_day <= 0.0
+                    or (
+                        pd.notna(short_vol)
+                        and pd.notna(long_vol)
+                        and float(short_vol) > float(long_vol) * 1.25
+                    )
+                ):
+                    rung -= 1
+                    if recovery_anchor is not None:
+                        recovery_anchor = max(
+                            float(stressed.loc[date]),
+                            recovery_anchor - self.stress_recovery_step,
+                        )
+                    cooldown = max(cooldown, 1)
+
+            if level <= 0:
+                rung = max(rung - 1, 0)
+                recovery_anchor = None
+
+            recovery_cap = 0.45 if level >= 2 else (0.65 if level == 1 else 0.85)
+            if level <= 0:
+                recovered = float(stressed.loc[date])
+            else:
+                recovered_floor = min(
+                    recovery_anchor
+                    if recovery_anchor is not None
+                    else float(stressed.loc[date]),
+                    recovery_cap,
+                    float(base.loc[date]),
+                )
+                # Recovery is an upside overlay only.  It must never turn into
+                # an additional exposure cut when the baseline has recovered.
+                recovered = max(float(stressed.loc[date]), recovered_floor)
+            candidate.loc[date] = max(recovered, self.exposure_floor)
+            rows.append({
+                "recovery_rung": int(rung),
+                "recovery_anchor": recovery_anchor,
+                "confirmed": bool(confirmed),
+                "confirmation_count": int(sum(confirm_window)),
+                "shock": bool(shock),
+                "rebound_20d": rebound_at_date,
+                "return_5d": five_day,
+                "return_10d": ten_day,
+                "vol_easing": bool(vol_easing),
+            })
+            prior_level = level
+
+        context = pd.DataFrame(rows, index=index)
+        return candidate.clip(lower=self.exposure_floor), context
+
     def _performance_stress(self, exposures, blended_ret):
         if exposures is None or exposures.empty:
             return super()._performance_stress(exposures, blended_ret)
@@ -209,10 +359,34 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
             val = max(val, min_cap)
             adj.loc[date] = min(val, cap)
             stress_levels.loc[date] = level
-        return adj.clip(lower=self.exposure_floor), stress_levels
+        baseline = adj.clip(lower=self.exposure_floor)
+        recovery, recovery_context = self._stress_recovery_candidate(
+            exposures,
+            baseline,
+            stress_levels,
+            blended,
+        )
+        self.latest_stress_baseline_exposure = baseline.copy()
+        self.latest_recovery_candidate_exposure = recovery.copy()
+        self.latest_recovery_context = recovery_context.copy()
+        if self.stress_recovery_enabled:
+            return recovery, stress_levels
+        return baseline, stress_levels
 
-    def compute_security_targets(self, enriched, market_index=None, secondary_index=None, weights_override=None, silent=True):
-        """자식 전략 결합 신호를 기반으로 티커별 목표 비중 계산"""
+    def compute_security_targets(
+        self,
+        enriched,
+        market_index=None,
+        secondary_index=None,
+        weights_override=None,
+        silent=True,
+        target_policy="legacy",
+    ):
+        """자식 전략 결합 신호를 기반으로 티커별 목표 비중 계산.
+
+        ``target_policy='preserve_child_cash'`` is reserved for audited
+        comparisons.  The default intentionally preserves production output.
+        """
         child_results = self._run_child_strategies(enriched, market_index, weights_override=weights_override, silent=silent)
         if not child_results:
             return pd.DataFrame()
@@ -220,6 +394,8 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
         child_returns = self._build_child_returns(child_results)
         ret_df = pd.concat(child_returns.values(), axis=1).fillna(0.0)
         ret_df.columns = list(child_returns.keys())
+        self.latest_child_results = child_results
+        self.latest_child_returns = ret_df.copy()
         shared_index = ret_df.index
         if shared_index.empty:
             return pd.DataFrame()
@@ -261,10 +437,22 @@ class MultiStrategyAllocatorPlus(MultiStrategyAllocator):
                     shared_index,
                     enriched,
                 )
+            else:
+                frame = frame.copy()
+                frame.index = pd.to_datetime(frame.index)
+                frame = frame.loc[~frame.index.duplicated(keep="last")].sort_index()
             weight_frames[strat] = frame
+        self.latest_child_weight_frames = weight_frames
 
         security_style_map = self._build_security_style_map(enriched)
-        security_targets = self._combine_strategy_targets(
+        if target_policy == "legacy":
+            combine_targets = self._combine_strategy_targets
+        elif target_policy == "preserve_child_cash":
+            combine_targets = self._combine_strategy_targets_preserving_cash
+        else:
+            raise ValueError(f"unknown target policy: {target_policy}")
+
+        security_targets = combine_targets(
             weight_frames,
             strategy_weights,
             expos.reindex(shared_index),

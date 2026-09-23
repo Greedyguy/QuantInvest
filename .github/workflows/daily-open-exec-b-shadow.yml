@@ -18,12 +18,10 @@ jobs:
     #   runs-on: [self-hosted, oracle-kr-trader]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -57,36 +55,27 @@ jobs:
             --execution-recheck \
             --recheck-price-band-pct 3.0
 
-      - name: Commit sanitized shadow report
+      - name: Verify shadow report
         if: always()
         env:
           SHADOW_STEP_OUTCOME: ${{ steps.shadow.outcome }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           mkdir -p reports/shadow
-          if ! find reports/shadow -maxdepth 1 -type f -name '*.json' -print -quit | grep -q .; then
-            if [ "$SHADOW_STEP_OUTCOME" = "success" ]; then
-              echo "::error::Shadow comparison succeeded but produced no JSON report."
-              exit 1
-            fi
-            echo "::warning::Shadow execution failed before a report could be written."
+          if find reports/shadow -maxdepth 1 -type f -name '*.json' -print -quit | grep -q .; then
             exit 0
           fi
-          git add -f -- reports/shadow/
-          if git diff --cached --quiet; then
-            exit 0
+          if [ "$SHADOW_STEP_OUTCOME" = "success" ]; then
+            echo "::error::Shadow comparison succeeded but produced no JSON report."
+            exit 1
           fi
-          git commit -m "chore: small-account shadow report $(date -u +%Y-%m-%d)"
-          for attempt in 1 2 3; do
-            git fetch origin main
-            git rebase origin/main
-            if git push origin HEAD:main; then
-              exit 0
-            fi
-            echo "::warning::Shadow report push attempt ${attempt}/3 failed; retrying."
-            sleep $((attempt * 5))
-          done
-          echo "::error::Failed to push shadow report after 3 attempts."
-          exit 1
+          echo "::warning::Shadow execution failed before a report could be written."
+
+      - name: Upload sanitized shadow report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: small-account-shadow-${{ github.run_id }}
+          path: reports/shadow/*.json
+          if-no-files-found: warn
+          retention-days: 90
