@@ -1,0 +1,45 @@
+name: 백테스트 데이터 준비·검사 (직접 실행)
+
+'on':
+  workflow_dispatch:
+    inputs:
+      data_ref:
+        description: '비공개 데이터 버전 (최신 저장본은 main, 재현은 커밋 번호)'
+        type: string
+        default: main
+        required: true
+      start:
+        description: '백테스트 평가 시작일'
+        type: string
+        default: '2025-01-01'
+        required: true
+      end:
+        description: '백테스트 평가 종료일'
+        type: string
+        default: '2026-08-31'
+        required: true
+      warmup_start:
+        description: '지표 준비용 데이터 시작일 (2025년 초 평가에는 2024년 자료 필요)'
+        type: string
+        default: '2024-01-01'
+        required: true
+      include_etfs:
+        description: '수집 대상 ETF도 검사 (해제해도 KODEX 200은 포함)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    uses: Greedyguy/QuantInvest/.github/workflows/market-data-quality.yml@ffbc019c635a3a762e8b0b075d21a77da838bb2b
+    with:
+      code_ref: 'ffbc019c635a3a762e8b0b075d21a77da838bb2b'
+      data_ref: ${{ inputs.data_ref }}
+      start: ${{ inputs.start }}
+      end: ${{ inputs.end }}
+      warmup_start: ${{ inputs.warmup_start }}
+      include_etfs: ${{ inputs.include_etfs }}
+    secrets:
+      MARKET_DATA_REPO_TOKEN: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
