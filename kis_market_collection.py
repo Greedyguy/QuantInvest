@@ -140,6 +140,25 @@ class KISPriceClient:
             raise RuntimeError(f'KIS price request rejected (HTTP {response.status_code}); stop, do not silently skip')
         return body
 
+    def fetch_calendar(self, base_date):
+        """KIS asks that CTCA0903R be called sparingly, preferably once per day.
+
+        The daily orchestrator persists and reuses this response; it never polls
+        individual dates or follows pages just to obtain a full holiday database.
+        """
+        self._auth()
+        try:
+            response=self.session.get(self.base+'/uapi/domestic-stock/v1/quotations/chk-holiday',
+                params={'BASS_DT':day(base_date).replace('-',''), 'CTX_AREA_FK':'', 'CTX_AREA_NK':''},
+                headers={'authorization':'Bearer '+self._token,'appkey':self._key,'appsecret':self._secret,
+                         'tr_id':'CTCA0903R','custtype':'P'}, timeout=(10,45),allow_redirects=False)
+            body=response.json()
+        except (requests.RequestException,ValueError):
+            raise RuntimeError('KIS calendar request failed; do not infer holidays') from None
+        if response.status_code!=200 or body.get('rt_cd')!='0':
+            raise RuntimeError('KIS calendar request rejected; do not infer holidays')
+        return body
+
 
 def normalize_prices(payload,ticker,start,end,basis):
     rows=payload.get('output2')
@@ -237,7 +256,8 @@ def load_kis_panel(store,tickers,start,end,basis='raw'):
         store.verify_record(record)
         frame=pd.read_parquet(store.checked_path(record['table_path']))
         frame['source_version']=record['raw_sha256']
-        frames.append(frame)
+        if not frame.empty:
+            frames.append(frame)
     if not frames:
         raise DataQualityError('No stored KIS prices for requested range')
     panel=pd.concat(frames,ignore_index=True)

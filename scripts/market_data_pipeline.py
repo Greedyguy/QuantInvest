@@ -135,7 +135,7 @@ def main():
         atomic_bytes(args.output,canonical(result))
         print(json.dumps({'as_of':result['as_of'],'candidates':len(result['candidates']),'orders_enabled':False}))
     else:
-        for namespace in ('snapshots','seeds','masters','kis_segments'):
+        for namespace in ('snapshots','seeds','masters','kis_segments','calendars','daily_inputs'):
             for record in store.manifest.get(namespace,{}).values():
                 store.verify_record(record)
         print(json.dumps({'verified_snapshots':len(store.manifest['snapshots']),
