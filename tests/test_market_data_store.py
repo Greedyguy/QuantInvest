@@ -219,11 +219,11 @@ def test_workflow_safety():
     assert 'KIS_ACCOUNT' not in text and 'multi_allocator_plus_trader' not in text
     assert 'git reset' not in text and 'git clean' not in text and '--force' not in text
     assert 'steps.audit.outcome' in text
-    assert workflow['on']['push']['branches']==['codex/market-data-store']
-    assert workflow['on']['push']['paths']==['.github/workflows/market-data.yml']
-    pipeline=next(step for step in workflow['jobs']['collect']['steps'] if step.get('id')=='pipeline')
-    assert "(github.event_name == 'push' && '2')" in pipeline['env']['MAX_REQUESTS']
-    assert "(github.event_name == 'push' && 'backfill')" in pipeline['env']['COLLECTION_MODE']
+    assert 'push' not in workflow['on']
+    for trigger in ('workflow_call','workflow_dispatch'):
+        assert workflow['on'][trigger]['inputs']['start']['default']=='2025-01-01'
+        assert workflow['on'][trigger]['inputs']['end']['default']=='2026-08-31'
+        assert workflow['on'][trigger]['inputs']['master_date']['default']=='2026-09-28'
 
 
 def test_job_explicit_today_master_is_reused(monkeypatch,tmp_path):
