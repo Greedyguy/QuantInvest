@@ -16,7 +16,7 @@ name: 과거 데이터 수집 (직접 실행)
       max_requests:
         description: '이번 실행의 최대 조회 횟수 (기본 3000)'
         type: choice
-        options: ['300', '1000', '3000']
+        options: ['300', '1000', '3000', '6000', '10000']
         default: '3000'
         required: true
 
