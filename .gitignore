@@ -16,3 +16,8 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .coverage
+
+# Market data is persisted in a separate PRIVATE data repository, never here.
+data/market_store/
+market-data-private/
+reports/market_data_private/

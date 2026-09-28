@@ -1,0 +1,116 @@
+name: Market Data Store (no orders)
+
+'on':
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'master / resumable backfill / recent incremental / offline selection'
+        type: choice
+        options: [master, backfill, incremental, select]
+        default: backfill
+      start:
+        description: 'Backfill start, including indicator warmup'
+        default: '2019-01-01'
+      end:
+        description: 'Backfill end (inclusive)'
+        default: '2026-08-31'
+      master_date:
+        description: 'Existing master snapshot date; empty downloads current master'
+        default: ''
+      max_requests:
+        description: 'Bounded price requests; rerun same backfill range to resume'
+        default: '300'
+      selection_date:
+        description: 'Explicit completed date for offline selection; same-day master required'
+        default: ''
+  schedule:
+    # KST 06:20, Tue-Sat. Prior-day prices; does not feed the order workflow.
+    - cron: '20 21 * * 1-5'
+
+permissions:
+  contents: read
+concurrency:
+  group: market-data-private-writer
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: github.event_name == 'workflow_dispatch' || vars.MARKET_DATA_PIPELINE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install data-only dependencies
+        run: python -m pip install -r requirements-market-data.txt
+      - name: Verify destination is a separate PRIVATE repository
+        id: guard
+        env:
+          DATA_REPOSITORY: ${{ vars.MARKET_DATA_REPOSITORY }}
+          DATA_REPO_TOKEN: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
+          CODE_REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import os,re,requests
+          repo=os.environ['DATA_REPOSITORY']
+          token=os.environ['DATA_REPO_TOKEN']
+          if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repo) or not token:
+              raise SystemExit('Set MARKET_DATA_REPOSITORY and MARKET_DATA_REPO_TOKEN first.')
+          if repo.lower()==os.environ['CODE_REPOSITORY'].lower():
+              raise SystemExit('Use a separate private data repository.')
+          r=requests.get('https://api.github.com/repos/'+repo,
+              headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'},timeout=30)
+          if r.status_code!=200 or r.json().get('private') is not True:
+              raise SystemExit('Destination unavailable or not private. Nothing will be published.')
+          print('Private destination verified; no raw data in the public code repository.')
+          PY
+      - uses: actions/checkout@v6
+        id: data
+        with:
+          repository: ${{ vars.MARKET_DATA_REPOSITORY }}
+          token: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
+          path: market-data-private
+          ref: ${{ vars.MARKET_DATA_BRANCH || 'main' }}
+          fetch-depth: 1
+      - name: Collect or select (never orders)
+        id: pipeline
+        env:
+          MARKET_STORE_PATH: market-data-private/store
+          COLLECTION_MODE: ${{ inputs.mode || 'incremental' }}
+          BACKFILL_START: ${{ inputs.start }}
+          BACKFILL_END: ${{ inputs.end }}
+          MASTER_DATE: ${{ inputs.master_date }}
+          MAX_REQUESTS: ${{ inputs.max_requests || vars.MARKET_DATA_DAILY_MAX_REQUESTS || '10000' }}
+          SELECTION_DATE: ${{ inputs.selection_date }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+        run: python scripts/run_market_data_job.py
+      - name: Verify all persisted hashes
+        id: audit
+        if: always() && steps.data.outcome == 'success'
+        run: |
+          if [ -f market-data-private/store/manifest.json ]; then
+            python scripts/market_data_pipeline.py --store market-data-private/store audit
+          fi
+      - name: Persist valid checkpoints to PRIVATE repository
+        if: always() && steps.data.outcome == 'success' && steps.audit.outcome == 'success' && !cancelled()
+        working-directory: market-data-private
+        run: |
+          if [ ! -f store/manifest.json ]; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -- store/
+          if [ -d signals ]; then git add -- signals/; fi
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'data: checkpoint market snapshots'
+          # No force push, reset, blanket clean or writes to the code repository.
+          git push origin HEAD
+      - name: Explain run boundary
+        if: always()
+        run: |
+          echo 'Only data/eligibility snapshots; no broker orders. Budget exhaustion is a resumable checkpoint.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'KIS current masters do not certify the historical delisted universe. See private last_kis_collection.json.' >> "$GITHUB_STEP_SUMMARY"
