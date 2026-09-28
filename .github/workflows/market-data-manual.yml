@@ -1,0 +1,36 @@
+name: 과거 데이터 수집 (직접 실행)
+
+'on':
+  workflow_dispatch:
+    inputs:
+      start:
+        description: '시작일 (같은 설정으로 다시 실행하면 이어받기)'
+        type: string
+        default: '2025-01-01'
+        required: true
+      end:
+        description: '종료일 (포함)'
+        type: string
+        default: '2026-08-31'
+        required: true
+      max_requests:
+        description: '이번 실행의 최대 조회 횟수 (기본 3000)'
+        type: choice
+        options: ['300', '1000', '3000']
+        default: '3000'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    uses: Greedyguy/QuantInvest/.github/workflows/market-data.yml@7169c0c0335b3bd5d7167122ce9e062537bf7d02
+    with:
+      code_ref: '7169c0c0335b3bd5d7167122ce9e062537bf7d02'
+      mode: backfill
+      start: ${{ inputs.start }}
+      end: ${{ inputs.end }}
+      master_date: '2026-09-28'
+      max_requests: ${{ inputs.max_requests }}
+    secrets: inherit
