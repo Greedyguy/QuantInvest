@@ -219,3 +219,8 @@ def test_workflow_safety():
     assert 'KIS_ACCOUNT' not in text and 'multi_allocator_plus_trader' not in text
     assert 'git reset' not in text and 'git clean' not in text and '--force' not in text
     assert 'steps.audit.outcome' in text
+    assert workflow['on']['push']['branches']==['codex/market-data-store']
+    assert workflow['on']['push']['paths']==['.github/workflows/market-data.yml']
+    pipeline=next(step for step in workflow['jobs']['collect']['steps'] if step.get('id')=='pipeline')
+    assert "(github.event_name == 'push' && '2')" in pipeline['env']['MAX_REQUESTS']
+    assert "(github.event_name == 'push' && 'backfill')" in pipeline['env']['COLLECTION_MODE']

@@ -1,6 +1,10 @@
 name: Market Data Store (no orders)
 
 'on':
+  push:
+    # Isolated branch smoke test: two price calls, never live trading.
+    branches: ['codex/market-data-store']
+    paths: ['.github/workflows/market-data.yml']
   workflow_dispatch:
     inputs:
       mode:
@@ -35,7 +39,7 @@ concurrency:
 
 jobs:
   collect:
-    if: github.event_name == 'workflow_dispatch' || vars.MARKET_DATA_PIPELINE_ENABLED == 'true'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || vars.MARKET_DATA_PIPELINE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 240
     steps:
@@ -80,11 +84,11 @@ jobs:
         id: pipeline
         env:
           MARKET_STORE_PATH: market-data-private/store
-          COLLECTION_MODE: ${{ inputs.mode || 'incremental' }}
+          COLLECTION_MODE: ${{ inputs.mode || (github.event_name == 'push' && 'backfill') || 'incremental' }}
           BACKFILL_START: ${{ inputs.start }}
           BACKFILL_END: ${{ inputs.end }}
           MASTER_DATE: ${{ inputs.master_date }}
-          MAX_REQUESTS: ${{ inputs.max_requests || vars.MARKET_DATA_DAILY_MAX_REQUESTS || '10000' }}
+          MAX_REQUESTS: ${{ (github.event_name == 'push' && '2') || inputs.max_requests || vars.MARKET_DATA_DAILY_MAX_REQUESTS || '10000' }}
           SELECTION_DATE: ${{ inputs.selection_date }}
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}

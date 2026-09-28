@@ -28,7 +28,7 @@ artifact에 업로드하지 않는다. 별도 비공개 데이터 저장소의 `
 |---|---|---|
 | 기존 Secret | `KIS_APP_KEY`, `KIS_APP_SECRET` | 실전 환경의 시세 조회 가능한 키. 계좌번호 불필요 |
 | 새 Secret | `MARKET_DATA_REPO_TOKEN` | **해당 비공개 데이터 저장소만** Contents read/write 가능한 fine-grained token |
-| Variable | `MARKET_DATA_REPOSITORY` | `owner/private-data-repo` |
+| Variable | `MARKET_DATA_REPOSITORY` | `Greedyguy/stock_rawdata`（비공개 확인 완료） |
 | Variable | `MARKET_DATA_BRANCH` | 기본 `main` |
 | Variable | `MARKET_DATA_PIPELINE_ENABLED` | 일배치 활성화 시에만 `true` |
 | Variable | `MARKET_DATA_DAILY_MAX_REQUESTS` | 기본 10000, 실행당 시세 요청 상한 |
@@ -61,6 +61,10 @@ API 호출은 순차 처리하고 시세 호출 사이 0.6초를 둔다. 여러 
 하므로 운영 시간과 겹칠 경우 제한/지연을 다시 조정해야 한다. 기본 10000회는 호출 보장이 아니다.
 
 `Market data offline tests`는 비밀키 없이 별도 브랜치/PR에서 자동 검사한다.
+`codex/market-data-store` 브랜치의 수집 워크플로 변경을 푸시하면 시세 요청을 **2회**로
+제한한 연결 검증을 수행한다. 목적지는 동일한 비공개 저장소이며 주문 기능은 없다.
+기본 브랜치 병합이나 일배치 활성화 없이 GitHub에 등록된 KIS 키로 연결을 검증하기 위한 경로다.
+연결 토큰이 없거나 목적지의 비공개 여부를 확인할 수 없으면 시세 조회 전에 중단한다.
 
 ## 저장 구조와 재현성
 
