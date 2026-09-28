@@ -224,3 +224,21 @@ def test_workflow_safety():
     pipeline=next(step for step in workflow['jobs']['collect']['steps'] if step.get('id')=='pipeline')
     assert "(github.event_name == 'push' && '2')" in pipeline['env']['MAX_REQUESTS']
     assert "(github.event_name == 'push' && 'backfill')" in pipeline['env']['COLLECTION_MODE']
+
+
+def test_job_explicit_today_master_is_reused(monkeypatch,tmp_path):
+    import scripts.run_market_data_job as job
+    observed=job.datetime.now(job.ZoneInfo('Asia/Seoul')).date().isoformat()
+    monkeypatch.setenv('MARKET_STORE_PATH',str(tmp_path/'store'))
+    monkeypatch.setenv('COLLECTION_MODE','master')
+    monkeypatch.setenv('MASTER_DATE',observed)
+    calls=[]
+    def read_existing(store,date):
+        calls.append(date)
+        return pd.DataFrame({'ticker':['005930']})
+    def no_download(*args,**kwargs):
+        raise AssertionError('Explicit master date must reuse the stored snapshot, even today')
+    monkeypatch.setattr(job,'read_master',read_existing)
+    monkeypatch.setattr(job,'collect_masters',no_download)
+    job.main()
+    assert calls==[observed]

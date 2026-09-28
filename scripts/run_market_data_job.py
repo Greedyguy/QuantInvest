@@ -23,8 +23,9 @@ def main():
         return
     if mode not in ('master','backfill','incremental'):
         raise ValueError('Invalid collection mode')
-    master_date=os.environ.get('MASTER_DATE') or observed
-    if master_date==observed:
+    pinned_master=os.environ.get('MASTER_DATE')
+    master_date=pinned_master or observed
+    if not pinned_master:
         master=collect_masters(store,observed_date=observed)
     else:
         master=read_master(store,master_date)
