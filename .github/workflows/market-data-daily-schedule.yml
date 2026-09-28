@@ -1,0 +1,29 @@
+name: 일별 전종목 데이터 수집 (18:40 KST)
+
+'on':
+  schedule:
+    # Every calendar day, KST 18:40 = UTC 09:40. Prices stop before execution date.
+    - cron: '40 9 * * *'
+  workflow_dispatch:
+    inputs:
+      max_requests:
+        description: '이번 실행 가격 조회 상한 (전체 대상 기본 10000)'
+        type: choice
+        options: ['10000', '1000', '300']
+        default: '10000'
+
+permissions:
+  contents: read
+
+jobs:
+  daily:
+    if: github.event_name == 'workflow_dispatch' || vars.MARKET_DATA_DAILY_ENABLED == 'true'
+    uses: Greedyguy/QuantInvest/.github/workflows/market-data-daily.yml@ad0354f1132631b9da4b6388cb320fb13052e401
+    with:
+      code_ref: 'ad0354f1132631b9da4b6388cb320fb13052e401'
+      start: ${{ vars.MARKET_DATA_DAILY_START || '2026-09-01' }}
+      max_requests: ${{ inputs.max_requests || vars.MARKET_DATA_DAILY_MAX_REQUESTS || '10000' }}
+    secrets:
+      MARKET_DATA_REPO_TOKEN: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
+      KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+      KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
