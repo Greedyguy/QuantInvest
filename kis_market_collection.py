@@ -24,6 +24,22 @@ PRICE_FIELDS = {'open':'stck_oprc','high':'stck_hgpr','low':'stck_lwpr',
 STOCK_GROUPS = {'ST','RT','IF','MF','DR','FS'}
 
 
+class KISPriceRequestError(RuntimeError):
+    """Only bounded, sanitized diagnostics; never broker bodies or exceptions."""
+    def __init__(self, kind, attempts, *, http_status=None, provider_code=None):
+        self.diagnostic = dict(kind=kind, attempts=attempts,
+                               http_status=http_status, provider_code=provider_code)
+        super().__init__('KIS price request failed: '+json.dumps(self.diagnostic)+
+                         '; validated checkpoint retained; do not skip this segment')
+
+
+class CollectionInterrupted(RuntimeError):
+    def __init__(self, progress):
+        self.progress = progress
+        super().__init__('KIS collection interrupted; validated segments retained; '
+                         'resume at '+progress['next_key']+'; '+json.dumps(progress['error']))
+
+
 def parse_master(blob, market):
     # Official KIS examples use decoded characters and include LF in the tail.
     tail = {'kospi':228, 'kosdaq':222}[market]
@@ -128,17 +144,55 @@ class KISPriceClient:
         params={'FID_COND_MRKT_DIV_CODE':'J','FID_INPUT_ISCD':ticker,
                 'FID_INPUT_DATE_1':start.replace('-',''),'FID_INPUT_DATE_2':end.replace('-',''),
                 'FID_PERIOD_DIV_CODE':'D','FID_ORG_ADJ_PRC':'1' if basis=='raw' else '0'}
-        try:
-            response=self.session.get(self.base+PRICE_PATH,params=params,headers={
-                'authorization':'Bearer '+self._token,'appkey':self._key,'appsecret':self._secret,
-                'tr_id':'FHKST03010100','custtype':'P'},timeout=(10,45),allow_redirects=False)
-            body=response.json()
-        except (requests.RequestException,ValueError):
-            raise RuntimeError('KIS price request failed; checkpoint retained') from None
-        if response.status_code!=200 or body.get('rt_cd')!='0':
-            # Do not leak headers, tokens or arbitrary provider response text.
-            raise RuntimeError(f'KIS price request rejected (HTTP {response.status_code}); stop, do not silently skip')
-        return body
+        for attempt in range(1,6):
+            status,code=None,None
+            retryable=False
+            retry_after=0
+            try:
+                response=self.session.get(self.base+PRICE_PATH,params=params,headers={
+                    'authorization':'Bearer '+self._token,'appkey':self._key,'appsecret':self._secret,
+                    'tr_id':'FHKST03010100','custtype':'P'},timeout=(10,45),allow_redirects=False)
+                status=response.status_code
+                if status!=200:
+                    kind='http_error'
+                    retryable=status in (408,429,500,502,503,504)
+                    # Respect bounded numeric Retry-After without logging headers.
+                    header=str(getattr(response,'headers',{}).get('Retry-After',''))
+                    if re.fullmatch(r'\d{1,3}',header):
+                        retry_after=min(int(header),300)
+                else:
+                    body=response.json()
+                    if not isinstance(body,dict):
+                        kind='invalid_json_shape'
+                    elif body.get('rt_cd')=='0':
+                        return body
+                    else:
+                        kind='provider_error'
+                        value=str(body.get('msg_cd',''))
+                        code=value if re.fullmatch(r'[A-Z]{3,4}\d{4,5}',value) else None
+                        retryable=code=='EGW00201'
+            except requests.exceptions.SSLError:
+                kind='tls_error'  # Do not retry certificate/configuration failures.
+            except requests.Timeout:
+                kind='timeout';retryable=True
+            except requests.ConnectionError:
+                kind='connection_error';retryable=True
+            except requests.exceptions.ChunkedEncodingError:
+                kind='incomplete_response';retryable=True
+            except requests.exceptions.JSONDecodeError:
+                kind='invalid_json';retryable=True
+            except requests.RequestException:
+                kind='request_error'
+            except ValueError:
+                kind='invalid_json';retryable=True
+            diagnostic=KISPriceRequestError(kind,attempt,http_status=status,provider_code=code)
+            if not retryable or attempt==5:
+                raise diagnostic from None
+            delay=max(2**attempt,retry_after,60 if status==429 or code=='EGW00201' else 0)
+            print(json.dumps(dict(event='kis_price_retry',ticker=ticker,basis=basis,
+                start=start,end=end,next_attempt=attempt+1,wait_seconds=delay,
+                **diagnostic.diagnostic)),flush=True)
+            time.sleep(delay)
 
     def fetch_calendar(self, base_date):
         """KIS asks that CTCA0903R be called sparingly, preferably once per day.
@@ -223,8 +277,17 @@ def collect_prices(store,client,master,master_date,start,end,*,max_requests=300,
                 if requested>=max_requests:
                     return dict(status='checkpoint_budget_exhausted',requested=requested,reused=reused,
                         next_key=key,requested_universe_queried=False,full_universe_certified=False)
-                payload=client.fetch(row.ticker,request_first,last,basis)
-                frame=normalize_prices(payload,row.ticker,request_first,last,basis)
+                try:
+                    payload=client.fetch(row.ticker,request_first,last,basis)
+                    frame=normalize_prices(payload,row.ticker,request_first,last,basis)
+                except (RuntimeError,ValueError) as error:
+                    diagnostic=(error.diagnostic if isinstance(error,KISPriceRequestError)
+                                else dict(kind='quality_error' if isinstance(error,DataQualityError)
+                                          else 'collection_error'))
+                    progress=dict(status='blocked_collection_error',requested=requested,reused=reused,
+                        next_key=key,requested_universe_queried=False,full_universe_certified=False,
+                        error=diagnostic)
+                    raise CollectionInterrupted(progress) from None
                 store.put_table('kis_segments',key,frame,canonical(payload),dict(
                     source='kis_period_price',ticker=row.ticker,isin=row.isin,price_basis=basis,
                     start=request_first,end=last,master_date=day(master_date),

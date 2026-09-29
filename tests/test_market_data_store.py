@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 import pytest
+import requests
 
 import market_data_store as md
 import kis_market_collection as kis
@@ -148,6 +149,150 @@ def test_kis_secret_not_in_error():
         def post(self,*a,**kw):return SimpleNamespace(status_code=403,json=lambda:{'error_description':'fake-secret'})
     with pytest.raises(RuntimeError) as error:kis.KISPriceClient('fake-key','fake-secret',session=Session())._auth()
     assert 'fake-secret' not in str(error.value)
+
+
+class PriceSession:
+    def __init__(self, replies):
+        self.replies=iter(replies)
+        self.calls=[]
+
+    def post(self,*args,**kwargs):
+        return SimpleNamespace(status_code=200,json=lambda:{'access_token':'fake-token','expires_in':3600})
+
+    def get(self,url,**kwargs):
+        self.calls.append((url,kwargs))
+        value=next(self.replies)
+        if isinstance(value,Exception):
+            raise value
+        return value
+
+
+def price_response(status=200,body=None,headers=None):
+    def content():
+        if isinstance(body,Exception):raise body
+        return kis_payload() if body is None else body
+    return SimpleNamespace(status_code=status,json=content,headers=headers or {})
+
+
+@pytest.mark.parametrize('reply,kind',[
+    (requests.ReadTimeout('fake-secret'),'timeout'),
+    (requests.ConnectTimeout('fake-secret'),'timeout'),
+    (requests.ConnectionError('fake-secret'),'connection_error'),
+    (requests.exceptions.ChunkedEncodingError('fake-secret'),'incomplete_response'),
+    (price_response(body=ValueError('fake-secret')),'invalid_json'),
+    (price_response(body=requests.exceptions.JSONDecodeError('fake-secret','bad',0)),'invalid_json'),
+    (price_response(503),'http_error'),
+    (price_response(429),'http_error'),
+    (price_response(body={'rt_cd':'1','msg_cd':'EGW00201','msg1':'fake-secret'}),'provider_error'),
+])
+def test_kis_transient_retry_same_segment(reply,kind,monkeypatch,capsys):
+    waits=[];monkeypatch.setattr(kis.time,'sleep',waits.append)
+    session=PriceSession([reply,price_response()])
+    client=kis.KISPriceClient('fake-key','fake-secret',session=session)
+    assert client.fetch('005930','20200101','20200131','raw')['rt_cd']=='0'
+    assert len(session.calls)==2 and session.calls[0]==session.calls[1]
+    assert len(waits)==1 and waits[0]>=2
+    log=capsys.readouterr().out
+    assert json.loads(log)['kind']==kind
+    assert all(secret not in log for secret in ('fake-key','fake-secret','fake-token'))
+
+
+def test_kis_retry_exhaustion_is_bounded_and_sanitized(monkeypatch,capsys):
+    waits=[];monkeypatch.setattr(kis.time,'sleep',waits.append)
+    session=PriceSession([requests.ReadTimeout('fake-secret') for _ in range(5)])
+    client=kis.KISPriceClient('fake-key','fake-secret',session=session)
+    with pytest.raises(kis.KISPriceRequestError) as failure:
+        client.fetch('005930','20200101','20200131','raw')
+    assert len(session.calls)==5 and waits==[2,4,8,16]
+    assert failure.value.diagnostic==dict(kind='timeout',attempts=5,http_status=None,provider_code=None)
+    assert 'fake-secret' not in str(failure.value)+capsys.readouterr().out
+    assert failure.value.__suppress_context__
+
+
+@pytest.mark.parametrize('reply',[
+    price_response(401,body=ValueError('fake-secret')),
+    price_response(403),price_response(404),price_response(302),
+    price_response(body={'rt_cd':'1','msg_cd':'EGW00123','msg1':'fake-secret'}),
+    price_response(body={'rt_cd':'1','msg_cd':'fake-secret'}),
+    price_response(body=[]),
+    requests.exceptions.SSLError('fake-secret'),
+    requests.RequestException('fake-secret'),
+])
+def test_kis_permanent_failures_are_not_retried(reply,monkeypatch,capsys):
+    waits=[];monkeypatch.setattr(kis.time,'sleep',waits.append)
+    session=PriceSession([reply]);client=kis.KISPriceClient('fake-key','fake-secret',session=session)
+    with pytest.raises(kis.KISPriceRequestError) as failure:
+        client.fetch('005930','20200101','20200131','raw')
+    assert len(session.calls)==1 and waits==[]
+    assert 'fake-secret' not in str(failure.value)+capsys.readouterr().out
+
+
+def test_kis_retry_after_and_success_on_final_attempt(monkeypatch):
+    waits=[];monkeypatch.setattr(kis.time,'sleep',waits.append)
+    replies=[price_response(503,headers={'Retry-After':'20'})]*4+[price_response()]
+    session=PriceSession(replies);client=kis.KISPriceClient('fake-key','fake-secret',session=session)
+    assert client.fetch('005930','20200101','20200131','raw')['rt_cd']=='0'
+    assert waits==[20]*4 and len(session.calls)==5
+
+
+def test_failed_collection_records_progress_and_resumes(store,monkeypatch):
+    monkeypatch.setattr(kis.time,'sleep',lambda _:None)
+    master=pd.DataFrame([dict(ticker='005930',isin='KR7005930003',listed_date='1975-06-11',collection_eligible=True)])
+    replies=[price_response()]+[requests.ReadTimeout('fake-secret')]*5
+    client=kis.KISPriceClient('fake-key','fake-secret',session=PriceSession(replies))
+    with pytest.raises(kis.CollectionInterrupted) as failure:
+        kis.collect_prices(store,client,master,'20260928','20200101','20200131',max_requests=2,delay=0)
+    p=failure.value.progress
+    assert p['requested']==1 and p['reused']==0
+    assert p['next_key']=='005930/adjusted/2020-01-01_2020-01-31'
+    assert p['error']['kind']=='timeout' and not p['requested_universe_queried']
+    reloaded=md.MarketStore(store.root)
+    assert len(reloaded.manifest['kis_segments'])==1
+    session=PriceSession([price_response()])
+    client=kis.KISPriceClient('fake-key','fake-secret',session=session)
+    result=kis.collect_prices(reloaded,client,master,'20260928','20200101','20200131',max_requests=2,delay=0)
+    assert result['requested']==1 and result['reused']==1 and result['requested_universe_queried']
+    assert session.calls[0][1]['params']['FID_ORG_ADJ_PRC']=='0'
+
+
+def test_failed_job_replaces_stale_summary_and_stays_failed(store,monkeypatch,tmp_path):
+    import scripts.run_market_data_job as job
+    monkeypatch.setenv('MARKET_STORE_PATH',str(store.root))
+    monkeypatch.setenv('COLLECTION_MODE','backfill')
+    monkeypatch.setenv('MASTER_DATE','2026-09-28')
+    monkeypatch.setenv('BACKFILL_START','2020-01-01')
+    monkeypatch.setenv('BACKFILL_END','2020-01-31')
+    summary=tmp_path/'summary.md'
+    monkeypatch.setenv('GITHUB_STEP_SUMMARY',str(summary))
+    master=pd.DataFrame([dict(ticker='005930',isin='KR7005930003',listed_date='1975-06-11',collection_eligible=True)])
+    monkeypatch.setattr(job,'read_master',lambda *args:master)
+    monkeypatch.setattr(kis.time,'sleep',lambda _:None)
+    session=PriceSession([price_response()]+[requests.ReadTimeout('fake-secret')]*5)
+    client=kis.KISPriceClient('fake-key','fake-secret',session=session)
+    monkeypatch.setattr(job,'KISPriceClient',lambda *args:client)
+    store.root.mkdir(parents=True,exist_ok=True)
+    (store.root/'last_kis_collection.json').write_text('{"status":"requested_universe_queried"}')
+    with pytest.raises(kis.CollectionInterrupted):job.main()
+    result=json.loads((store.root/'last_kis_collection.json').read_text())
+    assert result['status']=='blocked_collection_error' and result['requested']==1
+    assert result['next_key']=='005930/adjusted/2020-01-01_2020-01-31'
+    assert result['start']=='2020-01-01' and result['updated_at']
+    assert result['error']['attempts']==5 and result['orders_enabled'] is False
+    assert '오류로 중단' in summary.read_text()
+    assert 'fake-secret' not in json.dumps(result)+summary.read_text()
+
+
+def test_collection_quality_failure_is_not_retried_or_skipped(store,monkeypatch):
+    waits=[];monkeypatch.setattr(kis.time,'sleep',waits.append)
+    master=pd.DataFrame([dict(ticker='005930',isin='KR7005930003',listed_date='1975-06-11',collection_eligible=True)])
+    payload=kis_payload();payload['output1']['stck_shrn_iscd']='000660'
+    session=PriceSession([price_response(body=payload)])
+    client=kis.KISPriceClient('fake-key','fake-secret',session=session)
+    with pytest.raises(kis.CollectionInterrupted) as failure:
+        kis.collect_prices(store,client,master,'20260928','20200101','20200131',delay=0)
+    assert failure.value.progress['error']['kind']=='quality_error'
+    assert failure.value.progress['requested']==0 and not store.manifest['kis_segments']
+    assert len(session.calls)==1 and waits==[]
 
 
 @pytest.mark.parametrize('mutation',[
