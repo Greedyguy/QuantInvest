@@ -36,6 +36,10 @@ No stale-signal fallback is enabled to avoid missed trades. The producer validat
 its input-date contract before saving. The consumer repeats validation before the
 account/order stage. Live repaired mode requires the existing execution recheck and
 cash-preserving policy; it cannot opt into `legacy_renorm`.
+Real repaired KR execution also requires `eod_fixed`, so the direct live-computation
+path cannot bypass the consumer's date checks. Additional buys require a finite,
+positive current quote; an unavailable quote cannot fall back to yesterday's price.
+Normal sells retain their original execution behavior.
 
 ## Rollout
 

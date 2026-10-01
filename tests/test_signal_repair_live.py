@@ -166,6 +166,39 @@ def test_us_not_changed_by_kr_repair():
     assert not t._buy_blocked('305720')
 
 
+@pytest.mark.parametrize('quote',[None,0.,-1.,np.nan,np.inf])
+def test_live_buy_fails_closed_without_valid_current_quote(quote):
+    t=bare(); t.dry_run=False
+    t._safe_get_current_price=lambda symbol:quote
+    t._safe_get_orderable_qty=lambda *a:pytest.fail('Sizing unavailable quote')
+    plan=OrderPlan('069500','BUY',1,50000,50000,.1,0,1)
+    reviewed,logs=t.apply_execution_recheck([plan],{'available_cash':1e6})
+    assert reviewed==[] and logs[0]['reason']=='live_buy_quote_unavailable'
+
+
+def test_missing_quote_does_not_block_normal_sell():
+    t=bare(); t.dry_run=False
+    t._safe_get_current_price=lambda symbol:None
+    plan=OrderPlan('305720','SELL',1,50000,50000,0,1,0)
+    reviewed,logs=t.apply_execution_recheck([plan],{'available_cash':1e6})
+    assert reviewed==[plan]
+
+
+def test_valid_current_quote_still_allows_normal_buy():
+    t=bare(); t.dry_run=False
+    t._safe_get_current_price=lambda symbol:50000.
+    t._safe_get_orderable_qty=lambda *args:10
+    plan=OrderPlan('069500','BUY',1,50000,50000,.1,0,1)
+    reviewed,logs=t.apply_execution_recheck([plan],{'available_cash':1e6})
+    assert reviewed==[plan] and logs[0]['decision']=='send'
+
+
+def test_repaired_real_execution_cannot_bypass_snapshot_contract(monkeypatch):
+    monkeypatch.setattr(module,'KoreaInvestmentConnector',lambda **k:pytest.fail('Broker initialized'))
+    with pytest.raises(ValueError,match='eod_fixed'):
+        MultiAllocatorPlusTrader(dry_run=False,signal_mode='live')
+
+
 @pytest.mark.parametrize('failure',['exception','empty','no_weights','unavailable'])
 def test_child_failure_cannot_silently_reallocate_portfolio(failure):
     s=MultiStrategyAllocator(strategy_configs=[{'name':'fake','weight':1}],child_signal_mode=True,signal_market='KR')
