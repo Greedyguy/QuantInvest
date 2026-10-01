@@ -1,0 +1,39 @@
+name: Signal Repair Safety Tests
+
+on:
+  pull_request:
+    paths:
+      - 'strategies/**'
+      - 'multi_allocator_plus_trader.py'
+      - 'signal_safety.py'
+      - 'tests/**'
+      - '.github/workflows/**'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        run: pip install -r requirements.txt pytest
+      - name: Offline signal and execution checks (no broker credentials)
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+          MPLCONFIGDIR: /tmp/matplotlib
+        run: >-
+          python -m pytest -q
+          tests/test_signal_connection.py
+          tests/test_signal_repair_live.py
+          tests/test_execution_safety.py
+          tests/test_small_account_shadow.py
+          tests/test_shadow_workflow.py
+          tests/test_data_freshness.py
+          tests/test_strategy_validation.py
+          tests/test_strategy_risk_controls.py

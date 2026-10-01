@@ -160,6 +160,7 @@ class KQMStrategy(BaseStrategy):
             print(f"⚙️  보유 종목: {self.holdings_count}개")
             print(f"⚙️  리밸런싱: {self.rebalance_days}일마다")
         
+        self._reset_weight_history()
         cash = 1_000_000_000.0
         positions = {}
         equity_curve = []
@@ -207,6 +208,10 @@ class KQMStrategy(BaseStrategy):
                 # 팩터 계산 실패 시 기존 포지션 유지
                 equity = self._calculate_equity(cash, positions, enriched, rebal_date)
                 equity_curve.append((rebal_date, equity))
+                if getattr(self, "_signal_generation", False):
+                    for date in dates:
+                        if rebal_date <= date <= next_rebal_date:
+                            self._record_weights(date, cash, positions, enriched)
                 continue
             
             factors_df = pd.DataFrame(factors).set_index("ticker")
@@ -217,6 +222,10 @@ class KQMStrategy(BaseStrategy):
             if len(factors_df) == 0:
                 equity = self._calculate_equity(cash, positions, enriched, rebal_date)
                 equity_curve.append((rebal_date, equity))
+                if getattr(self, "_signal_generation", False):
+                    for date in dates:
+                        if rebal_date <= date <= next_rebal_date:
+                            self._record_weights(date, cash, positions, enriched)
                 continue
             
             # 팩터 점수 계산
@@ -308,6 +317,8 @@ class KQMStrategy(BaseStrategy):
             for date in rebal_period_dates:
                 equity = self._calculate_equity(cash, positions, enriched, date)
                 equity_curve.append((date, equity))
+                if getattr(self, "_signal_generation", False):
+                    self._record_weights(date, cash, positions, enriched)
             
             # 디버깅: 마지막 리밸런싱 후 확인
             if is_last_rebal and not silent:
@@ -342,6 +353,10 @@ class KQMStrategy(BaseStrategy):
                 print(f"   구간 시작 equity: {prev_equity:,.0f}원")
                 print(f"   구간 종료 equity: {last_equity:,.0f}원")
         
+        if getattr(self, "_signal_generation", False) and dates:
+            # Include a cutoff that lands exactly on the rebalance date, too.
+            equity_curve.append((dates[-1], self._calculate_equity(cash, positions, enriched, dates[-1])))
+            self._record_weights(dates[-1], cash, positions, enriched)
         ec = pd.DataFrame(equity_curve, columns=["date", "equity"]).set_index("date")
         
         # 중복 제거 (같은 날짜가 여러 번 기록될 수 있음)
@@ -352,4 +367,3 @@ class KQMStrategy(BaseStrategy):
             print(f"📊 총 리밸런싱 횟수: {len(rebalance_dates)}회\n")
         
         return ec, trade_log
-

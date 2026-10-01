@@ -21,3 +21,14 @@ def test_eod_workflow_records_frozen_kodex200_shadow_without_orders():
     assert "scripts/report_k200_reentry_shadow.py" in workflow
     assert "--output-dir reports/signals" in workflow
     assert "--allow-stale-diagnostic" not in workflow
+
+
+def test_eod_research_failure_does_not_discard_validated_production_signal():
+    workflow = Path(".github/workflows/daily-eod-signal.yml").read_text(encoding="utf-8")
+    shadow = workflow.index("id: frozen-shadow")
+    commit = workflow.index("name: Commit and push signal snapshot")
+    report = workflow.index("name: Report frozen shadow failure independently")
+    assert shadow < commit < report
+    assert "continue-on-error: true" in workflow[shadow:commit]
+    assert "steps.frozen-shadow.outcome == 'failure'" in workflow[report:]
+    assert "exit 1" in workflow[report:]

@@ -310,6 +310,11 @@ class ETFRiskOverlayStrategy(BaseStrategy):
 
         # Final liquidation
         final_date = dates[-1]
+        if getattr(self, "_signal_generation", False):
+            equity_curve.append((final_date, self._calc_equity(cash, positions, universe, final_date)))
+            self._record_weights(final_date, cash, positions, df_map)
+            ec = pd.DataFrame(equity_curve, columns=["date", "equity"]).set_index("date")
+            return ec[~ec.index.duplicated(keep="last")].sort_index(), trade_log
         for ticker, pos in list(positions.items()):
             df = df_map.get(ticker)
             if df is None:
