@@ -41,6 +41,10 @@ from data_loader import (
     validate_market_data_freshness,
 )
 from signals import compute_indicators, add_rel_strength
+from signal_safety import (
+    SIGNAL_PATH_VERSION, KR_BUY_BLOCKED, constrain_targets,
+    validate_targets, validate_snapshot,
+)
 
 # .env 로컬 테스트 지원
 try:  # pragma: no cover
@@ -120,6 +124,7 @@ class MultiAllocatorPlusTrader:
         skip_if_executed: bool = True,
         small_account_shadow: bool = False,
         stress_recovery_mode: str = "shadow",
+        signal_repair_mode: str = "on",
     ):
         self.start_date = start_date
         self.use_cache = use_cache
@@ -134,6 +139,14 @@ class MultiAllocatorPlusTrader:
         self.execution_recheck = execution_recheck
         self.recheck_price_band_pct = recheck_price_band_pct
         self.market = market.lower().strip()
+        if signal_repair_mode not in {"on", "off"}:
+            raise ValueError("signal_repair_mode must be on or off")
+        self.signal_repair_mode = signal_repair_mode
+        if (self._signal_repair_enabled() and not dry_run and not prepare_signal_only
+                and not cache_only and not execution_recheck):
+            raise ValueError("Repaired live signals require execution rechecks")
+        if self._signal_repair_enabled() and cash_policy != "preserve":
+            raise ValueError("Signal repair preserves existing cash; legacy_renorm is forbidden")
         self.us_universe_limit = us_universe_limit
         self.skip_if_executed = skip_if_executed
         self.small_account_shadow = small_account_shadow
@@ -149,6 +162,8 @@ class MultiAllocatorPlusTrader:
         self.strategy = get_strategy("multi_allocator_plus_safe_etf_kqm")
         if self.strategy is None:
             raise RuntimeError("multi_allocator_plus 전략을 찾을 수 없습니다.")
+        self.strategy.child_signal_mode = self._signal_repair_enabled()
+        self.strategy.signal_market = "KR" if self._signal_repair_enabled() else None
         if hasattr(self.strategy, "stress_recovery_enabled"):
             self.strategy.stress_recovery_enabled = stress_recovery_mode == "live"
 
@@ -156,6 +171,12 @@ class MultiAllocatorPlusTrader:
         self.market_index = None
         self.secondary_index = None
         self.loaded_signal_snapshot_payload = None
+
+    def _signal_repair_enabled(self):
+        return getattr(self, "market", "kr") == "kr" and getattr(self, "signal_repair_mode", "off") == "on"
+
+    def _buy_blocked(self, symbol):
+        return getattr(self, "market", "kr") == "kr" and self._normalize_symbol(symbol) in KR_BUY_BLOCKED
 
     def _shadow_report_path(self, signal_date: datetime | pd.Timestamp) -> Path:
         out_dir = PROJECT_ROOT / "reports" / "shadow"
@@ -278,7 +299,11 @@ class MultiAllocatorPlusTrader:
         if targets is None or targets.empty:
             raise RuntimeError("타깃 비중 계산 실패")
         latest_date = targets.index.max()
-        latest_row = targets.loc[latest_date].fillna(0.0)
+        latest_row = targets.loc[latest_date]
+        if self._signal_repair_enabled():
+            latest_row = constrain_targets(latest_row, self.strategy.max_security_weight)
+        else:
+            latest_row = latest_row.fillna(0.0)
         latest_row = latest_row[latest_row >= 0]
         # __CASH__ 비중은 리스크-오프 신호를 살리기 위해 보존하지만,
         # 자산 측 weight==0 종목은 drop 해야 보유 중일 때 매도 주문이 정상 생성된다.
@@ -527,6 +552,14 @@ class MultiAllocatorPlusTrader:
                 "stress_recovery_mode": self.stress_recovery_mode,
             },
         }
+        if self._signal_repair_enabled():
+            validate_targets(targets,self.strategy.max_security_weight)
+            payload["meta"].update(
+                signal_path_version=SIGNAL_PATH_VERSION,market="kr",allocation_policy="legacy",
+                max_total_exposure=1.0,buy_blocked_tickers=sorted(KR_BUY_BLOCKED),
+            )
+            validate_snapshot(payload,today=signal_date+pd.Timedelta(days=1),
+                              max_security_weight=self.strategy.max_security_weight)
         snapshot_path = self._signal_snapshot_path(signal_date)
         snapshot_path.parent.mkdir(parents=True, exist_ok=True)
         with open(snapshot_path, "w", encoding="utf-8") as f:
@@ -540,6 +573,10 @@ class MultiAllocatorPlusTrader:
             raise FileNotFoundError(f"신호 스냅샷 파일이 없습니다: {snapshot_path}")
         with open(snapshot_path, "r", encoding="utf-8") as f:
             payload = json.load(f)
+        if self._signal_repair_enabled():
+            validate_snapshot(payload,max_security_weight=self.strategy.max_security_weight)
+        elif self.market == "kr" and (payload.get("meta") or {}).get("signal_path_version") == SIGNAL_PATH_VERSION:
+            raise ValueError("Repaired snapshot cannot be executed with signal repair disabled")
         self.loaded_signal_snapshot_payload = payload
         signal_date = pd.to_datetime(payload.get("signal_date"))
         targets = pd.Series(payload.get("targets", {}), dtype=float).fillna(0.0)
@@ -679,6 +716,8 @@ class MultiAllocatorPlusTrader:
         return_decisions: bool = False,
     ):
         targets = targets.copy()
+        if self._signal_repair_enabled():
+            validate_targets(targets,self.strategy.max_security_weight)
         raw_cash_weight = float(targets.get("__CASH__", 0.0))
         targets = targets.drop("__CASH__", errors="ignore")
         decisions: List[Dict] = []
@@ -836,6 +875,10 @@ class MultiAllocatorPlusTrader:
                 })
                 continue
             action = "BUY" if delta > 0 else "SELL"
+            if action == "BUY" and self._buy_blocked(ticker):
+                decisions.append({"ticker":str(ticker),"action":"SKIP",
+                    "reason":"buy_blocked_instrument_identity","target_weight":float(weight)})
+                continue
             logger.info(
                 "계획 생성: %s %s %s주 (보유 %s주 -> 목표 %s주, 목표 %.2f%%)",
                 action,
@@ -982,10 +1025,14 @@ class MultiAllocatorPlusTrader:
         return FEE_PER_SIDE, TAX_RATE_SELL, SLIPPAGE_ENTRY
 
     def apply_execution_recheck(self, plans: List[OrderPlan], account: Dict) -> Tuple[List[OrderPlan], List[Dict]]:
+        blocked_logs = [{"run_id":self.run_id,"ticker":p.symbol,"action":p.action,
+            "decision":"skip","reason":"buy_blocked_instrument_identity"}
+            for p in plans if p.action == "BUY" and self._buy_blocked(p.symbol)]
+        plans = [p for p in plans if not (p.action == "BUY" and self._buy_blocked(p.symbol))]
         if not self.execution_recheck:
-            return plans, []
+            return plans, blocked_logs
         reviewed: List[OrderPlan] = []
-        logs: List[Dict] = []
+        logs: List[Dict] = blocked_logs
         remaining_cash = float(account.get("available_cash", 0) or 0)
         fee_rate, sell_tax_rate, entry_slippage = self._execution_cost_rates()
         for plan in plans:
@@ -1621,6 +1668,10 @@ class MultiAllocatorPlusTrader:
         abort_reason: str | None = None
         order_logs: List[Dict] = []
         for plan in plans:
+            if plan.action == "BUY" and self._buy_blocked(plan.symbol):
+                order_logs.append({"run_id":self.run_id,"ticker":plan.symbol,"action":plan.action,
+                    "decision":"skip","reason":"buy_blocked_instrument_identity"})
+                continue
             logger.info(
                 "➡️ %s %s x %s (목표 %.2f%%)",
                 plan.action,
@@ -1983,6 +2034,8 @@ def main():
     )
     parser.add_argument("--signal-snapshot", type=str, default=None, help="신호 스냅샷 파일 경로(JSON)")
     parser.add_argument("--prepare-signal-only", action="store_true", help="신호 스냅샷만 생성하고 주문 단계 생략")
+    parser.add_argument("--signal-repair-mode", choices=["on","off"], default="on",
+                        help="KR 신호 전달 복구 (기본 on; US 동작은 변경하지 않음)")
     parser.add_argument(
         "--execution-recheck",
         dest="execution_recheck",
@@ -2067,6 +2120,7 @@ def main():
         skip_if_executed=args.skip_if_executed,
         small_account_shadow=args.small_account_shadow,
         stress_recovery_mode=args.stress_recovery_mode,
+        signal_repair_mode=args.signal_repair_mode,
     )
     trader.run()
 

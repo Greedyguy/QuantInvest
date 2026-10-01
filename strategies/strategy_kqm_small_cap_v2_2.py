@@ -405,6 +405,12 @@ class KQMSmallCapStrategyV22(BaseStrategy):
         # --------------------------
         final_date = dates[-1]
 
+        if getattr(self, "_signal_generation", False):
+            equity_curve.append((final_date, self._calc_equity(cash, positions, enriched, final_date)))
+            self._record_weights(final_date, cash, positions, enriched)
+            ec = pd.DataFrame(equity_curve, columns=["date", "equity"]).set_index("date")
+            return ec[~ec.index.duplicated(keep="last")], trade_log
+
         for t in list(positions.keys()):
             df = enriched[t]
             pos = positions.pop(t)

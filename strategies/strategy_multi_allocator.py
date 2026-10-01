@@ -51,6 +51,8 @@ class MultiStrategyAllocator(BaseStrategy):
         small_cap_security_cap=0.25,
         small_cap_security_cap_severe=0.15,
         large_trend_floor=0.20,
+        child_signal_mode=False,
+        signal_market=None,
     ):
         """
         strategy_names: list of strategy identifiers to combine
@@ -59,6 +61,8 @@ class MultiStrategyAllocator(BaseStrategy):
         vol_target: desired annualized volatility for the combined portfolio
         max_turnover: fraction of portfolio value allowed to change seats per rebalance
         """
+        self.child_signal_mode = child_signal_mode
+        self.signal_market = signal_market
         self.strategy_configs = strategy_configs or [
             {"name": "kqm_small_cap_v22_short", "weight": 0.45, "role": "short"},
             {"name": "hybrid_portfolio_v2_4", "weight": 0.25, "role": "offensive"},
@@ -624,20 +628,32 @@ class MultiStrategyAllocator(BaseStrategy):
                     print(f"[multi_allocator] running child strategy: {name}")
                 strat = self._get_strategy(name)
             except Exception as e:
+                if self.child_signal_mode:
+                    raise RuntimeError(f"Signal child unavailable: {name}") from e
                 print(f"[WARN] multi-allocator: strategy {name} unavailable: {e}")
                 continue
 
             try:
-                ec, trades = strat.run_backtest(enriched, market_index=market_index, weights=weights_override, silent=silent)
+                if self.child_signal_mode:
+                    ec, trades = strat.run_signal_backtest(enriched, market_index=market_index,
+                        weights=weights_override, silent=silent, market=self.signal_market)
+                else:
+                    ec, trades = strat.run_backtest(enriched, market_index=market_index, weights=weights_override, silent=silent)
                 if ec is None or ec.empty:
+                    if self.child_signal_mode:
+                        raise RuntimeError(f"{name}: insufficient signal warmup/data")
                     if not silent:
                         print(f"[multi_allocator] {name} returned empty results")
                     continue
                 weight_history = strat.get_target_weight_history()
+                if self.child_signal_mode and weight_history.empty:
+                    raise RuntimeError(f"{name}: signal target history is missing")
                 child_results[name] = {"equity": ec, "trades": trades, "weights": weight_history}
                 if not silent:
                     print(f"[multi_allocator] completed {name}: {ec.shape}")
             except Exception as e:
+                if self.child_signal_mode:
+                    raise RuntimeError(f"Signal generation failed for child {name}") from e
                 print(f"[WARN] multi-allocator: strategy {name} run failed: {e}")
         return child_results
 

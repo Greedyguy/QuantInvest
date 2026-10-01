@@ -555,6 +555,14 @@ class KQMSmallCapStrategyV22Short(BaseStrategy):
                 self._record_weights(dt, cash, positions, enriched)
 
         final_date = dates[-1]
+        if getattr(self, "_signal_generation", False):
+            # The interval above excludes the endpoint: real stop/holding-period
+            # exits must still run today, unlike artificial end-of-test exits.
+            cash = self._enforce_risk_controls(final_date, positions, enriched, cash, trade_log)
+            equity_curve.append((final_date, self._calc_equity(cash, positions, enriched, final_date)))
+            self._record_weights(final_date, cash, positions, enriched)
+            ec = pd.DataFrame(equity_curve, columns=["date", "equity"]).set_index("date")
+            return ec[~ec.index.duplicated(keep="last")], trade_log
         for t in list(positions.keys()):
             cash = self._sell_position(t, final_date, positions, enriched, cash, trade_log, reason="final")
 

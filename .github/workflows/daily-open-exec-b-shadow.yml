@@ -51,6 +51,7 @@ jobs:
             --dry-run \
             --min-trade 50000 \
             --signal-mode eod_fixed \
+            --signal-repair-mode on \
             --small-account-shadow \
             --execution-recheck \
             --recheck-price-band-pct 3.0

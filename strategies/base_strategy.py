@@ -46,6 +46,34 @@ class BaseStrategy(ABC):
         if not hasattr(self, "_target_weight_history"):
             self._target_weight_history = []
 
+    def run_signal_backtest(self, enriched, market_index=None, weights=None,
+                            silent=True, market=None):
+        """Replay through the as-of close without artificial terminal liquidation.
+
+        Opt-in only: ordinary backtest and deployed callers retain their behavior.
+        Explicit market selection avoids guessing from alphanumeric KR tickers.
+        """
+        if market not in (None, "KR", "US"):
+            raise ValueError("market must be KR, US, or None")
+        old_mode = getattr(self, "_signal_generation", False)
+        overrides = {}
+        self._signal_generation = True
+        try:
+            if market is not None:
+                for name in ("_is_us_market", "_detect_us_market"):
+                    if hasattr(self, name):
+                        overrides[name] = (name in self.__dict__, self.__dict__.get(name))
+                        setattr(self, name, lambda tickers: market == "US")
+            return self.run_backtest(enriched, market_index=market_index,
+                                     weights=weights, silent=silent)
+        finally:
+            self._signal_generation = old_mode
+            for name, (existed, value) in overrides.items():
+                if existed:
+                    setattr(self, name, value)
+                else:
+                    delattr(self, name)
+
     def _reset_weight_history(self):
         self._ensure_weight_history()
         self._target_weight_history = []

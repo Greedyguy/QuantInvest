@@ -127,6 +127,7 @@ class K200MeanReversion(BaseStrategy):
             print("=" * 60)
 
         self._set_market_profile(enriched)
+        self._reset_weight_history()
         df = enriched.get(self.ticker)
         if df is None or len(df) < 60:
             if not silent:
@@ -283,11 +284,14 @@ class K200MeanReversion(BaseStrategy):
                 equity += cpx * position["qty"]
 
             equity_curve.append((current_date, equity))
+            if getattr(self, "_signal_generation", False):
+                self._record_weights(current_date, cash,
+                    {self.ticker: position} if position is not None else {}, enriched)
 
         # ---------------------------
         # 마지막 포지션 강제 청산 (마지막 날 VWAP 기준)
         # ---------------------------
-        if position is not None:
+        if position is not None and not getattr(self, "_signal_generation", False):
             final_date = dates[-1]
             row_fd = df.loc[final_date]
             vwap_fd = self._vwap_proxy(row_fd)
