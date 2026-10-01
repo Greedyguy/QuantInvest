@@ -9,6 +9,7 @@ multi_allocator_plus 전략 목표 비중을 계산하고 한국투자증권 API
 import argparse
 import json
 import logging
+import math
 import os
 import subprocess
 import sys
@@ -147,6 +148,9 @@ class MultiAllocatorPlusTrader:
             raise ValueError("Repaired live signals require execution rechecks")
         if self._signal_repair_enabled() and cash_policy != "preserve":
             raise ValueError("Signal repair preserves existing cash; legacy_renorm is forbidden")
+        if (self._signal_repair_enabled() and not dry_run and not prepare_signal_only
+                and not cache_only and signal_mode != "eod_fixed"):
+            raise ValueError("Repaired live execution requires a validated eod_fixed snapshot")
         self.us_universe_limit = us_universe_limit
         self.skip_if_executed = skip_if_executed
         self.small_account_shadow = small_account_shadow
@@ -1037,7 +1041,15 @@ class MultiAllocatorPlusTrader:
         fee_rate, sell_tax_rate, entry_slippage = self._execution_cost_rates()
         for plan in plans:
             cash_before = remaining_cash
-            recheck_price = self._safe_get_current_price(plan.symbol) or plan.est_price
+            current_price = self._safe_get_current_price(plan.symbol)
+            if (self._signal_repair_enabled() and not self.dry_run and plan.action == "BUY"
+                    and (current_price is None or not math.isfinite(current_price) or current_price <= 0)):
+                logs.append({
+                    "run_id": self.run_id, "ticker": plan.symbol, "action": plan.action,
+                    "decision": "skip", "reason": "live_buy_quote_unavailable",
+                })
+                continue
+            recheck_price = current_price or plan.est_price
             if recheck_price <= 0:
                 logger.warning("재검증 제외: %s %s - 현재가 확인 실패", plan.action, plan.symbol)
                 logs.append({
