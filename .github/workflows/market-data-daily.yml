@@ -12,6 +12,9 @@ name: Whole-universe daily data supply (no orders)
       max_requests:
         type: string
         default: '10000'
+      index_start:
+        type: string
+        default: '2026-01-01'
     secrets:
       MARKET_DATA_REPO_TOKEN:
         required: true
@@ -30,6 +33,9 @@ concurrency:
 jobs:
   daily:
     runs-on: ubuntu-latest
+    concurrency:
+      group: kis-real-token
+      cancel-in-progress: false
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v6
@@ -74,6 +80,7 @@ jobs:
           MARKET_STORE_PATH: market-data-private/store
           DAILY_START: ${{ inputs.start }}
           MAX_REQUESTS: ${{ inputs.max_requests }}
+          INDEX_HISTORY_START: ${{ inputs.index_start }}
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
         run: python scripts/run_daily_market_data.py

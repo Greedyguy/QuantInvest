@@ -226,3 +226,18 @@ def test_three_kr_workflows_opt_in_and_us_not_changed():
         assert '--signal-repair-mode on' in (Path('.github/workflows')/path).read_text()
     for path in ['daily-eod-signal-us.yml','daily-open-exec-us.yml']:
         assert '--signal-repair-mode' not in (Path('.github/workflows')/path).read_text()
+
+
+def test_prepare_only_never_initializes_broker(monkeypatch):
+    monkeypatch.setattr(module,'KoreaInvestmentConnector',lambda **kw:pytest.fail('Broker initialized'))
+    t=MultiAllocatorPlusTrader(prepare_signal_only=True,market_store_path='private/store',market_data_commit='a'*40)
+    assert t.kis is None
+
+
+def test_private_store_path_does_not_fall_back_to_legacy_download(monkeypatch):
+    import production_market_inputs
+    t=bare(); t.market_store_path='missing/store'; t.market_data_commit='a'*40; t.start_date='2026-01-01'
+    monkeypatch.setattr(module,'load_data',lambda **kw:pytest.fail('Legacy download fallback'))
+    def fail(*a,**kw): raise ValueError('Missing private data')
+    monkeypatch.setattr(production_market_inputs,'load_production_inputs',fail)
+    with pytest.raises(ValueError,match='Missing private'): t._load_market_data_kr()

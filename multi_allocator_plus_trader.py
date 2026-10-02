@@ -126,6 +126,8 @@ class MultiAllocatorPlusTrader:
         small_account_shadow: bool = False,
         stress_recovery_mode: str = "shadow",
         signal_repair_mode: str = "on",
+        market_store_path: str | None = None,
+        market_data_commit: str | None = None,
     ):
         self.start_date = start_date
         self.use_cache = use_cache
@@ -143,6 +145,12 @@ class MultiAllocatorPlusTrader:
         if signal_repair_mode not in {"on", "off"}:
             raise ValueError("signal_repair_mode must be on or off")
         self.signal_repair_mode = signal_repair_mode
+        self.market_store_path = market_store_path
+        self.market_data_commit = market_data_commit
+        self.market_input_provenance = None
+        self.raw_reference_prices = None
+        if market_store_path and (self.market != 'kr' or not self._signal_repair_enabled()):
+            raise ValueError('Private KIS inputs require repaired KR signals')
         if (self._signal_repair_enabled() and not dry_run and not prepare_signal_only
                 and not cache_only and not execution_recheck):
             raise ValueError("Repaired live signals require execution rechecks")
@@ -160,7 +168,8 @@ class MultiAllocatorPlusTrader:
         self.run_id = uuid4().hex[:12]
         self.execution_log_path = self._execution_log_path()
 
-        self.kis = KoreaInvestmentConnector(virtual_account=virtual_account)
+        # Preparing an offline signal must never initialize the order connector.
+        self.kis = None if prepare_signal_only else KoreaInvestmentConnector(virtual_account=virtual_account)
         self.telegram = TelegramNotifier()
         self.reporter = DailyReporter(PROJECT_ROOT / "reports" / "daily")
         self.strategy = get_strategy("multi_allocator_plus_safe_etf_kqm")
@@ -264,6 +273,17 @@ class MultiAllocatorPlusTrader:
             self._load_market_data_kr()
 
     def _load_market_data_kr(self):
+        if getattr(self,'market_store_path',None):
+            from production_market_inputs import load_production_inputs
+            enriched,idx_map,refs,provenance=load_production_inputs(self.market_store_path,
+                start=self.start_date or '2026-01-01',data_commit=self.market_data_commit)
+            self.enriched=enriched
+            self.market_index=idx_map['KOSDAQ']
+            self.secondary_index=idx_map['KOSPI']
+            self.raw_reference_prices=refs
+            self.market_input_provenance=provenance
+            logger.info('Validated offline KIS inputs: %d securities, as-of %s',len(enriched),provenance['price_date'])
+            return
         enriched, idx_map = load_data(
             use_cache=self.use_cache,
             start_date=self.start_date,
@@ -533,6 +553,8 @@ class MultiAllocatorPlusTrader:
 
     def save_signal_snapshot(self, signal_date: pd.Timestamp, targets: pd.Series):
         ref_prices = self._latest_prices([ticker for ticker in targets.index if ticker != "__CASH__"])
+        if getattr(self,'raw_reference_prices',None) is not None:
+            ref_prices={ticker:self.raw_reference_prices.get(ticker) for ticker in targets.index if ticker!='__CASH__'}
         strategy_name = (
             self.strategy.get_name()
             if hasattr(self.strategy, "get_name")
@@ -557,6 +579,8 @@ class MultiAllocatorPlusTrader:
             },
         }
         if self._signal_repair_enabled():
+            if getattr(self,'market_input_provenance',None):
+                payload['meta']['market_inputs']=self.market_input_provenance
             validate_targets(targets,self.strategy.max_security_weight)
             payload["meta"].update(
                 signal_path_version=SIGNAL_PATH_VERSION,market="kr",allocation_policy="legacy",
@@ -2048,6 +2072,8 @@ def main():
     parser.add_argument("--prepare-signal-only", action="store_true", help="신호 스냅샷만 생성하고 주문 단계 생략")
     parser.add_argument("--signal-repair-mode", choices=["on","off"], default="on",
                         help="KR 신호 전달 복구 (기본 on; US 동작은 변경하지 않음)")
+    parser.add_argument('--market-store',default=None,help='Validated private KIS store (KR only; no network fallback)')
+    parser.add_argument('--market-data-commit',default=None,help='Pinned private data commit')
     parser.add_argument(
         "--execution-recheck",
         dest="execution_recheck",
@@ -2133,6 +2159,8 @@ def main():
         small_account_shadow=args.small_account_shadow,
         stress_recovery_mode=args.stress_recovery_mode,
         signal_repair_mode=args.signal_repair_mode,
+        market_store_path=args.market_store,
+        market_data_commit=args.market_data_commit,
     )
     trader.run()
 

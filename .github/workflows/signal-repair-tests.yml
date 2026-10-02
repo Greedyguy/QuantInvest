@@ -6,6 +6,9 @@ on:
       - 'strategies/**'
       - 'multi_allocator_plus_trader.py'
       - 'signal_safety.py'
+      - 'production_market_inputs.py'
+      - 'kis_index_store.py'
+      - 'kis_market_collection.py'
       - 'tests/**'
       - '.github/workflows/**'
   workflow_dispatch: {}
@@ -22,7 +25,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Install test dependencies
-        run: pip install -r requirements.txt pytest
+        run: pip install -r requirements.txt pytest pyyaml
       - name: Offline signal and execution checks (no broker credentials)
         env:
           PYTHONDONTWRITEBYTECODE: '1'
@@ -37,3 +40,4 @@ jobs:
           tests/test_data_freshness.py
           tests/test_strategy_validation.py
           tests/test_strategy_risk_controls.py
+          tests/test_production_market_inputs.py

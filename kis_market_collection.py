@@ -213,6 +213,24 @@ class KISPriceClient:
             raise RuntimeError('KIS calendar request rejected; do not infer holidays')
         return body
 
+    def fetch_index(self, code, start, end):
+        if code not in ('0001','1001') or not 0 <= (pd.Timestamp(day(end))-pd.Timestamp(day(start))).days <= 89:
+            raise ValueError('Invalid index/window')
+        self._auth()
+        try:
+            response=self.session.get(self.base+'/uapi/domestic-stock/v1/quotations/inquire-daily-indexchartprice',
+                params={'FID_COND_MRKT_DIV_CODE':'U','FID_INPUT_ISCD':code,
+                    'FID_INPUT_DATE_1':day(start).replace('-',''),'FID_INPUT_DATE_2':day(end).replace('-',''),
+                    'FID_PERIOD_DIV_CODE':'D'},headers={'authorization':'Bearer '+self._token,
+                    'appkey':self._key,'appsecret':self._secret,'tr_id':'FHKUP03500100','custtype':'P'},
+                timeout=(10,45),allow_redirects=False)
+            body=response.json()
+        except (requests.RequestException,ValueError):
+            raise RuntimeError('KIS index request failed; no ETF proxy fallback') from None
+        if response.status_code!=200 or body.get('rt_cd')!='0':
+            raise RuntimeError('KIS index response rejected; no ETF proxy fallback')
+        return body
+
 
 def normalize_prices(payload,ticker,start,end,basis):
     rows=payload.get('output2')
@@ -278,12 +296,29 @@ def collect_prices(store,client,master,master_date,start,end,*,max_requests=300,
                     return dict(status='checkpoint_budget_exhausted',requested=requested,reused=reused,
                         next_key=key,requested_universe_queried=False,full_universe_certified=False)
                 try:
-                    payload=client.fetch(row.ticker,request_first,last,basis)
-                    frame=normalize_prices(payload,row.ticker,request_first,last,basis)
+                    for attempt in range(1,4):
+                        payload=client.fetch(row.ticker,request_first,last,basis)
+                        try:
+                            frame=normalize_prices(payload,row.ticker,request_first,last,basis)
+                            break
+                        except DataQualityError as quality:
+                            # Rejected observations never enter the reusable price layer.
+                            reason=str(quality)
+                            store.put_table('quarantines',key+'/'+digest(canonical(payload)),
+                                pd.DataFrame([dict(reason=reason)]),canonical(payload),dict(
+                                    source='kis_rejected_price_response',ticker=row.ticker,
+                                    start=request_first,end=last,price_basis=basis,reason=reason,
+                                    eligible_for_prices=False))
+                            if attempt==3 or reason=='KIS returned another ticker':
+                                raise
+                            print(json.dumps(dict(event='kis_quality_retry',ticker=row.ticker,
+                                basis=basis,next_attempt=attempt+1,reason=reason)),flush=True)
+                            time.sleep(2**attempt)
                 except (RuntimeError,ValueError) as error:
                     diagnostic=(error.diagnostic if isinstance(error,KISPriceRequestError)
                                 else dict(kind='quality_error' if isinstance(error,DataQualityError)
-                                          else 'collection_error'))
+                                          else 'collection_error',
+                                          reason=str(error) if isinstance(error,DataQualityError) else None))
                     progress=dict(status='blocked_collection_error',requested=requested,reused=reused,
                         next_key=key,requested_universe_queried=False,full_universe_certified=False,
                         error=diagnostic)
