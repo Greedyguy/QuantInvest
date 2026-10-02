@@ -19,15 +19,20 @@ name: 과거 데이터 수집 (직접 실행)
         options: ['300', '1000', '3000', '6000', '10000']
         default: '3000'
         required: true
+      diagnose_ticker:
+        description: '문제 종목만 조회·비공개 보관 (비워 두면 일반 수집)'
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
 jobs:
   collect:
-    uses: Greedyguy/QuantInvest/.github/workflows/market-data.yml@7737ecaebc527435aa1dfb5969785b7a9d1327b0
+    uses: ./.github/workflows/market-data.yml
     with:
-      code_ref: '7737ecaebc527435aa1dfb5969785b7a9d1327b0'
+      code_ref: ${{ github.sha }}
+      diagnose_ticker: ${{ inputs.diagnose_ticker }}
       mode: backfill
       start: ${{ inputs.start }}
       end: ${{ inputs.end }}
