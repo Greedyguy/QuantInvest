@@ -61,7 +61,7 @@ def load_indices(store,start,end):
             expected=normalize_index(json.loads(gzip.decompress(store.checked_path(record['raw_path']).read_bytes())),
                                      code,record['start'],record['end'])
             f=pd.read_parquet(store.checked_path(record['table_path']))
-            pd.testing.assert_frame_equal(f,expected,check_dtype=False)
+            pd.testing.assert_frame_equal(f,expected,check_dtype=False,check_exact=True)
             frames.append(f)
         if not frames: raise DataQualityError(f'Missing {market} index history')
         f=pd.concat(frames).drop_duplicates('date',keep='last').sort_values('date')

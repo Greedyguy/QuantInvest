@@ -2,9 +2,9 @@ name: Market data offline tests
 'on':
   push:
     branches: ['codex/market-data-store']
-    paths: ['market_data_store.py', 'kis_market_collection.py', 'backtest_market_inputs.py', 'daily_market_data.py', 'scripts/*market_data*', 'tests/test_market_data_store.py', 'tests/test_backtest_market_inputs.py', 'tests/test_daily_market_data.py', '.github/workflows/market-data*.yml', 'requirements-market-data.txt']
+    paths: ['market_data_store.py', 'kis_market_collection.py', 'kis_index_store.py', 'backtest_market_inputs.py', 'daily_market_data.py', 'scripts/*market_data*', 'tests/test_market_data_store.py', 'tests/test_backtest_market_inputs.py', 'tests/test_daily_market_data.py', '.github/workflows/market-data*.yml', 'requirements-market-data.txt']
   pull_request:
-    paths: ['market_data_store.py', 'kis_market_collection.py', 'backtest_market_inputs.py', 'daily_market_data.py', 'scripts/*market_data*', 'tests/test_market_data_store.py', 'tests/test_backtest_market_inputs.py', 'tests/test_daily_market_data.py', '.github/workflows/market-data*.yml', 'requirements-market-data.txt']
+    paths: ['market_data_store.py', 'kis_market_collection.py', 'kis_index_store.py', 'backtest_market_inputs.py', 'daily_market_data.py', 'scripts/*market_data*', 'tests/test_market_data_store.py', 'tests/test_backtest_market_inputs.py', 'tests/test_daily_market_data.py', '.github/workflows/market-data*.yml', 'requirements-market-data.txt']
   workflow_dispatch: {}
 permissions:
   contents: read

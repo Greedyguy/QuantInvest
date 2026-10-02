@@ -21,7 +21,7 @@ class Client:
         scale=2 if basis=='adjusted' else 1
         return {'rt_cd':'0','output1':{'stck_shrn_iscd':ticker},'output2':[
             dict(stck_bsop_date=d.strftime('%Y%m%d'),stck_oprc=100*scale,stck_hgpr=110*scale,
-                stck_lwpr=90*scale,stck_clpr=105*scale,acml_vol=1000,acml_tr_pbmn=105000)
+                stck_lwpr=90*scale,stck_clpr=(105+int(d.weekday()==2))*scale,acml_vol=1000,acml_tr_pbmn=105000)
             for d in pd.bdate_range(start,end)]}
 
     def fetch_index(self,code,start,end):
@@ -61,6 +61,28 @@ def test_complete_offline_bridge_keeps_real_index_and_raw_execution_price(ready,
     assert indices['KOSPI'].iloc[-1]['close']==105
     assert meta['full_current_input_count']==2 and meta['data_commit']==SHA
     assert meta['index_source']=='kis_actual_indices'
+
+
+def test_native_seven_child_signal_preparation_without_network_or_broker(ready,tmp_path,monkeypatch):
+    import requests
+    import multi_allocator_plus_trader as trader_module
+    import production_market_inputs as bridge
+    from signal_safety import validate_snapshot
+    import json
+    monkeypatch.setattr(requests.Session,'request',lambda *a,**k:pytest.fail('Network in signal preparation'))
+    monkeypatch.setattr(trader_module,'KoreaInvestmentConnector',lambda **k:pytest.fail('Broker initialized'))
+    original=bridge.load_production_inputs
+    monkeypatch.setattr(bridge,'load_production_inputs',lambda *a,**k:original(*a,**k,now=NOW))
+    t=trader_module.MultiAllocatorPlusTrader(start_date='2026-01-01',prepare_signal_only=True,
+        market_store_path=str(ready.root),market_data_commit=SHA,dry_run=True)
+    path=tmp_path/'signal.json'
+    t._signal_snapshot_path=lambda *a:path
+    t.run()
+    payload=json.loads(path.read_text())
+    validate_snapshot(payload,today='2026-10-02')
+    assert len(t.strategy.latest_child_results)==7
+    assert payload['meta']['market_inputs']['data_commit']==SHA
+    assert t.kis is None
 
 
 @pytest.mark.parametrize('mutation',['index','history','hash','stale','commit'])

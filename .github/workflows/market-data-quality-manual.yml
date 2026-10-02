@@ -33,9 +33,9 @@ permissions:
 
 jobs:
   prepare:
-    uses: Greedyguy/QuantInvest/.github/workflows/market-data-quality.yml@ffbc019c635a3a762e8b0b075d21a77da838bb2b
+    uses: ./.github/workflows/market-data-quality.yml
     with:
-      code_ref: 'ffbc019c635a3a762e8b0b075d21a77da838bb2b'
+      code_ref: ${{ github.sha }}
       data_ref: ${{ inputs.data_ref }}
       start: ${{ inputs.start }}
       end: ${{ inputs.end }}
