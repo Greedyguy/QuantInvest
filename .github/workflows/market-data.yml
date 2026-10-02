@@ -49,9 +49,6 @@ name: Market Data Store (no orders)
       selection_date:
         description: 'Explicit completed date for offline selection; same-day master required'
         default: ''
-  schedule:
-    # KST 06:20, Tue-Sat. Prior-day prices; does not feed the order workflow.
-    - cron: '20 21 * * 1-5'
 
 permissions:
   contents: read
@@ -63,6 +60,9 @@ jobs:
   collect:
     if: github.event_name == 'workflow_dispatch' || vars.MARKET_DATA_PIPELINE_ENABLED == 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: kis-real-token
+      cancel-in-progress: false
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v6

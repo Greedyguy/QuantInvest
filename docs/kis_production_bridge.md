@@ -49,8 +49,11 @@ the order connector. Real account reads and order submissions are absent.
 The main preparation schedule is 06:20 KST Tuesday–Saturday (previous session's
 close). This avoids adding an extra day of lag before the open execution job;
 GitHub scheduling delays remain possible. Existing 18:40 prior-day collection is
-retained. Collection success is a dependency, not an independent race. Missing
-data, request budget exhaustion, indices or history blocks publication. Existing
+retained. Collection success is a dependency, not an independent race.
+The imported historical collector's separate 06:20 timer is removed to avoid a
+duplicate backfill competing with preparation; manual historical runs still work.
+Collection and live tasks serialize KIS token use.
+Missing data, request budget exhaustion, indices or history blocks publication. Existing
 open execution keeps rejecting old snapshots; no fallback is introduced.
 
 Manual runs default to `publish_signal=false`. Only main-branch scheduled runs
