@@ -16,11 +16,12 @@ def main():
     p.add_argument('--report',required=True)
     p.add_argument('--start',default='2026-01-01')
     args=p.parse_args()
-    report=dict(status='blocked',orders_sent=0,account_read=False,data_commit=args.data_commit)
+    report=dict(status='blocked',orders_sent=0,account_read=False,data_commit=args.data_commit,
+                synthetic_capital=1_000_000,min_trade_value=50_000)
     try:
         t=MultiAllocatorPlusTrader(start_date=args.start,dry_run=True,prepare_signal_only=True,
             market_store_path=args.store,market_data_commit=args.data_commit,signal_repair_mode='on',
-            require_private_inputs=True)
+            require_private_inputs=True,min_trade_value=report['min_trade_value'])
         assert t.kis is None
         t.load_market_data()
         date,targets=t.compute_target_weights()
@@ -34,6 +35,7 @@ def main():
             raise RuntimeError('Signal producer/consumer mismatch')
         account={'total_value':1_000_000,'available_cash':1_000_000,'stock_value':0}
         plans=t.build_order_plan(loaded,account,{},price_cache_override=refs)
+        report['synthetic_plan_count_before_recheck']=len(plans)
         plans,logs=t.apply_execution_recheck(plans,account)
         if any(plan.action=='BUY' and plan.symbol in KR_BUY_BLOCKED for plan in plans):
             raise RuntimeError('Buy block regression')

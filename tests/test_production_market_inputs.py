@@ -137,6 +137,26 @@ def test_eod_workflow_requires_collection_and_offline_no_order_verification():
     assert 'daily-open-exec-a' not in text
 
 
+def test_verifier_uses_same_minimum_order_as_live(tmp_path,monkeypatch):
+    import sys,re,json
+    from pathlib import Path
+    from scripts import verify_kis_production_signal as verifier
+    settings={}
+    def stop_before_data(**kwargs):
+        settings.update(kwargs)
+        raise RuntimeError('fixture: stop before data')
+    monkeypatch.setattr(verifier,'MultiAllocatorPlusTrader',stop_before_data)
+    report=tmp_path/'report.json'
+    monkeypatch.setattr(sys,'argv',['verify','--store',str(tmp_path),
+        '--data-commit',SHA,'--report',str(report)])
+    with pytest.raises(RuntimeError,match='fixture'):verifier.main()
+    workflow=Path('.github/workflows/daily-open-exec-a.yml').read_text()
+    live_min=int(re.search(r'--min-trade\s+(\d+)',workflow).group(1))
+    assert settings['min_trade_value']==live_min==50000
+    assert settings['dry_run'] and settings['prepare_signal_only'] and settings['require_private_inputs']
+    assert json.loads(report.read_text())['min_trade_value']==live_min
+
+
 @pytest.mark.parametrize('permanent',[False,True])
 def test_quality_retry_keeps_rejected_payload_private_not_in_prices(tmp_path,monkeypatch,permanent):
     store=MarketStore(tmp_path/'store'); master=masters(store,'2026-10-02').iloc[:1]
