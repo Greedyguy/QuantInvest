@@ -32,6 +32,7 @@ def main():
             info=client.fetch_security_info(ticker)
             atomic_bytes(store.root/'diagnostics'/f'{ticker}_{observed}_security.json.gz',
                          gzip.compress(canonical(info),mtime=0))
+            print(dict(diagnostic_ticker=ticker,security_info_success=info.get('rt_cd')=='0'))
             for basis in ('raw','adjusted'):
                 payload=client.fetch(ticker,start,end,basis)
                 atomic_bytes(store.root/'diagnostics'/f'{ticker}_{start}_{end}_{basis}.json.gz',

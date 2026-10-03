@@ -207,8 +207,12 @@ class KISPriceClient:
             body = response.json()
         except (requests.RequestException, ValueError):
             raise RuntimeError('KIS security information request failed; no inferred status') from None
-        if response.status_code != 200 or not isinstance(body,dict) or body.get('rt_cd') != '0':
-            raise RuntimeError('KIS security information rejected; no inferred status')
+        if response.status_code != 200 or not isinstance(body,dict):
+            code=str(body.get('msg_cd','')) if isinstance(body,dict) else ''
+            code=code if re.fullmatch('[A-Z0-9_]{1,30}',code) else 'unavailable'
+            raise RuntimeError(f'KIS security information HTTP {response.status_code}, code {code}; no inferred status')
+        # Persist negative/no-data responses too. The lifecycle normalizer
+        # rejects them; they never authorize an exclusion.
         return body
 
     def fetch_calendar(self, base_date):
