@@ -109,6 +109,19 @@ def test_index_identity_and_range_required():
     with pytest.raises(DataQualityError): normalize_index(p,'0001','2026-01-01','2026-01-05')
 
 
+def test_index_provider_fifty_row_cap_cannot_truncate_monthly_requests(tmp_path):
+    class Capped(Client):
+        def fetch_index(self,code,start,end):
+            assert (pd.Timestamp(end)-pd.Timestamp(start)).days<=29
+            p=super().fetch_index(code,start,end)
+            p['output2']=p['output2'][-50:]
+            return p
+    store=MarketStore(tmp_path/'indices')
+    collect_indices(store,Capped(),'2026-01-01','2026-10-01')
+    loaded=load_indices(store,'2026-01-01','2026-10-01')
+    assert loaded['KOSPI'].index.equals(pd.bdate_range('2026-01-01','2026-10-01'))
+
+
 def test_eod_workflow_requires_collection_and_offline_no_order_verification():
     from pathlib import Path
     import yaml

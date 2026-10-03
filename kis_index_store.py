@@ -3,11 +3,21 @@ import gzip
 import json
 import pandas as pd
 from market_data_store import DataQualityError,canonical,day,number
-from kis_market_collection import windows
 
 INDEX_CODES={'KOSPI':'0001','KOSDAQ':'1001'}
 INDEX_FIELDS={'open':'bstp_nmix_oprc','high':'bstp_nmix_hgpr',
               'low':'bstp_nmix_lwpr','close':'bstp_nmix_prpr'}
+
+
+def index_windows(start,end):
+    # Actual provider responses to 90-calendar-day queries capped at 50 rows.
+    # At most 30 calendar days cannot hit that cap, even without a holiday table.
+    cursor,last=pd.Timestamp(day(start)),pd.Timestamp(day(end))
+    if cursor>last:raise ValueError('Inverted index range')
+    while cursor<=last:
+        finish=min(cursor+pd.Timedelta(days=29),last)
+        yield str(cursor.date()),str(finish.date())
+        cursor=finish+pd.Timedelta(days=1)
 
 
 def normalize_index(payload,code,start,end):
@@ -36,7 +46,7 @@ def normalize_index(payload,code,start,end):
 
 def collect_indices(store,client,start,end):
     for market,code in INDEX_CODES.items():
-        for first,last in windows(start,end):
+        for first,last in index_windows(start,end):
             key=f'{market}/{first}_{last}'
             record=store.manifest.get('kis_indices',{}).get(key)
             if record:

@@ -387,3 +387,15 @@ def test_job_explicit_today_master_is_reused(monkeypatch,tmp_path):
     monkeypatch.setattr(job,'collect_masters',no_download)
     job.main()
     assert calls==[observed]
+def test_zero_activity_inconsistent_quote_retained_but_never_usable_candle():
+    import kis_market_collection as kis
+    p={'rt_cd':'0','output1':{'stck_shrn_iscd':'0191M0'},'output2':[
+        dict(stck_bsop_date='20261002',stck_oprc='100875',stck_hgpr='100875',
+             stck_lwpr='100875',stck_clpr='100905',acml_vol='0',acml_tr_pbmn='0')]}
+    f=kis.normalize_prices(p,'0191M0','20261002','20261002','raw')
+    assert f.iloc[0]['close']==100905 and not kis.usable_ohlc(f).any()
+    for field in ('acml_vol','acml_tr_pbmn'):
+        p['output2'][0][field]='1'
+        with pytest.raises(md.DataQualityError,match='range mismatch'):
+            kis.normalize_prices(p,'0191M0','20261002','20261002','raw')
+        p['output2'][0][field]='0'

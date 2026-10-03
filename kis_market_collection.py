@@ -235,7 +235,7 @@ class KISPriceClient:
         return body
 
     def fetch_index(self, code, start, end):
-        if code not in ('0001','1001') or not 0 <= (pd.Timestamp(day(end))-pd.Timestamp(day(start))).days <= 89:
+        if code not in ('0001','1001') or not 0 <= (pd.Timestamp(day(end))-pd.Timestamp(day(start))).days <= 29:
             raise ValueError('Invalid index/window')
         self._auth()
         try:
@@ -270,7 +270,8 @@ def normalize_prices(payload,ticker,start,end,basis):
         values={k:number(row.get(v)) for k,v in PRICE_FIELDS.items()}
         if any(v is None for v in values.values()):
             raise DataQualityError('Missing KIS price/value; no synthetic fill')
-        if all(values[k]>0 for k in ('open','high','low','close')):
+        no_trades=values['volume']==0 and values['value']==0
+        if not no_trades and all(values[k]>0 for k in ('open','high','low','close')):
             if not values['low']<=min(values['open'],values['close'])<=max(values['open'],values['close'])<=values['high']:
                 raise DataQualityError('KIS OHLC range mismatch')
         elif values['volume']>0 or values['value']>0:
@@ -280,6 +281,18 @@ def normalize_prices(payload,ticker,start,end,basis):
     if frame.date.duplicated().any():
         raise DataQualityError('KIS duplicate date')
     return frame.sort_values('date').reset_index(drop=True)
+
+
+def usable_ohlc(frame):
+    """Trade-candle validity, separate from retaining a zero-activity quote.
+
+    KIS can report a changed reference close outside unchanged OHLC when BOTH
+    volume and value are zero. Keep those original observations in storage, but
+    never use inconsistent OHLC as an indicator, signal or execution candle.
+    """
+    return (frame[['open','high','low','close']].gt(0).all(axis=1)
+        & frame.low.le(frame[['open','close']].min(axis=1))
+        & frame[['open','close']].max(axis=1).le(frame.high))
 
 
 def windows(start,end):

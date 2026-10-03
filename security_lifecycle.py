@@ -62,8 +62,12 @@ def validate_daily_lifecycle(store, frame, observed, price_date):
     """Recheck every absent-price exception when consuming the daily input."""
     if 'price_status' not in frame:
         return
-    if not frame.price_status.isin(['observed', 'confirmed_delisted']).all():
+    if not frame.price_status.isin(['observed', 'observed_no_trades', 'confirmed_delisted']).all():
         raise DataQualityError('Unknown daily price status')
+    no_trades=frame.loc[frame.price_status.eq('observed_no_trades')]
+    if (not no_trades[['raw_volume','raw_value','adjusted_volume','adjusted_value']].eq(0).all().all()
+            or no_trades.tradable.any() or no_trades.stock_candidate_universe.any()):
+        raise DataQualityError('Invalid no-trade observation')
     for row in frame.loc[frame.price_status.eq('confirmed_delisted')].itertuples():
         info, record = read_security_info(store, row.lifecycle_key, row, observed)
         if (not info['delisted_date'] or info['delisted_date'] > price_date

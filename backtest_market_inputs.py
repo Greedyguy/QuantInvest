@@ -193,7 +193,8 @@ def prepare_inputs(store_path, output, *, start='2025-01-01', end='2026-08-31',
             continue
         if r.empty:
             continue
-        valid = r[['open', 'high', 'low', 'close']].gt(0).all(axis=1) & a[['open', 'high', 'low', 'close']].gt(0).all(axis=1)
+        from kis_market_collection import usable_ohlc
+        valid = usable_ohlc(r) & usable_ohlc(a)
         tradable = valid & r.volume.gt(0) & r.value.gt(0)
         if ticker == BENCHMARK and not tradable.all():
             issue('invalid_benchmark_sessions')
@@ -311,6 +312,8 @@ def load_backtest_inputs(bundle_path, *, allow_provisional=False, allow_action_r
         # Zero quotes are nontradable/missing, never a zero liquidation value.
         ohlc = ['open', 'high', 'low', 'close']
         panel[ohlc] = panel[ohlc].where(panel[ohlc].gt(0), np.nan)
+        from kis_market_collection import usable_ohlc
+        panel.loc[~usable_ohlc(panel),ohlc]=np.nan
         prices[basis] = {ticker: f.set_index('date')[list(PRICE_FIELDS)].sort_index()
                          for ticker, f in panel.groupby('ticker')}
     calendar = pd.DatetimeIndex(prices['raw'][bundle['benchmark']].index)

@@ -9,6 +9,7 @@ from market_data_store import MarketStore,DataQualityError,day,digest
 from daily_market_data import load_daily_selection_inputs
 from backtest_market_inputs import _verified_frame,interval_gaps
 from kis_index_store import load_indices
+from kis_market_collection import usable_ohlc
 from signals import compute_indicators,add_rel_strength
 from config import BLOCKED_TICKERS
 
@@ -67,7 +68,7 @@ def load_production_inputs(store_path,*,start,data_commit,now=None):
             frames[basis]=f
         # Suspension observations remain in storage. Do not fabricate their OHLC.
         f=frames['adjusted']
-        valid=f[['open','high','low','close']].gt(0).all(axis=1)
+        valid=usable_ohlc(f)
         if int(valid.sum())<120:
             excluded.append(dict(ticker=row.ticker,reason='trading_history_below_120_rows'))
             continue

@@ -46,7 +46,7 @@ snapshot through the consumer contract and checks a synthetic KRW 1m order plan.
 The preparation job receives no broker credentials and does not even initialize
 the order connector. Real account reads and order submissions are absent.
 
-The main preparation schedule is 06:20 KST Tuesday–Saturday (previous session's
+The main preparation schedule is 06:20 KST Monday–Friday (previous session's
 close). This avoids adding an extra day of lag before the open execution job;
 GitHub scheduling delays remain possible. Existing 18:40 prior-day collection is
 retained. Collection success is a dependency, not an independent race.
@@ -67,7 +67,7 @@ No historical collection completion or retrospective backtest approves a live
 signal by itself. Local safe tests include corrected/uncorrected responses,
 identity/hash/date/history failures, true indices, raw references, no broker
 construction and unchanged 305720 buy-only protection.
-# 2026-10-03 lifecycle completion and deployment gate
+## 2026-10-03 lifecycle completion and deployment gate
 
 - The five missing-price securities were confirmed by private KIS `search-stock-info`
   originals: `084180` delisted 2026-10-01; `454180`, `464240`, `488200`, `488210`
@@ -90,3 +90,13 @@ construction and unchanged 305720 buy-only protection.
   session. GitHub delays can still make a session skip; no stale fallback is permitted.
 - Official API specification used for lifecycle field interpretation:
   https://github.com/koreainvestment/open-trading-api/tree/main/examples_llm/domestic_stock/search_stock_info
+- Historical preflight found that index responses to 90-calendar-day queries
+  were capped at 50 rows, omitting 29 sessions across the first three windows.
+  Index queries now use at most 30 calendar days and regression tests simulate
+  the observed 50-row cap. Existing observations are retained; no index value is filled.
+- The retained quarantine established the repeatable 0191M0 cause on 2026-10-02:
+  both activity fields were zero while the reported close exceeded unchanged OHLC.
+  Such observations are now retained verbatim as no-trade observations, not accepted
+  as traded candles. Indicator and backtest candle consumers reject inconsistent
+  OHLC; latest no-trade rows cannot enter selection. Any positive volume OR value
+  keeps the original strict OHLC range validation. No price is repaired or invented.

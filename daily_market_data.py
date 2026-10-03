@@ -153,6 +153,8 @@ def run_daily(store, client, *, now=None, start='2026-09-01', max_requests=10000
         frame=frame.merge(adjusted[['ticker',*PRICE_FIELDS]].rename(
             columns={k:'adjusted_'+k for k in PRICE_FIELDS}),on='ticker',how='left',validate='one_to_one')
         frame['price_status']=frame.ticker.map(lambda t:'confirmed_delisted' if t in evidence else 'observed')
+        no_trades=frame[['raw_volume','raw_value','adjusted_volume','adjusted_value']].eq(0).all(axis=1)
+        frame.loc[no_trades,'price_status']='observed_no_trades'
         for column in ('lifecycle_key','lifecycle_raw_sha256','lifecycle_table_sha256'):
             frame[column]=frame.ticker.map(lambda t:evidence.get(t,{}).get(column,''))
         frame['tradable']=frame[['raw_open','raw_high','raw_low','raw_close',
