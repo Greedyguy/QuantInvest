@@ -1,0 +1,127 @@
+name: Whole-universe daily data supply (no orders)
+
+'on':
+  workflow_call:
+    inputs:
+      code_ref:
+        type: string
+        required: true
+      start:
+        type: string
+        default: '2026-09-01'
+      max_requests:
+        type: string
+        default: '10000'
+      index_start:
+        type: string
+        default: '2026-01-01'
+    secrets:
+      MARKET_DATA_REPO_TOKEN:
+        required: true
+      KIS_APP_KEY:
+        required: true
+      KIS_APP_SECRET:
+        required: true
+
+permissions:
+  contents: read
+concurrency:
+  # Same private main writer as historical backfills: never race their commits.
+  group: market-data-private-writer
+  cancel-in-progress: false
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: kis-real-token
+      cancel-in-progress: false
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.code_ref }}
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements-market-data.txt
+      - name: Require a separate PRIVATE data repository
+        env:
+          DATA_REPOSITORY: ${{ vars.MARKET_DATA_REPOSITORY }}
+          DATA_REPO_TOKEN: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
+          CODE_REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import os,re,requests
+          repo,token=os.environ['DATA_REPOSITORY'],os.environ['DATA_REPO_TOKEN']
+          if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repo) or not token:
+              raise SystemExit('Missing private repository connection.')
+          if repo.lower()==os.environ['CODE_REPOSITORY'].lower():
+              raise SystemExit('Use a separate private data repository.')
+          response=requests.get('https://api.github.com/repos/'+repo,
+              headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json'},timeout=30)
+          if response.status_code!=200 or response.json().get('private') is not True:
+              raise SystemExit('Destination unavailable or not private.')
+          PY
+      - uses: actions/checkout@v6
+        id: data
+        with:
+          repository: ${{ vars.MARKET_DATA_REPOSITORY }}
+          token: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
+          path: market-data-private
+          ref: ${{ vars.MARKET_DATA_BRANCH || 'main' }}
+          fetch-depth: 1
+      - name: Pin code version
+        run: echo "DAILY_CODE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+      - name: Collect past closed days and prepare whole-universe price inputs
+        id: collect
+        env:
+          MARKET_STORE_PATH: market-data-private/store
+          DAILY_START: ${{ inputs.start }}
+          MAX_REQUESTS: ${{ inputs.max_requests }}
+          INDEX_HISTORY_START: ${{ inputs.index_start }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+        run: python scripts/run_daily_market_data.py
+      - name: Audit all stored namespaces before publishing
+        id: audit
+        if: always() && steps.data.outcome == 'success'
+        run: python scripts/market_data_pipeline.py --store market-data-private/store audit
+      - name: Persist valid data and status even after a collection error
+        id: persist
+        if: always() && steps.data.outcome == 'success' && steps.audit.outcome == 'success' && !cancelled()
+        working-directory: market-data-private
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -- store/
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -q -m 'data: daily whole-universe checkpoint and freshness status'
+          git push origin HEAD
+      - name: Explain data date, completeness and selection boundary
+        if: always() && steps.data.outcome == 'success'
+        env:
+          PERSIST_OUTCOME: ${{ steps.persist.outcome }}
+        run: |
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          path=Path('market-data-private/store/daily_status/latest.json')
+          if not path.is_file():
+              raise SystemExit('No daily status produced; old snapshots must not be used.')
+          state=json.loads(path.read_text())
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write('## 일별 전종목 데이터\n\n')
+              for label,key in [('상태','status'),('실행 기준일','decision_date'),('가격 기준일','price_date'),
+                                ('전체 대상 종목','target_tickers'),('이번 조회','requested'),('재사용','reused'),
+                                ('공식 상장폐지 확인','confirmed_delisted_tickers'),
+                                ('미확인 원주가 누락','missing_raw'),('미확인 수정주가 누락','missing_adjusted')]:
+                  f.write(f'- {label}: {state.get(key,"미확인")}\n')
+              f.write('- 실제 종목 선정·주문 연결: 꺼짐 (전략과 과거 이력 검증은 별도)\n')
+              f.write('- ETF는 이름 기준 레버리지 제외이며 공식 배율 인증 완료가 아닙니다.\n')
+              f.write('- 중간 저장/실패/과거 날짜의 자료를 최신 입력으로 대체하지 않습니다.\n')
+          if os.environ['PERSIST_OUTCOME']!='success' or state['status']!='daily_price_inputs_ready':
+              raise SystemExit(f'Daily inputs blocked: status={state["status"]}, persist={os.environ["PERSIST_OUTCOME"]}, '
+                               f'missing_raw={state.get("missing_raw",[])}, missing_adjusted={state.get("missing_adjusted",[])}')
+          PY

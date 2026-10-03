@@ -18,9 +18,9 @@ permissions:
 jobs:
   daily:
     if: github.event_name == 'workflow_dispatch' || vars.MARKET_DATA_DAILY_ENABLED == 'true'
-    uses: Greedyguy/QuantInvest/.github/workflows/market-data-daily.yml@7737ecaebc527435aa1dfb5969785b7a9d1327b0
+    uses: ./.github/workflows/market-data-daily.yml
     with:
-      code_ref: '7737ecaebc527435aa1dfb5969785b7a9d1327b0'
+      code_ref: ${{ github.sha }}
       start: ${{ vars.MARKET_DATA_DAILY_START || '2026-09-01' }}
       max_requests: ${{ inputs.max_requests || vars.MARKET_DATA_DAILY_MAX_REQUESTS || '10000' }}
     secrets:

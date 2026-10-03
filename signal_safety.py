@@ -1,6 +1,7 @@
 """Versioned KR signal contract and unlevered order-boundary validation."""
 import numpy as np
 import pandas as pd
+import re
 
 SIGNAL_PATH_VERSION = 'kr-signal-repair-v1'
 KR_BUY_BLOCKED = frozenset({'305720'})  # Industry ETF, not the claimed US Treasury hedge.
@@ -34,7 +35,7 @@ def constrain_targets(targets, max_security_weight=.30):
     return validate_targets(result,max_security_weight)
 
 
-def validate_snapshot(payload, *, today=None, max_security_weight=.30):
+def validate_snapshot(payload, *, today=None, max_security_weight=.30, require_private_inputs=False):
     meta = payload.get('meta') or {}
     if meta.get('signal_path_version') != SIGNAL_PATH_VERSION:
         raise ValueError('Old or missing signal path version; regenerate EOD snapshot')
@@ -52,6 +53,19 @@ def validate_snapshot(payload, *, today=None, max_security_weight=.30):
     if signal_date >= current or np.busday_count(signal_date.date(),current.date()) > 3:
         raise ValueError('EOD signal must precede today and be at most three weekdays old')
     targets = validate_targets(payload.get('targets',{}),max_security_weight)
+    provenance=meta.get('market_inputs') or {}
+    if require_private_inputs:
+        if (provenance.get('source')!='private_kis_store'
+                or provenance.get('decision_date')!=current.date().isoformat()
+                or provenance.get('price_date')!=signal_date.date().isoformat()
+                or not re.fullmatch('[a-f0-9]{40}',provenance.get('data_commit',''))
+                or any(not re.fullmatch('[a-f0-9]{64}',provenance.get(k,''))
+                       for k in ('manifest_sha256','input_table_sha256','universe_membership_sha256'))):
+            raise ValueError('Fresh verified private market inputs required; no legacy snapshot fallback')
+    blocked=provenance.get('order_blocked_tickers',[])
+    if (not isinstance(blocked,list) or any(not isinstance(t,str) or not re.fullmatch('[0-9A-Z]{6}',t) for t in blocked)
+            or any(targets.get(t,0)>0 for t in blocked)):
+        raise ValueError('Invalid delisted security targets/metadata')
     refs = payload.get('ref_prices') or {}
     asof = meta.get('data_as_of') or {}
     required_dates = [asof.get('primary_index'),asof.get('secondary_index')]

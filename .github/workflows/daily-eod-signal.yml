@@ -2,12 +2,37 @@ name: Daily EOD Signal Prep
 
 on:
   schedule:
-    # KST 16:10 (장 마감 40분 후) = UTC 07:10, 월~금
-    - cron: "10 7 * * 1-5"
-  workflow_dispatch: {}
+    # KST 06:20 Mon-Fri: finish collecting the previous completed session
+    # before open execution. GitHub schedule delays still apply.
+    - cron: "20 21 * * 0-4"
+  workflow_dispatch:
+    inputs:
+      publish_signal:
+        description: '검증 통과 신호를 운영 main에 저장 (해제하면 주문 없는 검증만)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
 
 jobs:
+  collect:
+    uses: ./.github/workflows/market-data-daily.yml
+    with:
+      code_ref: ${{ github.sha }}
+      start: '2026-09-01'
+      max_requests: '10000'
+      index_start: '2026-01-01'
+    secrets:
+      MARKET_DATA_REPO_TOKEN: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
+      KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+      KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
   prep-signal:
+    needs: collect
+    timeout-minutes: 180
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      MPLCONFIGDIR: /tmp/kis-signal-matplotlib
     # Oracle Cloud 셋업 완료 후 아래 줄을 교체:
     #   runs-on: [self-hosted, oracle-kr-trader]
     runs-on: ubuntu-latest
@@ -29,40 +54,70 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Prepare EOD signal snapshot
+      - name: Require private input repository
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
-          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
-          KIS_ACCOUNT: ${{ secrets.KIS_ACCOUNT }}
-          KRX_ID: ${{ secrets.KRX_ID }}
-          KRX_PW: ${{ secrets.KRX_PW }}
+          DATA_REPOSITORY: ${{ vars.MARKET_DATA_REPOSITORY }}
+          DATA_REPO_TOKEN: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
         run: |
-          python multi_allocator_plus_trader.py \
-            --start-date 2026-01-01 \
-            --prepare-signal-only \
-            --signal-repair-mode on \
-            --stress-recovery-mode shadow \
-            --signal-mode live
+          python - <<'PY'
+          import os,re,requests
+          repo=os.environ['DATA_REPOSITORY']
+          if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',repo) or repo.lower()==os.environ['GITHUB_REPOSITORY'].lower():
+              raise SystemExit('Require separate private data repository')
+          r=requests.get('https://api.github.com/repos/'+repo,headers={'Authorization':'Bearer '+os.environ['DATA_REPO_TOKEN']},timeout=30)
+          if r.status_code!=200 or r.json().get('private') is not True:
+              raise SystemExit('Private data repository unavailable')
+          PY
+
+      - uses: actions/checkout@v6
+        with:
+          repository: ${{ vars.MARKET_DATA_REPOSITORY }}
+          token: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
+          path: market-data-private
+          ref: ${{ vars.MARKET_DATA_BRANCH || 'main' }}
+          fetch-depth: 1
+
+      - name: Prepare EOD signal snapshot
+        id: prepare
+        # --prepare-signal-only / --signal-repair-mode on are enforced by the
+        # verifier. This job receives no KIS credentials or account number.
+        run: |
+          python scripts/verify_kis_production_signal.py \
+            --store market-data-private/store \
+            --data-commit "$(git -C market-data-private rev-parse HEAD)" \
+            --report "market-data-private/validation_runs/signal-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+
+      - name: Preserve private no-order verification report
+        if: always() && (steps.prepare.outcome == 'success' || steps.prepare.outcome == 'failure')
+        working-directory: market-data-private
+        env:
+          REPORT_BRANCH: validation/signal-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          git switch -c "$REPORT_BRANCH"
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add -- validation_runs/
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -q -m 'data: private no-order production signal verification'
+          git push origin "$REPORT_BRANCH"
 
       - name: Record frozen KODEX 200 prospective shadow
         id: frozen-shadow
         # Research evidence failures remain visible, but must not discard a
         # separately validated production snapshot prepared above.
         continue-on-error: true
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish_signal)
         run: |
           python scripts/report_k200_reentry_shadow.py \
             --output-dir reports/signals
 
       - name: Commit and push signal snapshot
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish_signal)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add reports/signals/
           git diff --cached --quiet || git commit -m "chore: EOD signal snapshot $(date -u +%Y-%m-%d)"
-          git reset --hard HEAD
-          git clean -fd
           git fetch origin main
           git rebase origin/main
           git push origin HEAD:main

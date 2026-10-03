@@ -59,6 +59,35 @@ def test_current_repaired_snapshot_valid():
     assert validate_snapshot(payload(),today='2026-10-02')['069500']==.3
 
 
+def test_delisted_target_and_holding_block_before_planning():
+    p=payload();p['meta']['market_inputs']={'order_blocked_tickers':['069500']}
+    with pytest.raises(ValueError,match='delisted'): validate_snapshot(p,today='2026-10-02')
+    t=bare();t.loaded_signal_snapshot_payload=p
+    with pytest.raises(RuntimeError,match='Delisted holding'):
+        t.build_order_plan(pd.Series({'__CASH__':1.}),{'total_value':1e6,'available_cash':1e6},
+            {'069500':{'quantity':1,'current_price':60000}})
+
+
+def test_private_input_enforcement_rejects_legacy_and_previous_decision_day():
+    p=payload()
+    with pytest.raises(ValueError,match='private market inputs'):
+        validate_snapshot(p,today='2026-10-02',require_private_inputs=True)
+    source=dict(source='private_kis_store',decision_date='2026-10-02',price_date='2026-10-01',
+        data_commit='a'*40,manifest_sha256='b'*64,input_table_sha256='c'*64,universe_membership_sha256='d'*64)
+    p['meta']['market_inputs']=source
+    validate_snapshot(p,today='2026-10-02',require_private_inputs=True)
+    with pytest.raises(ValueError,match='private market inputs'):
+        validate_snapshot(p,today='2026-10-03',require_private_inputs=True)
+
+
+@pytest.mark.parametrize('action',['BUY','SELL'])
+def test_delisted_orders_block_at_recheck_and_final_boundary(action):
+    t=bare();t.loaded_signal_snapshot_payload={'meta':{'market_inputs':{'order_blocked_tickers':['084180']}}}
+    plan=OrderPlan('084180',action,1,50000,50000,.1,0,1)
+    with pytest.raises(RuntimeError,match='Delisted order'): t.apply_execution_recheck([plan],{})
+    with pytest.raises(RuntimeError,match='Delisted order'): t.execute([plan],{}, {},pd.Timestamp('2026-10-02'))
+
+
 @pytest.mark.parametrize('today',['2026-10-01','2026-09-30','2026-10-08'])
 def test_same_future_or_stale_snapshot_rejected(today):
     with pytest.raises(ValueError): validate_snapshot(payload(),today=today)
@@ -226,3 +255,18 @@ def test_three_kr_workflows_opt_in_and_us_not_changed():
         assert '--signal-repair-mode on' in (Path('.github/workflows')/path).read_text()
     for path in ['daily-eod-signal-us.yml','daily-open-exec-us.yml']:
         assert '--signal-repair-mode' not in (Path('.github/workflows')/path).read_text()
+
+
+def test_prepare_only_never_initializes_broker(monkeypatch):
+    monkeypatch.setattr(module,'KoreaInvestmentConnector',lambda **kw:pytest.fail('Broker initialized'))
+    t=MultiAllocatorPlusTrader(prepare_signal_only=True,market_store_path='private/store',market_data_commit='a'*40)
+    assert t.kis is None
+
+
+def test_private_store_path_does_not_fall_back_to_legacy_download(monkeypatch):
+    import production_market_inputs
+    t=bare(); t.market_store_path='missing/store'; t.market_data_commit='a'*40; t.start_date='2026-01-01'
+    monkeypatch.setattr(module,'load_data',lambda **kw:pytest.fail('Legacy download fallback'))
+    def fail(*a,**kw): raise ValueError('Missing private data')
+    monkeypatch.setattr(production_market_inputs,'load_production_inputs',fail)
+    with pytest.raises(ValueError,match='Missing private'): t._load_market_data_kr()
