@@ -21,21 +21,26 @@ def main():
     observed=today.isoformat()
     diagnostic=os.environ.get('DIAGNOSE_TICKER','')
     if diagnostic:
-        if not re.fullmatch('[0-9A-Z]{6}',diagnostic):
+        tickers=diagnostic.split(',')
+        if len(tickers)>20 or not all(re.fullmatch('[0-9A-Z]{6}',t) for t in tickers):
             raise ValueError('Invalid diagnostic ticker')
         start,end=day(os.environ['BACKFILL_START']),day(os.environ['BACKFILL_END'])
         if end>=observed:
             raise ValueError('Diagnostic requires completed prior days')
         client=KISPriceClient(os.environ.get('KIS_APP_KEY'),os.environ.get('KIS_APP_SECRET'))
-        for basis in ('raw','adjusted'):
-            payload=client.fetch(diagnostic,start,end,basis)
-            atomic_bytes(store.root/'diagnostics'/f'{diagnostic}_{start}_{end}_{basis}.json.gz',
-                         gzip.compress(canonical(payload),mtime=0))
-            try:
-                frame=normalize_prices(payload,diagnostic,start,end,basis)
-                print(dict(diagnostic_ticker=diagnostic,basis=basis,status='valid',rows=len(frame)))
-            except ValueError as exc:
-                print(dict(diagnostic_ticker=diagnostic,basis=basis,validation_error=str(exc)))
+        for ticker in tickers:
+            info=client.fetch_security_info(ticker)
+            atomic_bytes(store.root/'diagnostics'/f'{ticker}_{observed}_security.json.gz',
+                         gzip.compress(canonical(info),mtime=0))
+            for basis in ('raw','adjusted'):
+                payload=client.fetch(ticker,start,end,basis)
+                atomic_bytes(store.root/'diagnostics'/f'{ticker}_{start}_{end}_{basis}.json.gz',
+                             gzip.compress(canonical(payload),mtime=0))
+                try:
+                    frame=normalize_prices(payload,ticker,start,end,basis)
+                    print(dict(diagnostic_ticker=ticker,basis=basis,status='valid',rows=len(frame)))
+                except ValueError as exc:
+                    print(dict(diagnostic_ticker=ticker,basis=basis,validation_error=str(exc)))
         return
     if mode=='select':
         as_of=day(os.environ['SELECTION_DATE'])

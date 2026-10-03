@@ -194,6 +194,23 @@ class KISPriceClient:
                 **diagnostic.diagnostic)),flush=True)
             time.sleep(delay)
 
+    def fetch_security_info(self, ticker):
+        """Read-only identity/lifecycle evidence; never infer dates from prices."""
+        if not re.fullmatch('[0-9A-Z]{6}', ticker):
+            raise ValueError('Invalid security ticker')
+        self._auth()
+        try:
+            response = self.session.get(self.base+'/uapi/domestic-stock/v1/quotations/search-stock-info',
+                params={'PRDT_TYPE_CD':'300', 'PDNO':ticker},
+                headers={'authorization':'Bearer '+self._token,'appkey':self._key,'appsecret':self._secret,
+                         'tr_id':'CTPF1002R','custtype':'P'},timeout=(10,45),allow_redirects=False)
+            body = response.json()
+        except (requests.RequestException, ValueError):
+            raise RuntimeError('KIS security information request failed; no inferred status') from None
+        if response.status_code != 200 or not isinstance(body,dict) or body.get('rt_cd') != '0':
+            raise RuntimeError('KIS security information rejected; no inferred status')
+        return body
+
     def fetch_calendar(self, base_date):
         """KIS asks that CTCA0903R be called sparingly, preferably once per day.
 
