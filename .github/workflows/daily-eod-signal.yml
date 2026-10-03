@@ -2,9 +2,9 @@ name: Daily EOD Signal Prep
 
 on:
   schedule:
-    # KST 06:20 Tue-Sat: finish collecting the previous completed session
+    # KST 06:20 Mon-Fri: finish collecting the previous completed session
     # before open execution. GitHub schedule delays still apply.
-    - cron: "20 21 * * 1-5"
+    - cron: "20 21 * * 0-4"
   workflow_dispatch:
     inputs:
       publish_signal:

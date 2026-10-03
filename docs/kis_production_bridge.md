@@ -67,3 +67,26 @@ No historical collection completion or retrospective backtest approves a live
 signal by itself. Local safe tests include corrected/uncorrected responses,
 identity/hash/date/history failures, true indices, raw references, no broker
 construction and unchanged 305720 buy-only protection.
+# 2026-10-03 lifecycle completion and deployment gate
+
+- The five missing-price securities were confirmed by private KIS `search-stock-info`
+  originals: `084180` delisted 2026-10-01; `454180`, `464240`, `488200`, `488210`
+  delisted 2026-09-28. Diagnostic run: 37094837025. The public master still included them.
+- Daily collection refreshes only unresolved price-date rows (up to 20 exceptional
+  securities, within the price request budget). Both raw and adjusted absent prices
+  can be explained only by same-decision-day identity-checked lifecycle evidence
+  with a delisting date no later than the price date. A current halt flag or an
+  unsuccessful/empty security response never establishes a historical exclusion.
+- Delisted rows stay in the full daily universe with null prices and explicit status;
+  their historical prices are not deleted, backfilled or treated as zero returns.
+  Evidence is content-addressed and re-normalized against originals on consumption.
+- Delisted names cannot become targets or orders. An actual delisted holding blocks
+  automatic planning for manual reconciliation, not a fabricated liquidation.
+- Live scheduled execution requires `--require-private-inputs`: correct private source,
+  pinned commit/hashes and a decision date equal to the execution's KST date. Old
+  legacy snapshots cannot be used during a failed rollout. `305720` remains BUY-only
+  blocked; ordinary SELL behavior is unchanged for that instrument.
+- Preparation is scheduled for KST 06:20 Monday-Friday, including Monday's previous
+  session. GitHub delays can still make a session skip; no stale fallback is permitted.
+- Official API specification used for lifecycle field interpretation:
+  https://github.com/koreainvestment/open-trading-api/tree/main/examples_llm/domestic_stock/search_stock_info

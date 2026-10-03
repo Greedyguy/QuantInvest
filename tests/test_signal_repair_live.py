@@ -59,6 +59,35 @@ def test_current_repaired_snapshot_valid():
     assert validate_snapshot(payload(),today='2026-10-02')['069500']==.3
 
 
+def test_delisted_target_and_holding_block_before_planning():
+    p=payload();p['meta']['market_inputs']={'order_blocked_tickers':['069500']}
+    with pytest.raises(ValueError,match='delisted'): validate_snapshot(p,today='2026-10-02')
+    t=bare();t.loaded_signal_snapshot_payload=p
+    with pytest.raises(RuntimeError,match='Delisted holding'):
+        t.build_order_plan(pd.Series({'__CASH__':1.}),{'total_value':1e6,'available_cash':1e6},
+            {'069500':{'quantity':1,'current_price':60000}})
+
+
+def test_private_input_enforcement_rejects_legacy_and_previous_decision_day():
+    p=payload()
+    with pytest.raises(ValueError,match='private market inputs'):
+        validate_snapshot(p,today='2026-10-02',require_private_inputs=True)
+    source=dict(source='private_kis_store',decision_date='2026-10-02',price_date='2026-10-01',
+        data_commit='a'*40,manifest_sha256='b'*64,input_table_sha256='c'*64,universe_membership_sha256='d'*64)
+    p['meta']['market_inputs']=source
+    validate_snapshot(p,today='2026-10-02',require_private_inputs=True)
+    with pytest.raises(ValueError,match='private market inputs'):
+        validate_snapshot(p,today='2026-10-03',require_private_inputs=True)
+
+
+@pytest.mark.parametrize('action',['BUY','SELL'])
+def test_delisted_orders_block_at_recheck_and_final_boundary(action):
+    t=bare();t.loaded_signal_snapshot_payload={'meta':{'market_inputs':{'order_blocked_tickers':['084180']}}}
+    plan=OrderPlan('084180',action,1,50000,50000,.1,0,1)
+    with pytest.raises(RuntimeError,match='Delisted order'): t.apply_execution_recheck([plan],{})
+    with pytest.raises(RuntimeError,match='Delisted order'): t.execute([plan],{}, {},pd.Timestamp('2026-10-02'))
+
+
 @pytest.mark.parametrize('today',['2026-10-01','2026-09-30','2026-10-08'])
 def test_same_future_or_stale_snapshot_rejected(today):
     with pytest.raises(ValueError): validate_snapshot(payload(),today=today)

@@ -52,6 +52,7 @@ jobs:
             --min-trade 50000 \
             --signal-mode eod_fixed \
             --signal-repair-mode on \
+            --require-private-inputs \
             --execution-recheck \
             --recheck-price-band-pct 3.0
 

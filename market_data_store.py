@@ -191,7 +191,7 @@ class MarketStore:
 
     def put_table(self, namespace, key, frame, original, metadata):
         """Content-addressed import/KIS layer; cannot impersonate full-market KRX."""
-        if namespace not in ('seeds', 'kis_segments', 'masters', 'calendars', 'daily_inputs', 'quarantines', 'kis_indices'):
+        if namespace not in ('seeds', 'kis_segments', 'masters', 'calendars', 'daily_inputs', 'quarantines', 'kis_indices', 'security_status'):
             raise ValueError('Unsupported namespace')
         if not re.fullmatch(r'[A-Za-z0-9_./-]+', key) or '..' in key:
             raise ValueError('Invalid record key')

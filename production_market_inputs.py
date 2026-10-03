@@ -41,7 +41,8 @@ def load_production_inputs(store_path,*,start,data_commit,now=None):
             excluded.append(dict(ticker=row.ticker,reason='existing_universe_rule'))
             continue
         if not row.tradable:
-            excluded.append(dict(ticker=row.ticker,reason='confirmed_nontrading_on_price_date'))
+            excluded.append(dict(ticker=row.ticker,reason=getattr(row,'price_status','')
+                if getattr(row,'price_status','')=='confirmed_delisted' else 'confirmed_nontrading_on_price_date'))
             continue
         first=max(start,row.listed_date)
         expected=sessions[sessions>=pd.Timestamp(first)]
@@ -83,6 +84,8 @@ def load_production_inputs(store_path,*,start,data_commit,now=None):
         decision_date=daily.attrs['decision_date'],input_table_sha256=daily.attrs['input_table_sha256'],
         universe_membership_sha256=daily.attrs['universe_membership_sha256'],
         full_current_input_count=len(daily),strategy_input_count=len(enriched),
+        order_blocked_tickers=sorted(daily.loc[daily.price_status.eq('confirmed_delisted'),'ticker'])
+            if 'price_status' in daily else [],
         exclusion_counts=pd.Series([r['reason'] for r in excluded],dtype=str).value_counts().to_dict(),
         signal_price_basis='adjusted',execution_price_basis='raw',index_source='kis_actual_indices',
         market_cap_policy='unavailable_no_synthetic_fill_existing_price_style_fallback',

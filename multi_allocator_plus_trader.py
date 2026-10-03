@@ -128,6 +128,7 @@ class MultiAllocatorPlusTrader:
         signal_repair_mode: str = "on",
         market_store_path: str | None = None,
         market_data_commit: str | None = None,
+        require_private_inputs: bool = False,
     ):
         self.start_date = start_date
         self.use_cache = use_cache
@@ -147,6 +148,9 @@ class MultiAllocatorPlusTrader:
         self.signal_repair_mode = signal_repair_mode
         self.market_store_path = market_store_path
         self.market_data_commit = market_data_commit
+        self.require_private_inputs = require_private_inputs
+        if require_private_inputs and not self._signal_repair_enabled():
+            raise ValueError('Private input enforcement requires repaired KR signals')
         self.market_input_provenance = None
         self.raw_reference_prices = None
         if market_store_path and (self.market != 'kr' or not self._signal_repair_enabled()):
@@ -190,6 +194,13 @@ class MultiAllocatorPlusTrader:
 
     def _buy_blocked(self, symbol):
         return getattr(self, "market", "kr") == "kr" and self._normalize_symbol(symbol) in KR_BUY_BLOCKED
+
+    def _lifecycle_blocked(self, symbol):
+        if not self._signal_repair_enabled():
+            return False
+        snapshot=getattr(self,'loaded_signal_snapshot_payload',None) or {}
+        provenance=(snapshot.get('meta') or {}).get('market_inputs') or getattr(self,'market_input_provenance',None) or {}
+        return self._normalize_symbol(symbol) in provenance.get('order_blocked_tickers',[])
 
     def _shadow_report_path(self, signal_date: datetime | pd.Timestamp) -> Path:
         out_dir = PROJECT_ROOT / "reports" / "shadow"
@@ -602,7 +613,8 @@ class MultiAllocatorPlusTrader:
         with open(snapshot_path, "r", encoding="utf-8") as f:
             payload = json.load(f)
         if self._signal_repair_enabled():
-            validate_snapshot(payload,max_security_weight=self.strategy.max_security_weight)
+            validate_snapshot(payload,max_security_weight=self.strategy.max_security_weight,
+                require_private_inputs=getattr(self,'require_private_inputs',False))
         elif self.market == "kr" and (payload.get("meta") or {}).get("signal_path_version") == SIGNAL_PATH_VERSION:
             raise ValueError("Repaired snapshot cannot be executed with signal repair disabled")
         self.loaded_signal_snapshot_payload = payload
@@ -746,6 +758,10 @@ class MultiAllocatorPlusTrader:
         targets = targets.copy()
         if self._signal_repair_enabled():
             validate_targets(targets,self.strategy.max_security_weight)
+            if any(self._lifecycle_blocked(s) and p.get('quantity',0)>0 for s,p in holdings.items()):
+                raise RuntimeError('Delisted holding requires manual reconciliation; no automatic liquidation or reinvestment')
+            if any(self._lifecycle_blocked(s) and w>0 for s,w in targets.items()):
+                raise RuntimeError('Target contains confirmed delisted security')
         raw_cash_weight = float(targets.get("__CASH__", 0.0))
         targets = targets.drop("__CASH__", errors="ignore")
         decisions: List[Dict] = []
@@ -1053,6 +1069,8 @@ class MultiAllocatorPlusTrader:
         return FEE_PER_SIDE, TAX_RATE_SELL, SLIPPAGE_ENTRY
 
     def apply_execution_recheck(self, plans: List[OrderPlan], account: Dict) -> Tuple[List[OrderPlan], List[Dict]]:
+        if any(self._lifecycle_blocked(p.symbol) for p in plans):
+            raise RuntimeError('Delisted order blocked before execution recheck')
         blocked_logs = [{"run_id":self.run_id,"ticker":p.symbol,"action":p.action,
             "decision":"skip","reason":"buy_blocked_instrument_identity"}
             for p in plans if p.action == "BUY" and self._buy_blocked(p.symbol)]
@@ -1704,6 +1722,8 @@ class MultiAllocatorPlusTrader:
         abort_reason: str | None = None
         order_logs: List[Dict] = []
         for plan in plans:
+            if self._lifecycle_blocked(plan.symbol):
+                raise RuntimeError('Delisted order blocked at final send boundary')
             if plan.action == "BUY" and self._buy_blocked(plan.symbol):
                 order_logs.append({"run_id":self.run_id,"ticker":plan.symbol,"action":plan.action,
                     "decision":"skip","reason":"buy_blocked_instrument_identity"})
@@ -2074,6 +2094,7 @@ def main():
                         help="KR 신호 전달 복구 (기본 on; US 동작은 변경하지 않음)")
     parser.add_argument('--market-store',default=None,help='Validated private KIS store (KR only; no network fallback)')
     parser.add_argument('--market-data-commit',default=None,help='Pinned private data commit')
+    parser.add_argument('--require-private-inputs',action='store_true',help='Reject legacy or prior-decision-day KR snapshots')
     parser.add_argument(
         "--execution-recheck",
         dest="execution_recheck",
@@ -2161,6 +2182,7 @@ def main():
         signal_repair_mode=args.signal_repair_mode,
         market_store_path=args.market_store,
         market_data_commit=args.market_data_commit,
+        require_private_inputs=args.require_private_inputs,
     )
     trader.run()
 

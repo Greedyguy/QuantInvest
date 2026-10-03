@@ -19,13 +19,14 @@ def main():
     report=dict(status='blocked',orders_sent=0,account_read=False,data_commit=args.data_commit)
     try:
         t=MultiAllocatorPlusTrader(start_date=args.start,dry_run=True,prepare_signal_only=True,
-            market_store_path=args.store,market_data_commit=args.data_commit,signal_repair_mode='on')
+            market_store_path=args.store,market_data_commit=args.data_commit,signal_repair_mode='on',
+            require_private_inputs=True)
         assert t.kis is None
         t.load_market_data()
         date,targets=t.compute_target_weights()
         path=t.save_signal_snapshot(date,targets)
         payload=json.loads(path.read_text())
-        validated=validate_snapshot(payload)
+        validated=validate_snapshot(payload,require_private_inputs=True)
         # Read exactly this new snapshot, never an older file in reports/signals.
         t.signal_snapshot=str(path)
         loaded_date,loaded,refs=t.load_signal_snapshot()

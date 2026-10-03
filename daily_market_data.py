@@ -11,6 +11,7 @@ import pandas as pd
 
 from market_data_store import MarketStore, DataQualityError, atomic_bytes, canonical, day, digest
 from kis_market_collection import collect_masters, collect_prices, load_kis_panel, PRICE_FIELDS
+from security_lifecycle import collect_security_info, validate_daily_lifecycle
 
 KST = ZoneInfo('Asia/Seoul')
 
@@ -113,6 +114,34 @@ def run_daily(store, client, *, now=None, start='2026-09-01', max_requests=10000
         adjusted=load_kis_panel(store,wanted,target,target,basis='adjusted')
         missing_raw=sorted(wanted-set(raw.ticker))
         missing_adjusted=sorted(wanted-set(adjusted.ticker))
+        missing=set(missing_raw)|set(missing_adjusted)
+        evidence={}
+        # Bound exceptional queries; widespread incompleteness must remain blocked.
+        # Refresh only absent current-day rows, not the entire historical universe.
+        if missing and len(missing)<=20:
+            budget=max_requests-state['requested']
+            if budget>=2*len(missing):
+                retry=collect_prices(store,client,master.loc[master.ticker.isin(missing)],
+                    observed,target,target,max_requests=budget,refresh=True,delay=delay)
+                state['requested']+=retry['requested']
+                state['missing_price_retry_requests']=retry['requested']
+                raw=load_kis_panel(store,wanted,target,target,basis='raw')
+                adjusted=load_kis_panel(store,wanted,target,target,basis='adjusted')
+                missing_raw=sorted(wanted-set(raw.ticker))
+                missing_adjusted=sorted(wanted-set(adjusted.ticker))
+            # Both bases must be absent. One-sided absence cannot be explained away.
+            both=set(missing_raw)&set(missing_adjusted)
+            for row in master.loc[master.ticker.isin(both)].itertuples():
+                if not hasattr(client,'fetch_security_info'):
+                    continue
+                info,key,record=collect_security_info(store,client,row,observed)
+                if info['delisted_date'] and info['delisted_date']<=target:
+                    evidence[row.ticker]=dict(lifecycle_key=key,
+                        lifecycle_raw_sha256=record['raw_sha256'],
+                        lifecycle_table_sha256=record['table_sha256'])
+            missing_raw=sorted(set(missing_raw)-set(evidence))
+            missing_adjusted=sorted(set(missing_adjusted)-set(evidence))
+        state['confirmed_delisted_tickers']=sorted(evidence)
         if missing_raw or missing_adjusted:
             state.update(status='blocked_missing_prices',missing_raw=missing_raw,missing_adjusted=missing_adjusted)
             _state(store,state)
@@ -120,9 +149,12 @@ def run_daily(store, client, *, now=None, start='2026-09-01', max_requests=10000
         # Full universe input: no top-N truncation or strategy-specific filtering.
         # Nontrading securities remain explicitly flagged, not silently omitted.
         frame=master.merge(raw[['ticker',*PRICE_FIELDS]].rename(
-            columns={k:'raw_'+k for k in PRICE_FIELDS}),on='ticker',validate='one_to_one')
+            columns={k:'raw_'+k for k in PRICE_FIELDS}),on='ticker',how='left',validate='one_to_one')
         frame=frame.merge(adjusted[['ticker',*PRICE_FIELDS]].rename(
-            columns={k:'adjusted_'+k for k in PRICE_FIELDS}),on='ticker',validate='one_to_one')
+            columns={k:'adjusted_'+k for k in PRICE_FIELDS}),on='ticker',how='left',validate='one_to_one')
+        frame['price_status']=frame.ticker.map(lambda t:'confirmed_delisted' if t in evidence else 'observed')
+        for column in ('lifecycle_key','lifecycle_raw_sha256','lifecycle_table_sha256'):
+            frame[column]=frame.ticker.map(lambda t:evidence.get(t,{}).get(column,''))
         frame['tradable']=frame[['raw_open','raw_high','raw_low','raw_close',
                                'adjusted_open','adjusted_high','adjusted_low','adjusted_close']].gt(0).all(axis=1) & frame.raw_volume.gt(0) & frame.raw_value.gt(0)
         benchmark=frame.loc[frame.ticker.eq('069500')]
@@ -132,6 +164,7 @@ def run_daily(store, client, *, now=None, start='2026-09-01', max_requests=10000
         frame['master_observed_date']=observed
         # Only known-at-decision metadata. History/strategy approval is separate.
         frame['stock_candidate_universe']=frame.tradable & frame.asset_type.eq('stock')
+        validate_daily_lifecycle(store,frame,observed,target)
         source_versions=[]
         for record in store.manifest['kis_segments'].values():
             if record['ticker'] in wanted and record['start']<=target<=record['end']:
@@ -189,6 +222,7 @@ def load_daily_selection_inputs(store, *, now=None, include_unverified_etfs=Fals
             or not frame.price_date.eq(state['price_date']).all()
             or not frame.master_observed_date.eq(current).all()):
         raise DataQualityError('Incomplete daily universe')
+    validate_daily_lifecycle(store,frame,current,state['price_date'])
     if not include_unverified_etfs:
         frame=frame.loc[frame.asset_type.eq('stock') | frame.ticker.eq('069500')].copy()
     frame.attrs.update(state)

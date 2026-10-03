@@ -114,11 +114,14 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
               f.write('## 일별 전종목 데이터\n\n')
               for label,key in [('상태','status'),('실행 기준일','decision_date'),('가격 기준일','price_date'),
-                                ('전체 대상 종목','target_tickers'),('이번 조회','requested'),('재사용','reused')]:
+                                ('전체 대상 종목','target_tickers'),('이번 조회','requested'),('재사용','reused'),
+                                ('공식 상장폐지 확인','confirmed_delisted_tickers'),
+                                ('미확인 원주가 누락','missing_raw'),('미확인 수정주가 누락','missing_adjusted')]:
                   f.write(f'- {label}: {state.get(key,"미확인")}\n')
               f.write('- 실제 종목 선정·주문 연결: 꺼짐 (전략과 과거 이력 검증은 별도)\n')
               f.write('- ETF는 이름 기준 레버리지 제외이며 공식 배율 인증 완료가 아닙니다.\n')
               f.write('- 중간 저장/실패/과거 날짜의 자료를 최신 입력으로 대체하지 않습니다.\n')
           if os.environ['PERSIST_OUTCOME']!='success' or state['status']!='daily_price_inputs_ready':
-              raise SystemExit('Daily universe not ready or not persisted; selection stays blocked.')
+              raise SystemExit(f'Daily inputs blocked: status={state["status"]}, persist={os.environ["PERSIST_OUTCOME"]}, '
+                               f'missing_raw={state.get("missing_raw",[])}, missing_adjusted={state.get("missing_adjusted",[])}')
           PY
