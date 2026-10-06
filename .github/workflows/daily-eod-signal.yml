@@ -1,6 +1,22 @@
 name: Daily EOD Signal Prep
 
 on:
+  workflow_call:
+    inputs:
+      publish_signal:
+        type: boolean
+        default: false
+    secrets:
+      MARKET_DATA_REPO_TOKEN:
+        required: true
+      KIS_APP_KEY:
+        required: true
+      KIS_APP_SECRET:
+        required: true
+    outputs:
+      signal_published:
+        description: 'Validated production snapshot successfully pushed to main'
+        value: ${{ jobs.prep-signal.outputs.signal_published }}
   schedule:
     # KST 06:20 Mon-Fri: finish collecting the previous completed session
     # before open execution. GitHub schedule delays still apply.
@@ -29,6 +45,8 @@ jobs:
       KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
   prep-signal:
     needs: collect
+    outputs:
+      signal_published: ${{ steps.publish.outputs.signal_published }}
     timeout-minutes: 180
     env:
       PYTHONDONTWRITEBYTECODE: '1'
@@ -112,6 +130,7 @@ jobs:
             --output-dir reports/signals
 
       - name: Commit and push signal snapshot
+        id: publish
         if: github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.publish_signal)
         run: |
           git config user.name "github-actions[bot]"
@@ -121,6 +140,7 @@ jobs:
           git fetch origin main
           git rebase origin/main
           git push origin HEAD:main
+          echo "signal_published=true" >> "$GITHUB_OUTPUT"
 
       - name: Report frozen shadow failure independently
         if: ${{ steps.frozen-shadow.outcome == 'failure' }}
