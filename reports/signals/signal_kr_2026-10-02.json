@@ -448,8 +448,8 @@
   },
   "meta": {
     "start_date": "2026-01-01",
-    "generated_at": "2026-10-05T00:05:43.990121",
-    "git_revision": "9603249a8f4e24755f1459abfcb785945a35db15",
+    "generated_at": "2026-10-06T01:28:10.121803",
+    "git_revision": "51cfe4e1ad41918f58cae3c5ec59005d05508e1f",
     "data_as_of": {
       "primary_index": "2026-10-02",
       "secondary_index": "2026-10-02",
@@ -500,11 +500,11 @@
     "stress_recovery_mode": "shadow",
     "market_inputs": {
       "source": "private_kis_store",
-      "data_commit": "99e5c6b94ad002f44d93f91a3679af7fbe9a53c6",
-      "manifest_sha256": "cad030b46a348b9daaeb5612a00b31f965b8a8ff642359a1bcaf37f48cc4058a",
+      "data_commit": "c68ae1ac56dfc5bccdd12841a14e94787dbb3766",
+      "manifest_sha256": "4b01780c76dd1fb1405b5dddea3797d2c7f690a407643c01420d609f050601f7",
       "price_date": "2026-10-02",
-      "decision_date": "2026-10-05",
-      "input_table_sha256": "02e4c9c695ca7588aad3accbbf9ab356818313389f804de07c09e4f2c4a203b7",
+      "decision_date": "2026-10-06",
+      "input_table_sha256": "f1e6a7242871d5e2e054b32b79b54f081df83be5751b9b7fb6f2cddd14486067",
       "universe_membership_sha256": "152c40674a650dff57e46d9093e683f040da125c50e6943f8c168bb8fe3c2812",
       "full_current_input_count": 3870,
       "strategy_input_count": 3329,
