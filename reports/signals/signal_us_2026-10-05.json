@@ -1,0 +1,254 @@
+{
+  "signal_date": "2026-10-05",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "MSFT": 0.06236302693457675,
+    "NVDA": 0.05726272646366109,
+    "TMO": 0.05343414336490317,
+    "ACN": 0.03933844974235194,
+    "PFE": 0.03333256161814542,
+    "TSLA": 0.03084527556420088,
+    "AMD": 0.028777257275548664,
+    "AMZN": 0.027490361331571032,
+    "META": 0.027129225018929316,
+    "CVX": 0.009802871732359263,
+    "XOM": 0.0091943516291094,
+    "AAPL": 0.006870236068101232,
+    "NOW": 0.006360963389361303,
+    "GOOGL": 0.00167089265766624,
+    "MRK": 0.0014565379006285704,
+    "CRM": 0.0006711193088857655,
+    "__CASH__": 0.6040000000000001
+  },
+  "ref_prices": {
+    "MSFT": 525.1799926757812,
+    "NVDA": 238.89999389648438,
+    "TMO": 676.760009765625,
+    "ACN": 195.0500030517578,
+    "PFE": 27.40999984741211,
+    "TSLA": 378.7300109863281,
+    "AMD": 631.75,
+    "AMZN": 251.39999389648438,
+    "META": 741.9000244140625,
+    "CVX": 206.47000122070312,
+    "XOM": 164.0,
+    "AAPL": 332.8900146484375,
+    "NOW": 136.0800018310547,
+    "GOOGL": 346.4700012207031,
+    "MRK": 139.5399932861328,
+    "CRM": 229.7899932861328
+  },
+  "style_attribution": {
+    "signal_date": "2026-10-05",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.4028551743530139,
+      "kqm_small_cap_v22_short": 0.3230876988528961,
+      "k200_trend_sleeve": 0.09076260270210544,
+      "kqm": 0.06828212660561295,
+      "hybrid_portfolio_v2_4": 0.049960046087497434,
+      "kqm_small_cap_v22": 0.033285440453137215,
+      "k200_mean_rev": 0.031766910945736915
+    },
+    "target_style_sums": {
+      "small_cap": 0.39599999999999996
+    },
+    "cash_weight": 0.6040000000000001,
+    "targets": [
+      {
+        "ticker": "MSFT",
+        "weight": 0.06236302693457675,
+        "style": "small_cap",
+        "price": 525.1799926757812,
+        "market_cap": null,
+        "avg_value20": 10927956025.449982
+      },
+      {
+        "ticker": "NVDA",
+        "weight": 0.05726272646366109,
+        "style": "small_cap",
+        "price": 238.89999389648438,
+        "market_cap": null,
+        "avg_value20": 24591951573.53218
+      },
+      {
+        "ticker": "TMO",
+        "weight": 0.05343414336490317,
+        "style": "small_cap",
+        "price": 676.760009765625,
+        "market_cap": null,
+        "avg_value20": 1533587159.4577026
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.03933844974235194,
+        "style": "small_cap",
+        "price": 195.0500030517578,
+        "market_cap": null,
+        "avg_value20": 1326756999.0344238
+      },
+      {
+        "ticker": "PFE",
+        "weight": 0.03333256161814542,
+        "style": "small_cap",
+        "price": 27.40999984741211,
+        "market_cap": null,
+        "avg_value20": 917846389.196682
+      },
+      {
+        "ticker": "TSLA",
+        "weight": 0.03084527556420088,
+        "style": "small_cap",
+        "price": 378.7300109863281,
+        "market_cap": null,
+        "avg_value20": 13543779954.740448
+      },
+      {
+        "ticker": "AMD",
+        "weight": 0.028777257275548664,
+        "style": "small_cap",
+        "price": 631.75,
+        "market_cap": null,
+        "avg_value20": 12849264239.866638
+      },
+      {
+        "ticker": "AMZN",
+        "weight": 0.027490361331571032,
+        "style": "small_cap",
+        "price": 251.39999389648438,
+        "market_cap": null,
+        "avg_value20": 8948386563.598633
+      },
+      {
+        "ticker": "META",
+        "weight": 0.027129225018929316,
+        "style": "small_cap",
+        "price": 741.9000244140625,
+        "market_cap": null,
+        "avg_value20": 16703457560.37445
+      },
+      {
+        "ticker": "CVX",
+        "weight": 0.009802871732359263,
+        "style": "small_cap",
+        "price": 206.47000122070312,
+        "market_cap": null,
+        "avg_value20": 2061977027.3719788
+      },
+      {
+        "ticker": "XOM",
+        "weight": 0.0091943516291094,
+        "style": "small_cap",
+        "price": 164.0,
+        "market_cap": null,
+        "avg_value20": 2270526545.2028656
+      },
+      {
+        "ticker": "AAPL",
+        "weight": 0.006870236068101232,
+        "style": "small_cap",
+        "price": 332.8900146484375,
+        "market_cap": null,
+        "avg_value20": 13926660371.802673
+      },
+      {
+        "ticker": "NOW",
+        "weight": 0.006360963389361303,
+        "style": "small_cap",
+        "price": 136.0800018310547,
+        "market_cap": null,
+        "avg_value20": 1577071382.7201843
+      },
+      {
+        "ticker": "GOOGL",
+        "weight": 0.00167089265766624,
+        "style": "small_cap",
+        "price": 346.4700012207031,
+        "market_cap": null,
+        "avg_value20": 9437483372.266998
+      },
+      {
+        "ticker": "MRK",
+        "weight": 0.0014565379006285704,
+        "style": "small_cap",
+        "price": 139.5399932861328,
+        "market_cap": null,
+        "avg_value20": 1477852009.9057007
+      },
+      {
+        "ticker": "CRM",
+        "weight": 0.0006711193088857655,
+        "style": "small_cap",
+        "price": 229.7899932861328,
+        "market_cap": null,
+        "avg_value20": 2852229807.7213287
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-10-05",
+    "regime": {
+      "close": 7773.9501953125,
+      "ma60": 7635.643001302084,
+      "mom5": 0.011746993253833882,
+      "mom20": 0.007171002119031433,
+      "mom1m": 0.0033868374664640655,
+      "mom3m": 0.0359948685196434,
+      "vol20": 0.10522695384567005
+    },
+    "exposure": {
+      "base": 0.6,
+      "after_stress": 0.396,
+      "stress_baseline": 0.396,
+      "final": 0.396,
+      "stress_level": 1,
+      "fast_signal": -0.003085754591255041,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.396,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.002781179845841253,
+        "return_5d": 0.0015977349887590364,
+        "return_10d": 0.0002776326855937761,
+        "vol_easing": true
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-10-06T09:41:28.832685",
+    "git_revision": "8491f3a7dfa243e12be9c30e48dd55cd8d918f50",
+    "data_as_of": {
+      "primary_index": "2026-10-05",
+      "secondary_index": null,
+      "universe_latest_min": "2026-10-05",
+      "universe_latest_max": "2026-10-05",
+      "target_securities": {
+        "MSFT": "2026-10-05",
+        "NVDA": "2026-10-05",
+        "TMO": "2026-10-05",
+        "ACN": "2026-10-05",
+        "PFE": "2026-10-05",
+        "TSLA": "2026-10-05",
+        "AMD": "2026-10-05",
+        "AMZN": "2026-10-05",
+        "META": "2026-10-05",
+        "CVX": "2026-10-05",
+        "XOM": "2026-10-05",
+        "AAPL": "2026-10-05",
+        "NOW": "2026-10-05",
+        "GOOGL": "2026-10-05",
+        "MRK": "2026-10-05",
+        "CRM": "2026-10-05"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
