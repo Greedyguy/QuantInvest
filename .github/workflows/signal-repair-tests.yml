@@ -6,6 +6,7 @@ on:
       - 'strategies/**'
       - 'multi_allocator_plus_trader.py'
       - 'signal_safety.py'
+      - 'scripts/check_kr_signal_ready.py'
       - 'production_market_inputs.py'
       - 'kis_index_store.py'
       - 'kis_market_collection.py'
@@ -32,6 +33,7 @@ jobs:
           MPLCONFIGDIR: /tmp/matplotlib
         run: >-
           python -m pytest -q
+          tests/test_kr_signal_readiness.py
           tests/test_signal_connection.py
           tests/test_signal_repair_live.py
           tests/test_execution_safety.py

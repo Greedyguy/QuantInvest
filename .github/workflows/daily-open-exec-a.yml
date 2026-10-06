@@ -8,12 +8,51 @@ on:
     - cron: "0 0 * * 1-5"
   workflow_dispatch: {}
 
-concurrency:
-  group: kis-real-token
-  cancel-in-progress: false
+permissions:
+  contents: write
 
 jobs:
+  check-signal:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.signal.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: pip install numpy pandas
+      - name: Check current KST decision date without broker credentials
+        id: signal
+        run: python scripts/check_kr_signal_ready.py --github-output "$GITHUB_OUTPUT"
+
+  prepare-signal:
+    needs: check-signal
+    if: needs.check-signal.outputs.ready != 'true'
+    uses: ./.github/workflows/daily-eod-signal.yml
+    with:
+      publish_signal: true
+    secrets:
+      MARKET_DATA_REPO_TOKEN: ${{ secrets.MARKET_DATA_REPO_TOKEN }}
+      KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+      KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
+
   run-live:
+    needs: [check-signal, prepare-signal]
+    # Research shadow failure must remain visible but cannot discard a separately
+    # verified/published production signal. Revalidate after the latest checkout.
+    if: >-
+      ${{ always() && !cancelled() && needs.check-signal.result == 'success' &&
+          (needs.check-signal.outputs.ready == 'true' ||
+           needs.prepare-signal.outputs.signal_published == 'true') }}
+    concurrency:
+      # Acquire only here: collection also uses this lock, so holding it around
+      # the entire parent workflow would deadlock the preparation dependency.
+      group: kis-real-token
+      cancel-in-progress: false
     # Oracle Cloud 셋업 완료 후 아래 줄을 교체:
     #   runs-on: [self-hosted, oracle-kr-trader]
     runs-on: ubuntu-latest
@@ -23,6 +62,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
@@ -34,6 +74,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Require fresh published signal before enabling broker access
+        run: python scripts/check_kr_signal_ready.py --require-ready
 
       - name: Run open execution A (eod_fixed)
         env:

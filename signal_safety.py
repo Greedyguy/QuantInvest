@@ -47,6 +47,8 @@ def validate_snapshot(payload, *, today=None, max_security_weight=.30, require_p
     current = pd.Timestamp(today) if today is not None else pd.Timestamp.now(tz='Asia/Seoul').tz_localize(None)
     if pd.isna(signal_date) or signal_date.tzinfo is not None or signal_date != signal_date.normalize():
         raise ValueError('Invalid EOD signal date')
+    if current.tzinfo is not None:
+        current = current.tz_convert('Asia/Seoul').tz_localize(None)
     current = current.normalize()
     # Conservative weekday limit. Long exchange holidays can pause trading;
     # never silently execute an older snapshot just to keep a batch running.
@@ -55,13 +57,24 @@ def validate_snapshot(payload, *, today=None, max_security_weight=.30, require_p
     targets = validate_targets(payload.get('targets',{}),max_security_weight)
     provenance=meta.get('market_inputs') or {}
     if require_private_inputs:
-        if (provenance.get('source')!='private_kis_store'
-                or provenance.get('decision_date')!=current.date().isoformat()
-                or provenance.get('price_date')!=signal_date.date().isoformat()
-                or not re.fullmatch('[a-f0-9]{40}',provenance.get('data_commit',''))
-                or any(not re.fullmatch('[a-f0-9]{64}',provenance.get(k,''))
-                       for k in ('manifest_sha256','input_table_sha256','universe_membership_sha256'))):
-            raise ValueError('Fresh verified private market inputs required; no legacy snapshot fallback')
+        problems = []
+        for key, expected in (
+                ('source', 'private_kis_store'),
+                ('decision_date', current.date().isoformat()),
+                ('price_date', signal_date.date().isoformat())):
+            if provenance.get(key) != expected:
+                problems.append(f'{key}={provenance.get(key)!r}, expected={expected!r}')
+        for key, length in (('data_commit', 40), ('manifest_sha256', 64),
+                            ('input_table_sha256', 64), ('universe_membership_sha256', 64)):
+            value = provenance.get(key)
+            if not isinstance(value, str) or not re.fullmatch(f'[a-f0-9]{{{length}}}', value):
+                problems.append(f'{key}=missing/invalid')
+        if problems:
+            raise ValueError(
+                'Fresh verified private market inputs required; no legacy snapshot fallback: '
+                + '; '.join(problems)
+                + '. Complete Daily EOD Signal Prep for the current KST decision date '
+                  'and reload the published snapshot before execution.')
     blocked=provenance.get('order_blocked_tickers',[])
     if (not isinstance(blocked,list) or any(not isinstance(t,str) or not re.fullmatch('[0-9A-Z]{6}',t) for t in blocked)
             or any(targets.get(t,0)>0 for t in blocked)):
