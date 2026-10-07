@@ -20,6 +20,7 @@ from typing import Dict, List, Tuple
 from uuid import uuid4
 
 import pandas as pd
+from execution_diagnostics import execution_diagnostics, summary_markdown, STATUS_LABELS
 
 from reports import load_data
 from strategies import get_strategy
@@ -842,6 +843,8 @@ class MultiAllocatorPlusTrader:
                     "current_qty": int(current_qty),
                     "target_qty": 0,
                     "reference_price": float(price),
+                    "below_minimum_trade": bool(target_value < effective_min_trade),
+                    "below_one_share": bool(target_value < price),
                 })
                 continue
             if target_value < effective_min_trade:
@@ -1688,6 +1691,8 @@ class MultiAllocatorPlusTrader:
             "meta": {
                 "git_revision": self._git_revision(),
                 "data_as_of": self._data_as_of(targets),
+                "github_run_id": os.getenv("GITHUB_RUN_ID"),
+                "github_event_name": os.getenv("GITHUB_EVENT_NAME"),
             },
             "account_allocation": self._account_allocation(account),
             "holdings": self._sanitized_holdings(holdings),
@@ -1698,9 +1703,27 @@ class MultiAllocatorPlusTrader:
             "recheck_logs": self._sanitize_report_value(recheck_logs),
             "execution": self._sanitize_report_value(execution_result),
         }
+        diagnostic_minimum = getattr(self, 'min_trade_value', None)
+        if self.dry_run and diagnostic_minimum is not None:
+            diagnostic_minimum = min(diagnostic_minimum, 50_000)
+        payload['diagnostics'] = execution_diagnostics(
+            payload['targets'], planning_decisions or [], len(raw_plans), len(plans),
+            execution_result, diagnostic_minimum)
         with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(self._sanitize_report_value(payload), f, ensure_ascii=False, indent=2)
         logger.info("🧾 실행 요약 저장: %s", summary_path)
+        logger.info("실행 결과: %s / 선정 %s개 / 주문 전송 %s건 / 최소금액·1주 제외 %s개",
+                    STATUS_LABELS[payload['diagnostics']['status']],
+                    payload['diagnostics']['selected_security_count'],
+                    payload['diagnostics']['submitted_order_count'],
+                    payload['diagnostics']['sizing_excluded_count'])
+        step_summary = os.getenv('GITHUB_STEP_SUMMARY')
+        if step_summary:
+            try:
+                with open(step_summary, 'a', encoding='utf-8') as f:
+                    f.write(summary_markdown(self._sanitize_report_value(payload)))
+            except OSError:
+                logger.warning('GitHub 실행 요약 표시 실패; 저장된 JSON 보고서를 확인하세요.')
         return summary_path
 
     def execute(self, plans: List[OrderPlan], account: Dict, holdings: Dict, as_of: datetime) -> Dict:
@@ -1931,7 +1954,7 @@ class MultiAllocatorPlusTrader:
         prior_execution = self._completed_execution_for_signal(last_date)
         if prior_execution is not None:
             logger.info(
-                "이미 완료된 실행이 있어 스킵합니다: signal_date=%s prior_run_id=%s",
+                "같은 거래일·신호의 이전 실행으로 중복 주문을 차단합니다: signal_date=%s prior_run_id=%s",
                 last_date.date(),
                 prior_execution.get("run_id"),
             )
@@ -1946,6 +1969,12 @@ class MultiAllocatorPlusTrader:
                 execution_result={
                     "status": "skipped_already_executed",
                     "prior_run_id": prior_execution.get("run_id"),
+                    "prior_execution": {
+                        "run_id": prior_execution.get("run_id"),
+                        "timestamp": prior_execution.get("timestamp"),
+                        "github_run_id": (prior_execution.get("meta") or {}).get("github_run_id"),
+                        "submitted_order_count": (prior_execution.get("execution") or {}).get("executed_orders", 0),
+                    },
                 },
                 completed_for_signal=False,
             )

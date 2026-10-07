@@ -5,6 +5,8 @@ on:
     paths:
       - 'strategies/**'
       - 'multi_allocator_plus_trader.py'
+      - 'execution_diagnostics.py'
+      - 'scripts/verify_kis_production_signal.py'
       - 'signal_safety.py'
       - 'scripts/check_kr_signal_ready.py'
       - 'production_market_inputs.py'
@@ -37,6 +39,7 @@ jobs:
           tests/test_signal_connection.py
           tests/test_signal_repair_live.py
           tests/test_execution_safety.py
+          tests/test_execution_diagnostics.py
           tests/test_small_account_shadow.py
           tests/test_shadow_workflow.py
           tests/test_data_freshness.py
