@@ -17,7 +17,7 @@ def main():
     p.add_argument('--start',default='2026-01-01')
     args=p.parse_args()
     report=dict(status='blocked',orders_sent=0,account_read=False,data_commit=args.data_commit,
-                synthetic_capital=1_000_000,min_trade_value=50_000)
+                synthetic_capital=1_000_000,min_trade_value=10_000)
     try:
         t=MultiAllocatorPlusTrader(start_date=args.start,dry_run=True,prepare_signal_only=True,
             market_store_path=args.store,market_data_commit=args.data_commit,signal_repair_mode='on',

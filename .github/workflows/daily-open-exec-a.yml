@@ -92,7 +92,7 @@ jobs:
           python multi_allocator_plus_trader.py \
             --start-date 2026-01-01 \
             --real \
-            --min-trade 50000 \
+            --min-trade 10000 \
             --signal-mode eod_fixed \
             --signal-repair-mode on \
             --require-private-inputs \

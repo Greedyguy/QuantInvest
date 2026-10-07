@@ -34,7 +34,10 @@ def test_sell_is_not_blocked_by_price_band_but_buy_is():
     assert logs[0]["reason"] == "price_band_exceeded"
 
 
-def test_execution_summary_omits_account_number_and_exact_balances(tmp_path):
+def test_execution_summary_omits_account_number_and_exact_balances(tmp_path, monkeypatch):
+    step_summary = tmp_path / 'step-summary.md'
+    monkeypatch.setenv('GITHUB_STEP_SUMMARY', str(step_summary))
+    monkeypatch.setenv('GITHUB_RUN_ID', '123456')
     trader = _bare_trader()
     trader.signal_mode = "eod_fixed"
     trader.virtual_account = False
@@ -90,3 +93,8 @@ def test_execution_summary_omits_account_number_and_exact_balances(tmp_path):
         assert sensitive_key not in text
     assert '"account_allocation"' in text
     assert '"current_actual_exposure"' in text
+    assert '"github_run_id": "123456"' in text
+    assert '"diagnostics"' in text
+    assert '주문 전송 실패 또는 중단' in step_summary.read_text()
+    assert '12345678-01' not in step_summary.read_text()
+    assert '1,000,000' not in step_summary.read_text()

@@ -152,7 +152,7 @@ def test_verifier_uses_same_minimum_order_as_live(tmp_path,monkeypatch):
     with pytest.raises(RuntimeError,match='fixture'):verifier.main()
     workflow=Path('.github/workflows/daily-open-exec-a.yml').read_text()
     live_min=int(re.search(r'--min-trade\s+(\d+)',workflow).group(1))
-    assert settings['min_trade_value']==live_min==50000
+    assert settings['min_trade_value']==live_min==10000
     assert settings['dry_run'] and settings['prepare_signal_only'] and settings['require_private_inputs']
     assert json.loads(report.read_text())['min_trade_value']==live_min
 
