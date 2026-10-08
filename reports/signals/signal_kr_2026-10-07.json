@@ -478,8 +478,8 @@
   },
   "meta": {
     "start_date": "2026-01-01",
-    "generated_at": "2026-10-08T00:16:29.253139",
-    "git_revision": "1462c994e06840902fad9e397f426976030ce075",
+    "generated_at": "2026-10-08T01:13:50.900285",
+    "git_revision": "6a839004fcf650de1457347e9c198be45fa8cd8a",
     "data_as_of": {
       "primary_index": "2026-10-07",
       "secondary_index": "2026-10-07",
@@ -533,8 +533,8 @@
     "stress_recovery_mode": "shadow",
     "market_inputs": {
       "source": "private_kis_store",
-      "data_commit": "95a9d49fdf4b045f43da2d6a9f4dbc423a1c4af0",
-      "manifest_sha256": "8aeb70a3bb338a1a68f571b8aeeb7e0fdfb25f365280877f3446e8effd77a26f",
+      "data_commit": "7caea7da5f9b2cd1ecc7a7460cbbb33a97607865",
+      "manifest_sha256": "de212d2a036b730b5f3be0d76781a36839ddbb4203ce3eb13ace6433c370860f",
       "price_date": "2026-10-07",
       "decision_date": "2026-10-08",
       "input_table_sha256": "9ac0312cae33aec543a5bddd9f9c7c369aad1b1d91cafd1cea4ae0bc90242d46",
