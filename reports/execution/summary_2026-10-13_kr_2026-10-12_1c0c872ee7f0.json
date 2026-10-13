@@ -1,0 +1,1200 @@
+{
+  "run_id": "1c0c872ee7f0",
+  "timestamp": "2026-10-13T04:31:59.403990",
+  "trade_date": "2026-10-13",
+  "signal_date": "2026-10-12",
+  "market": "kr",
+  "signal_mode": "eod_fixed",
+  "dry_run": false,
+  "virtual_account": false,
+  "completed_for_signal": false,
+  "targets": {
+    "305720": 0.0892878121992992,
+    "446540": 0.02821893536501062,
+    "036540": 0.027626208868759255,
+    "069500": 0.01336801726280104,
+    "459580": 0.00659218037020648,
+    "379810": 0.0018025760158706054,
+    "360750": 0.0011738150117987592,
+    "002360": 0.0011646016649375919,
+    "340450": 0.001121843342939883,
+    "192650": 0.0010949787393163227,
+    "379800": 0.001074551162337881,
+    "251340": 0.0010493723077002442,
+    "114800": 0.0010397006735278918,
+    "396300": 0.0010316409783842648,
+    "144960": 0.000952216578698973,
+    "109670": 0.0008889230099523647,
+    "092870": 0.0008101576799565855,
+    "452190": 0.000803390411916746,
+    "229200": 0.0006183398114190686,
+    "133690": 3.70652782920784e-05,
+    "486290": 2.9709352107199916e-05,
+    "367380": 2.912619157438605e-05,
+    "033780": 2.0733310456965585e-05,
+    "003490": 1.967407097800838e-05,
+    "105560": 1.8776900927525505e-05,
+    "086790": 1.788551907091671e-05,
+    "390390": 1.742492354338655e-05,
+    "055550": 1.7381946203871482e-05,
+    "381180": 1.5150597465412458e-05,
+    "021240": 1.4817776317652678e-05,
+    "0162Z0": 1.4124061281843822e-05,
+    "003550": 1.2328852951796957e-05,
+    "018260": 1.1177002370854423e-05,
+    "066570": 5.3627616243379715e-06,
+    "__CASH__": 0.82
+  },
+  "style_attribution": {
+    "signal_date": "2026-10-12",
+    "style_context": {
+      "small_close": 849.19,
+      "large_close": 6384.24,
+      "small_ret20": 0.04595506725131804,
+      "small_ret60": 0.014042964785116574,
+      "large_ret20": -0.08200134588727914,
+      "large_ret60": -0.14602845929742614,
+      "relative_ret20": 0.12795641313859718,
+      "relative_ret60": 0.1600714240825427,
+      "small_ma60": 813.9985,
+      "large_ma60": 6709.940166666667,
+      "large_trend": false,
+      "small_bear": false,
+      "small_underperform": false,
+      "small_underperform_severe": false
+    },
+    "strategy_weights": {
+      "kqm_small_cap_v22_short": 0.47920677275661355,
+      "etf_defensive_safe": 0.3292370336646924,
+      "kqm": 0.05940809104720751,
+      "hybrid_portfolio_v2_4": 0.04241569780147804,
+      "k200_mean_rev": 0.03385255236710762,
+      "k200_trend_sleeve": 0.03319075615395773,
+      "kqm_small_cap_v22": 0.02268909620894317
+    },
+    "target_style_sums": {
+      "index_etf": 0.1043138699470472,
+      "small_cap": 0.06811083773103035,
+      "unknown": 0.007575292321922452
+    },
+    "cash_weight": 0.82,
+    "targets": [
+      {
+        "ticker": "305720",
+        "weight": 0.0892878121992992,
+        "style": "index_etf",
+        "price": 15150.0,
+        "market_cap": null,
+        "avg_value20": 71567477480.55
+      },
+      {
+        "ticker": "446540",
+        "weight": 0.02821893536501062,
+        "style": "small_cap",
+        "price": 10950.0,
+        "market_cap": null,
+        "avg_value20": 10873519614.75
+      },
+      {
+        "ticker": "036540",
+        "weight": 0.027626208868759255,
+        "style": "small_cap",
+        "price": 10720.0,
+        "market_cap": null,
+        "avg_value20": 83588409930.0
+      },
+      {
+        "ticker": "069500",
+        "weight": 0.01336801726280104,
+        "style": "index_etf",
+        "price": 101605.0,
+        "market_cap": null,
+        "avg_value20": 2622014974437.15
+      },
+      {
+        "ticker": "459580",
+        "weight": 0.00659218037020648,
+        "style": "unknown",
+        "price": 1074435.0,
+        "market_cap": null,
+        "avg_value20": 920162036089.2
+      },
+      {
+        "ticker": "379810",
+        "weight": 0.0018025760158706054,
+        "style": "small_cap",
+        "price": 27355.0,
+        "market_cap": null,
+        "avg_value20": 633229393810.0
+      },
+      {
+        "ticker": "360750",
+        "weight": 0.0011738150117987592,
+        "style": "small_cap",
+        "price": 25945.0,
+        "market_cap": null,
+        "avg_value20": 929010615121.7
+      },
+      {
+        "ticker": "002360",
+        "weight": 0.0011646016649375919,
+        "style": "small_cap",
+        "price": 3600.0,
+        "market_cap": null,
+        "avg_value20": 688198090.2
+      },
+      {
+        "ticker": "340450",
+        "weight": 0.001121843342939883,
+        "style": "small_cap",
+        "price": 9970.0,
+        "market_cap": null,
+        "avg_value20": 5422050391.0
+      },
+      {
+        "ticker": "192650",
+        "weight": 0.0010949787393163227,
+        "style": "small_cap",
+        "price": 8650.0,
+        "market_cap": null,
+        "avg_value20": 11397879247.75
+      },
+      {
+        "ticker": "379800",
+        "weight": 0.001074551162337881,
+        "style": "small_cap",
+        "price": 23585.0,
+        "market_cap": null,
+        "avg_value20": 651334857932.75
+      },
+      {
+        "ticker": "251340",
+        "weight": 0.0010493723077002442,
+        "style": "small_cap",
+        "price": 2325.0,
+        "market_cap": null,
+        "avg_value20": 85742697445.15
+      },
+      {
+        "ticker": "114800",
+        "weight": 0.0010397006735278918,
+        "style": "index_etf",
+        "price": 1075.0,
+        "market_cap": null,
+        "avg_value20": 635016673156.35
+      },
+      {
+        "ticker": "396300",
+        "weight": 0.0010316409783842648,
+        "style": "small_cap",
+        "price": 6000.0,
+        "market_cap": null,
+        "avg_value20": 22180665239.15
+      },
+      {
+        "ticker": "144960",
+        "weight": 0.000952216578698973,
+        "style": "small_cap",
+        "price": 13540.0,
+        "market_cap": null,
+        "avg_value20": 13511326487.75
+      },
+      {
+        "ticker": "109670",
+        "weight": 0.0008889230099523647,
+        "style": "small_cap",
+        "price": 15800.0,
+        "market_cap": null,
+        "avg_value20": 3239627382.5
+      },
+      {
+        "ticker": "092870",
+        "weight": 0.0008101576799565855,
+        "style": "unknown",
+        "price": 57600.0,
+        "market_cap": null,
+        "avg_value20": 16456842760.0
+      },
+      {
+        "ticker": "452190",
+        "weight": 0.000803390411916746,
+        "style": "small_cap",
+        "price": 6230.0,
+        "market_cap": null,
+        "avg_value20": 26545819712.85
+      },
+      {
+        "ticker": "229200",
+        "weight": 0.0006183398114190686,
+        "style": "index_etf",
+        "price": 14385.0,
+        "market_cap": null,
+        "avg_value20": 423379608365.4
+      },
+      {
+        "ticker": "133690",
+        "weight": 3.70652782920784e-05,
+        "style": "unknown",
+        "price": 182960.0,
+        "market_cap": null,
+        "avg_value20": 846925927757.95
+      },
+      {
+        "ticker": "486290",
+        "weight": 2.9709352107199916e-05,
+        "style": "small_cap",
+        "price": 10475.0,
+        "market_cap": null,
+        "avg_value20": 19072053783.15
+      },
+      {
+        "ticker": "367380",
+        "weight": 2.912619157438605e-05,
+        "style": "small_cap",
+        "price": 31450.0,
+        "market_cap": null,
+        "avg_value20": 19096223149.8
+      },
+      {
+        "ticker": "033780",
+        "weight": 2.0733310456965585e-05,
+        "style": "unknown",
+        "price": 179100.0,
+        "market_cap": null,
+        "avg_value20": 38413075045.8
+      },
+      {
+        "ticker": "003490",
+        "weight": 1.967407097800838e-05,
+        "style": "small_cap",
+        "price": 30900.0,
+        "market_cap": null,
+        "avg_value20": 76078839651.25
+      },
+      {
+        "ticker": "105560",
+        "weight": 1.8776900927525505e-05,
+        "style": "unknown",
+        "price": 162200.0,
+        "market_cap": null,
+        "avg_value20": 158791967265.45
+      },
+      {
+        "ticker": "086790",
+        "weight": 1.788551907091671e-05,
+        "style": "unknown",
+        "price": 123600.0,
+        "market_cap": null,
+        "avg_value20": 89867068346.75
+      },
+      {
+        "ticker": "390390",
+        "weight": 1.742492354338655e-05,
+        "style": "unknown",
+        "price": 54735.0,
+        "market_cap": null,
+        "avg_value20": 34396989679.95
+      },
+      {
+        "ticker": "055550",
+        "weight": 1.7381946203871482e-05,
+        "style": "unknown",
+        "price": 100100.0,
+        "market_cap": null,
+        "avg_value20": 108467023115.6
+      },
+      {
+        "ticker": "381180",
+        "weight": 1.5150597465412458e-05,
+        "style": "small_cap",
+        "price": 43625.0,
+        "market_cap": null,
+        "avg_value20": 65330150290.95
+      },
+      {
+        "ticker": "021240",
+        "weight": 1.4817776317652678e-05,
+        "style": "unknown",
+        "price": 102400.0,
+        "market_cap": null,
+        "avg_value20": 21079878074.15
+      },
+      {
+        "ticker": "0162Z0",
+        "weight": 1.4124061281843822e-05,
+        "style": "small_cap",
+        "price": 13190.0,
+        "market_cap": null,
+        "avg_value20": 63362877854.6
+      },
+      {
+        "ticker": "003550",
+        "weight": 1.2328852951796957e-05,
+        "style": "unknown",
+        "price": 106500.0,
+        "market_cap": null,
+        "avg_value20": 25955903737.4
+      },
+      {
+        "ticker": "018260",
+        "weight": 1.1177002370854423e-05,
+        "style": "unknown",
+        "price": 193100.0,
+        "market_cap": null,
+        "avg_value20": 31777982552.5
+      },
+      {
+        "ticker": "066570",
+        "weight": 5.3627616243379715e-06,
+        "style": "unknown",
+        "price": 185300.0,
+        "market_cap": null,
+        "avg_value20": 160531296107.5
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-10-12",
+    "regime": {
+      "close": 1.1897307079821633,
+      "ma60": 1.2089095769675247,
+      "mom5": -0.07175195273509682,
+      "mom20": -0.03756343184932298,
+      "mom1m": -0.04543479601415301,
+      "mom3m": -0.10399590761826194,
+      "vol20": 0.27546092528859106
+    },
+    "exposure": {
+      "base": 0.4,
+      "after_stress": 0.18,
+      "stress_baseline": 0.18,
+      "final": 0.18,
+      "stress_level": 2,
+      "fast_signal": 0.007025082181519426,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.18,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.011226216442920878,
+        "return_5d": -0.0051740503875268296,
+        "return_10d": 0.004503398434153816,
+        "vol_easing": false
+      }
+    }
+  },
+  "meta": {
+    "git_revision": "4490f73dfb76ffb52259d438e8a18a41ba17c5d4",
+    "data_as_of": {
+      "primary_index": "2026-10-12",
+      "secondary_index": "2026-10-12",
+      "universe_latest_min": "2026-10-12",
+      "universe_latest_max": "2026-10-12",
+      "target_securities": {
+        "305720": "2026-10-12",
+        "446540": "2026-10-12",
+        "036540": "2026-10-12",
+        "069500": "2026-10-12",
+        "459580": "2026-10-12",
+        "379810": "2026-10-12",
+        "360750": "2026-10-12",
+        "002360": "2026-10-12",
+        "340450": "2026-10-12",
+        "192650": "2026-10-12",
+        "379800": "2026-10-12",
+        "251340": "2026-10-12",
+        "114800": "2026-10-12",
+        "396300": "2026-10-12",
+        "144960": "2026-10-12",
+        "109670": "2026-10-12",
+        "092870": "2026-10-12",
+        "452190": "2026-10-12",
+        "229200": "2026-10-12",
+        "133690": "2026-10-12",
+        "486290": "2026-10-12",
+        "367380": "2026-10-12",
+        "033780": "2026-10-12",
+        "003490": "2026-10-12",
+        "105560": "2026-10-12",
+        "086790": "2026-10-12",
+        "390390": "2026-10-12",
+        "055550": "2026-10-12",
+        "381180": "2026-10-12",
+        "021240": "2026-10-12",
+        "0162Z0": "2026-10-12",
+        "003550": "2026-10-12",
+        "018260": "2026-10-12",
+        "066570": "2026-10-12"
+      }
+    },
+    "github_run_id": "38346765841",
+    "github_event_name": "schedule"
+  },
+  "account_allocation": {
+    "cash_weight": 0.9700141363918079,
+    "stock_weight": 0.029985863608192144
+  },
+  "holdings": [
+    {
+      "symbol": "036540",
+      "name": "SFA반도체",
+      "quantity": 1,
+      "unrealized_pnl_rate": -7.404255319148937
+    },
+    {
+      "symbol": "446540",
+      "name": "메가터치",
+      "quantity": 1,
+      "unrealized_pnl_rate": -4.56989247311828
+    }
+  ],
+  "raw_plans": [],
+  "final_plans": [],
+  "planning_decisions": [
+    {
+      "ticker": "305720",
+      "action": "SKIP",
+      "reason": "buy_blocked_instrument_identity",
+      "target_weight": 0.0892878121992992
+    },
+    {
+      "ticker": "446540",
+      "action": "HOLD",
+      "reason": "quantity_already_at_target",
+      "target_weight": 0.02821893536501062,
+      "current_qty": 1,
+      "target_qty": 1,
+      "reference_price": 10950.0
+    },
+    {
+      "ticker": "036540",
+      "action": "HOLD",
+      "reason": "quantity_already_at_target",
+      "target_weight": 0.027626208868759255,
+      "current_qty": 1,
+      "target_qty": 1,
+      "reference_price": 10720.0
+    },
+    {
+      "ticker": "069500",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.01336801726280104,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 101605.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "459580",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.00659218037020648,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 1074435.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "379810",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0018025760158706054,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 27355.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "360750",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0011738150117987592,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 25945.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "002360",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0011646016649375919,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 3600.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "340450",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.001121843342939883,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 9970.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "192650",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0010949787393163227,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 8650.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "379800",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.001074551162337881,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 23585.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "251340",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0010493723077002442,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 2325.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "114800",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0010397006735278918,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 1075.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "396300",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0010316409783842648,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 6000.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "144960",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.000952216578698973,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 13540.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "109670",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0008889230099523647,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 15800.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "092870",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0008101576799565855,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 57600.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "452190",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.000803390411916746,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 6230.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "229200",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 0.0006183398114190686,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 14385.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "133690",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 3.70652782920784e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 182960.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "486290",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 2.9709352107199916e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 10475.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "367380",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 2.912619157438605e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 31450.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "033780",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 2.0733310456965585e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 179100.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "003490",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.967407097800838e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 30900.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "105560",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.8776900927525505e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 162200.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "086790",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.788551907091671e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 123600.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "390390",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.742492354338655e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 54735.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "055550",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.7381946203871482e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 100100.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "381180",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.5150597465412458e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 43625.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "021240",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.4817776317652678e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 102400.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "0162Z0",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.4124061281843822e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 13190.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "003550",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.2328852951796957e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 106500.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "018260",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 1.1177002370854423e-05,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 193100.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    },
+    {
+      "ticker": "066570",
+      "action": "SKIP",
+      "reason": "new_position_below_minimum_or_one_share",
+      "target_weight": 5.3627616243379715e-06,
+      "current_qty": 0,
+      "target_qty": 0,
+      "reference_price": 185300.0,
+      "below_minimum_trade": true,
+      "below_one_share": true
+    }
+  ],
+  "exposure": {
+    "status": "warning",
+    "target_exposure": 0.18,
+    "current_actual_exposure": 0.029985863608192144,
+    "executable_exposure": 0.029985863608192144,
+    "target_minus_executable": 0.15001413639180786,
+    "tracking_error_l1": 0.15001413639180788,
+    "planned_turnover_weight": 0.0,
+    "order_count": 0,
+    "skipped_target_count": 32,
+    "positions": [
+      {
+        "ticker": "002360",
+        "target_weight": 0.0011646016649375919,
+        "risk_target_weight": 0.0011646016649375919,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "003490",
+        "target_weight": 1.967407097800838e-05,
+        "risk_target_weight": 1.967407097800838e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "003550",
+        "target_weight": 1.2328852951796957e-05,
+        "risk_target_weight": 1.2328852951796957e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "0162Z0",
+        "target_weight": 1.4124061281843822e-05,
+        "risk_target_weight": 1.4124061281843822e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "018260",
+        "target_weight": 1.1177002370854423e-05,
+        "risk_target_weight": 1.1177002370854423e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "021240",
+        "target_weight": 1.4817776317652678e-05,
+        "risk_target_weight": 1.4817776317652678e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "033780",
+        "target_weight": 2.0733310456965585e-05,
+        "risk_target_weight": 2.0733310456965585e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "036540",
+        "target_weight": 0.027626208868759255,
+        "risk_target_weight": 0.027626208868759255,
+        "current_actual_weight": 0.015153097819653067,
+        "executable_weight": 0.015153097819653067,
+        "current_qty": 1,
+        "executable_qty": 1,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "055550",
+        "target_weight": 1.7381946203871482e-05,
+        "risk_target_weight": 1.7381946203871482e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "066570",
+        "target_weight": 5.3627616243379715e-06,
+        "risk_target_weight": 5.3627616243379715e-06,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "069500",
+        "target_weight": 0.01336801726280104,
+        "risk_target_weight": 0.01336801726280104,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "086790",
+        "target_weight": 1.788551907091671e-05,
+        "risk_target_weight": 1.788551907091671e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "092870",
+        "target_weight": 0.0008101576799565855,
+        "risk_target_weight": 0.0008101576799565855,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "105560",
+        "target_weight": 1.8776900927525505e-05,
+        "risk_target_weight": 1.8776900927525505e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "109670",
+        "target_weight": 0.0008889230099523647,
+        "risk_target_weight": 0.0008889230099523647,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "114800",
+        "target_weight": 0.0010397006735278918,
+        "risk_target_weight": 0.0010397006735278918,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "133690",
+        "target_weight": 3.70652782920784e-05,
+        "risk_target_weight": 3.70652782920784e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "144960",
+        "target_weight": 0.000952216578698973,
+        "risk_target_weight": 0.000952216578698973,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "192650",
+        "target_weight": 0.0010949787393163227,
+        "risk_target_weight": 0.0010949787393163227,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "229200",
+        "target_weight": 0.0006183398114190686,
+        "risk_target_weight": 0.0006183398114190686,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "251340",
+        "target_weight": 0.0010493723077002442,
+        "risk_target_weight": 0.0010493723077002442,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "305720",
+        "target_weight": 0.0892878121992992,
+        "risk_target_weight": 0.0892878121992992,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "340450",
+        "target_weight": 0.001121843342939883,
+        "risk_target_weight": 0.001121843342939883,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "360750",
+        "target_weight": 0.0011738150117987592,
+        "risk_target_weight": 0.0011738150117987592,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "367380",
+        "target_weight": 2.912619157438605e-05,
+        "risk_target_weight": 2.912619157438605e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "379800",
+        "target_weight": 0.001074551162337881,
+        "risk_target_weight": 0.001074551162337881,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "379810",
+        "target_weight": 0.0018025760158706054,
+        "risk_target_weight": 0.0018025760158706054,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "381180",
+        "target_weight": 1.5150597465412458e-05,
+        "risk_target_weight": 1.5150597465412458e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "390390",
+        "target_weight": 1.742492354338655e-05,
+        "risk_target_weight": 1.742492354338655e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "396300",
+        "target_weight": 0.0010316409783842648,
+        "risk_target_weight": 0.0010316409783842648,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "446540",
+        "target_weight": 0.02821893536501062,
+        "risk_target_weight": 0.02821893536501062,
+        "current_actual_weight": 0.014832765788539077,
+        "executable_weight": 0.014832765788539077,
+        "current_qty": 1,
+        "executable_qty": 1,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "452190",
+        "target_weight": 0.000803390411916746,
+        "risk_target_weight": 0.000803390411916746,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "459580",
+        "target_weight": 0.00659218037020648,
+        "risk_target_weight": 0.00659218037020648,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      },
+      {
+        "ticker": "486290",
+        "target_weight": 2.9709352107199916e-05,
+        "risk_target_weight": 2.9709352107199916e-05,
+        "current_actual_weight": 0.0,
+        "executable_weight": 0.0,
+        "current_qty": 0,
+        "executable_qty": 0,
+        "cash_equivalent": false
+      }
+    ]
+  },
+  "recheck_logs": [],
+  "execution": {
+    "executed_orders": 0,
+    "failed_orders": 0,
+    "not_eligible_orders": 0,
+    "abort_reason": null,
+    "order_logs": [],
+    "report_path": null
+  },
+  "diagnostics": {
+    "status": "no_orders_sizing_limits",
+    "selected_security_count": 34,
+    "target_cash_weight": 0.82,
+    "min_trade_value": 10000,
+    "raw_plan_count": 0,
+    "final_plan_count": 0,
+    "sizing_excluded_count": 31,
+    "planning_reason_counts": {
+      "buy_blocked_instrument_identity": 1,
+      "quantity_already_at_target": 2,
+      "new_position_below_minimum_or_one_share": 31
+    },
+    "submitted_order_count": 0
+  }
+}
