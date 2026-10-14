@@ -1,0 +1,221 @@
+{
+  "signal_date": "2026-10-13",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "NVDA": 0.1276886253010303,
+    "MSFT": 0.09275437888611934,
+    "ACN": 0.07916692067891572,
+    "TMO": 0.07828468835260885,
+    "TSLA": 0.05134666023374361,
+    "AVGO": 0.0482664594262002,
+    "PFE": 0.04393018521863609,
+    "AMZN": 0.04344126930520027,
+    "META": 0.028860562119186528,
+    "ABBV": 0.014464616166001169,
+    "XOM": 0.01431535452537303,
+    "NOW": 0.0140708273642661,
+    "AMD": 0.013409452422718826,
+    "__CASH__": 0.35
+  },
+  "ref_prices": {
+    "NVDA": 228.52000427246094,
+    "MSFT": 543.4500122070312,
+    "ACN": 213.55999755859375,
+    "TMO": 663.0399780273438,
+    "TSLA": 375.2300109863281,
+    "AVGO": 357.30999755859375,
+    "PFE": 28.3700008392334,
+    "AMZN": 258.5799865722656,
+    "META": 762.5,
+    "ABBV": 274.3599853515625,
+    "XOM": 174.0800018310547,
+    "NOW": 138.61000061035156,
+    "AMD": 605.530029296875
+  },
+  "style_attribution": {
+    "signal_date": "2026-10-13",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.3430255236892141,
+      "kqm_small_cap_v22_short": 0.24099047389467554,
+      "k200_trend_sleeve": 0.13077666418590467,
+      "kqm": 0.10989211616140124,
+      "hybrid_portfolio_v2_4": 0.07476687299189394,
+      "kqm_small_cap_v22": 0.05477651661184392,
+      "k200_mean_rev": 0.045771832465066636
+    },
+    "target_style_sums": {
+      "small_cap": 0.6500000000000001
+    },
+    "cash_weight": 0.35,
+    "targets": [
+      {
+        "ticker": "NVDA",
+        "weight": 0.1276886253010303,
+        "style": "small_cap",
+        "price": 228.52000427246094,
+        "market_cap": null,
+        "avg_value20": 24110253975.41359
+      },
+      {
+        "ticker": "MSFT",
+        "weight": 0.09275437888611934,
+        "style": "small_cap",
+        "price": 543.4500122070312,
+        "market_cap": null,
+        "avg_value20": 11534984911.036682
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.07916692067891572,
+        "style": "small_cap",
+        "price": 213.55999755859375,
+        "market_cap": null,
+        "avg_value20": 1491756038.1170654
+      },
+      {
+        "ticker": "TMO",
+        "weight": 0.07828468835260885,
+        "style": "small_cap",
+        "price": 663.0399780273438,
+        "market_cap": null,
+        "avg_value20": 1564863135.0863647
+      },
+      {
+        "ticker": "TSLA",
+        "weight": 0.05134666023374361,
+        "style": "small_cap",
+        "price": 375.2300109863281,
+        "market_cap": null,
+        "avg_value20": 12809303472.029419
+      },
+      {
+        "ticker": "AVGO",
+        "weight": 0.0482664594262002,
+        "style": "small_cap",
+        "price": 357.30999755859375,
+        "market_cap": null,
+        "avg_value20": 8151102233.905945
+      },
+      {
+        "ticker": "PFE",
+        "weight": 0.04393018521863609,
+        "style": "small_cap",
+        "price": 28.3700008392334,
+        "market_cap": null,
+        "avg_value20": 898566135.1820469
+      },
+      {
+        "ticker": "AMZN",
+        "weight": 0.04344126930520027,
+        "style": "small_cap",
+        "price": 258.5799865722656,
+        "market_cap": null,
+        "avg_value20": 9130974788.560638
+      },
+      {
+        "ticker": "META",
+        "weight": 0.028860562119186528,
+        "style": "small_cap",
+        "price": 762.5,
+        "market_cap": null,
+        "avg_value20": 16173619724.657898
+      },
+      {
+        "ticker": "ABBV",
+        "weight": 0.014464616166001169,
+        "style": "small_cap",
+        "price": 274.3599853515625,
+        "market_cap": null,
+        "avg_value20": 1242543903.452301
+      },
+      {
+        "ticker": "XOM",
+        "weight": 0.01431535452537303,
+        "style": "small_cap",
+        "price": 174.0800018310547,
+        "market_cap": null,
+        "avg_value20": 2121195593.8047028
+      },
+      {
+        "ticker": "NOW",
+        "weight": 0.0140708273642661,
+        "style": "small_cap",
+        "price": 138.61000061035156,
+        "market_cap": null,
+        "avg_value20": 1424983653.0490875
+      },
+      {
+        "ticker": "AMD",
+        "weight": 0.013409452422718826,
+        "style": "small_cap",
+        "price": 605.530029296875,
+        "market_cap": null,
+        "avg_value20": 13153622575.708923
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-10-13",
+    "regime": {
+      "close": 7805.4501953125,
+      "ma60": 7664.713354492187,
+      "mom5": -0.0017240185250028128,
+      "mom20": 0.028964940145440377,
+      "mom1m": 0.024339987154709197,
+      "mom3m": 0.0307762791155044,
+      "vol20": 0.0951387193908534
+    },
+    "exposure": {
+      "base": 0.8,
+      "after_stress": 0.65,
+      "stress_baseline": 0.65,
+      "final": 0.65,
+      "stress_level": 1,
+      "fast_signal": 0.00240492442513629,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.65,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.00507513030409612,
+        "return_5d": 0.0018680599330764824,
+        "return_10d": 0.004730082379556633,
+        "vol_easing": false
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-10-14T08:17:47.633854",
+    "git_revision": "728e3e6db5f93277709019c417a0b3d8cb222247",
+    "data_as_of": {
+      "primary_index": "2026-10-13",
+      "secondary_index": null,
+      "universe_latest_min": "2026-10-13",
+      "universe_latest_max": "2026-10-13",
+      "target_securities": {
+        "NVDA": "2026-10-13",
+        "MSFT": "2026-10-13",
+        "ACN": "2026-10-13",
+        "TMO": "2026-10-13",
+        "TSLA": "2026-10-13",
+        "AVGO": "2026-10-13",
+        "PFE": "2026-10-13",
+        "AMZN": "2026-10-13",
+        "META": "2026-10-13",
+        "ABBV": "2026-10-13",
+        "XOM": "2026-10-13",
+        "NOW": "2026-10-13",
+        "AMD": "2026-10-13"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
