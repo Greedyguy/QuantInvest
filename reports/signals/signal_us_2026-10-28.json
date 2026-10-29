@@ -1,0 +1,155 @@
+{
+  "signal_date": "2026-10-28",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "CVX": 0.11023079408476867,
+    "AAPL": 0.10669651797359275,
+    "AMZN": 0.08051280496272753,
+    "NOW": 0.059755583620054134,
+    "PG": 0.05336478417695133,
+    "ACN": 0.04151177892816205,
+    "PFE": 0.017909456750908957,
+    "__CASH__": 0.5300182795028345
+  },
+  "ref_prices": {
+    "CVX": 229.1999969482422,
+    "AAPL": 343.8299865722656,
+    "AMZN": 254.60000610351562,
+    "NOW": 150.1300048828125,
+    "PG": 158.25999450683594,
+    "ACN": 243.39999389648438,
+    "PFE": 29.450000762939453
+  },
+  "style_attribution": {
+    "signal_date": "2026-10-28",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.3590613109812002,
+      "kqm_small_cap_v22_short": 0.2754643702886364,
+      "kqm": 0.11259410164273688,
+      "k200_trend_sleeve": 0.10533452202621825,
+      "hybrid_portfolio_v2_4": 0.058556904210998004,
+      "kqm_small_cap_v22": 0.05212170814103378,
+      "k200_mean_rev": 0.036867082709176414
+    },
+    "target_style_sums": {
+      "small_cap": 0.4699817204971654
+    },
+    "cash_weight": 0.5300182795028345,
+    "targets": [
+      {
+        "ticker": "CVX",
+        "weight": 0.11023079408476867,
+        "style": "small_cap",
+        "price": 229.1999969482422,
+        "market_cap": null,
+        "avg_value20": 1598756549.3056488
+      },
+      {
+        "ticker": "AAPL",
+        "weight": 0.10669651797359275,
+        "style": "small_cap",
+        "price": 343.8299865722656,
+        "market_cap": null,
+        "avg_value20": 13082757797.640533
+      },
+      {
+        "ticker": "AMZN",
+        "weight": 0.08051280496272753,
+        "style": "small_cap",
+        "price": 254.60000610351562,
+        "market_cap": null,
+        "avg_value20": 9059499185.151138
+      },
+      {
+        "ticker": "NOW",
+        "weight": 0.059755583620054134,
+        "style": "small_cap",
+        "price": 150.1300048828125,
+        "market_cap": null,
+        "avg_value20": 1829836407.2400665
+      },
+      {
+        "ticker": "PG",
+        "weight": 0.05336478417695133,
+        "style": "small_cap",
+        "price": 158.25999450683594,
+        "market_cap": null,
+        "avg_value20": 1543526565.029831
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.04151177892816205,
+        "style": "small_cap",
+        "price": 243.39999389648438,
+        "market_cap": null,
+        "avg_value20": 1775323898.8957977
+      },
+      {
+        "ticker": "PFE",
+        "weight": 0.017909456750908957,
+        "style": "small_cap",
+        "price": 29.450000762939453,
+        "market_cap": null,
+        "avg_value20": 840884652.9395199
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-10-28",
+    "regime": {
+      "close": 7743.97998046875,
+      "ma60": 7705.7541910807295,
+      "mom5": -0.0017003548380517541,
+      "mom20": 0.012081220373196366,
+      "mom1m": 0.009534827764438703,
+      "mom3m": 0.04118920979977636,
+      "vol20": 0.10076493719079341
+    },
+    "exposure": {
+      "base": 0.6,
+      "after_stress": 0.528,
+      "stress_baseline": 0.528,
+      "final": 0.528,
+      "stress_level": 1,
+      "fast_signal": 0.0014182452007489577,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.528,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.004431329844379661,
+        "return_5d": -0.004125093925054779,
+        "return_10d": 0.0001336635834106037,
+        "vol_easing": true
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-10-29T09:12:14.665455",
+    "git_revision": "36cf15ba6a2a422e9baa0b7c36324ced3f1760b4",
+    "data_as_of": {
+      "primary_index": "2026-10-28",
+      "secondary_index": null,
+      "universe_latest_min": "2026-10-28",
+      "universe_latest_max": "2026-10-28",
+      "target_securities": {
+        "CVX": "2026-10-28",
+        "AAPL": "2026-10-28",
+        "AMZN": "2026-10-28",
+        "NOW": "2026-10-28",
+        "PG": "2026-10-28",
+        "ACN": "2026-10-28",
+        "PFE": "2026-10-28"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
