@@ -1,0 +1,166 @@
+{
+  "signal_date": "2026-10-30",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "CVX": 0.1297349338651302,
+    "PG": 0.06389956407373025,
+    "ACN": 0.04893397883680296,
+    "ORCL": 0.04694852413512405,
+    "AAPL": 0.04633374095411673,
+    "AMZN": 0.032808453083664264,
+    "NOW": 0.019908541602175776,
+    "PFE": 0.018402338890543282,
+    "__CASH__": 0.5930299245587125
+  },
+  "ref_prices": {
+    "CVX": 235.52000427246094,
+    "PG": 161.57000732421875,
+    "ACN": 258.239990234375,
+    "ORCL": 130.6699981689453,
+    "AAPL": 344.6300048828125,
+    "AMZN": 240.35000610351562,
+    "NOW": 105.12000274658203,
+    "PFE": 30.520000457763672
+  },
+  "style_attribution": {
+    "signal_date": "2026-10-30",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.3930650768788282,
+      "kqm_small_cap_v22_short": 0.3218614779189462,
+      "kqm": 0.09184396955789191,
+      "k200_trend_sleeve": 0.08439787404118475,
+      "hybrid_portfolio_v2_4": 0.044996515935384236,
+      "kqm_small_cap_v22": 0.034295829753350084,
+      "k200_mean_rev": 0.029539255914414655
+    },
+    "target_style_sums": {
+      "small_cap": 0.4069700754412875
+    },
+    "cash_weight": 0.5930299245587125,
+    "targets": [
+      {
+        "ticker": "CVX",
+        "weight": 0.1297349338651302,
+        "style": "small_cap",
+        "price": 235.52000427246094,
+        "market_cap": null,
+        "avg_value20": 1662763444.459381
+      },
+      {
+        "ticker": "PG",
+        "weight": 0.06389956407373025,
+        "style": "small_cap",
+        "price": 161.57000732421875,
+        "market_cap": null,
+        "avg_value20": 1599778858.9865875
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.04893397883680296,
+        "style": "small_cap",
+        "price": 258.239990234375,
+        "market_cap": null,
+        "avg_value20": 1558654530.9612274
+      },
+      {
+        "ticker": "ORCL",
+        "weight": 0.04694852413512405,
+        "style": "small_cap",
+        "price": 130.6699981689453,
+        "market_cap": null,
+        "avg_value20": 4276585121.727028
+      },
+      {
+        "ticker": "AAPL",
+        "weight": 0.04633374095411673,
+        "style": "small_cap",
+        "price": 344.6300048828125,
+        "market_cap": null,
+        "avg_value20": 13841043710.751953
+      },
+      {
+        "ticker": "AMZN",
+        "weight": 0.032808453083664264,
+        "style": "small_cap",
+        "price": 240.35000610351562,
+        "market_cap": null,
+        "avg_value20": 10528633402.621155
+      },
+      {
+        "ticker": "NOW",
+        "weight": 0.019908541602175776,
+        "style": "small_cap",
+        "price": 105.12000274658203,
+        "market_cap": null,
+        "avg_value20": 2311033990.6990433
+      },
+      {
+        "ticker": "PFE",
+        "weight": 0.018402338890543282,
+        "style": "small_cap",
+        "price": 30.520000457763672,
+        "market_cap": null,
+        "avg_value20": 870090965.5442142
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-10-30",
+    "regime": {
+      "close": 7580.06982421875,
+      "ma60": 7703.536694335938,
+      "mom5": -0.005720380519245838,
+      "mom20": -0.01847152125889706,
+      "mom1m": -0.011267323062577939,
+      "mom3m": -0.0026880041814683064,
+      "vol20": 0.1173774137808564
+    },
+    "exposure": {
+      "base": 0.6,
+      "after_stress": 0.396,
+      "stress_baseline": 0.396,
+      "final": 0.396,
+      "stress_level": 1,
+      "fast_signal": -0.0027009619972545584,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.396,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.0004393357304830481,
+        "return_5d": -0.007854610996575806,
+        "return_10d": -0.004762641077246665,
+        "vol_easing": false
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-10-31T09:10:53.046543",
+    "git_revision": "d09840f3ea7735400f9e36989d61f8148ea21d8a",
+    "data_as_of": {
+      "primary_index": "2026-10-30",
+      "secondary_index": null,
+      "universe_latest_min": "2026-10-30",
+      "universe_latest_max": "2026-10-30",
+      "target_securities": {
+        "CVX": "2026-10-30",
+        "PG": "2026-10-30",
+        "ACN": "2026-10-30",
+        "ORCL": "2026-10-30",
+        "AAPL": "2026-10-30",
+        "AMZN": "2026-10-30",
+        "NOW": "2026-10-30",
+        "PFE": "2026-10-30"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
