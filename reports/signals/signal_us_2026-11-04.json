@@ -1,0 +1,166 @@
+{
+  "signal_date": "2026-11-04",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "AAPL": 0.07985452004068842,
+    "CVX": 0.0738074100706263,
+    "PG": 0.03930299698435168,
+    "ACN": 0.027545895770629502,
+    "PFE": 0.008033621944743115,
+    "NOW": 0.00564116083344075,
+    "ORCL": 6.393654735041107e-05,
+    "AMZN": 4.425909490817894e-05,
+    "__CASH__": 0.7657061987132616
+  },
+  "ref_prices": {
+    "AAPL": 349.510009765625,
+    "CVX": 216.9600067138672,
+    "PG": 167.32000732421875,
+    "ACN": 264.2699890136719,
+    "PFE": 30.790000915527344,
+    "NOW": 108.80999755859375,
+    "ORCL": 123.7300033569336,
+    "AMZN": 266.0299987792969
+  },
+  "style_attribution": {
+    "signal_date": "2026-11-04",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.4049371578174,
+      "kqm_small_cap_v22_short": 0.3218616428346085,
+      "kqm": 0.09059419495397837,
+      "k200_trend_sleeve": 0.08892980601330965,
+      "kqm_small_cap_v22": 0.03440116790717749,
+      "k200_mean_rev": 0.031125432104658374,
+      "hybrid_portfolio_v2_4": 0.02815059836886771
+    },
+    "target_style_sums": {
+      "small_cap": 0.23429380128673835
+    },
+    "cash_weight": 0.7657061987132616,
+    "targets": [
+      {
+        "ticker": "AAPL",
+        "weight": 0.07985452004068842,
+        "style": "small_cap",
+        "price": 349.510009765625,
+        "market_cap": null,
+        "avg_value20": 15894500046.659088
+      },
+      {
+        "ticker": "CVX",
+        "weight": 0.0738074100706263,
+        "style": "small_cap",
+        "price": 216.9600067138672,
+        "market_cap": null,
+        "avg_value20": 1793810207.7376556
+      },
+      {
+        "ticker": "PG",
+        "weight": 0.03930299698435168,
+        "style": "small_cap",
+        "price": 167.32000732421875,
+        "market_cap": null,
+        "avg_value20": 1668258664.430313
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.027545895770629502,
+        "style": "small_cap",
+        "price": 264.2699890136719,
+        "market_cap": null,
+        "avg_value20": 1607743153.899231
+      },
+      {
+        "ticker": "PFE",
+        "weight": 0.008033621944743115,
+        "style": "small_cap",
+        "price": 30.790000915527344,
+        "market_cap": null,
+        "avg_value20": 982334217.9226494
+      },
+      {
+        "ticker": "NOW",
+        "weight": 0.00564116083344075,
+        "style": "small_cap",
+        "price": 108.80999755859375,
+        "market_cap": null,
+        "avg_value20": 2456201491.5024567
+      },
+      {
+        "ticker": "ORCL",
+        "weight": 6.393654735041107e-05,
+        "style": "small_cap",
+        "price": 123.7300033569336,
+        "market_cap": null,
+        "avg_value20": 5463698475.852165
+      },
+      {
+        "ticker": "AMZN",
+        "weight": 4.425909490817894e-05,
+        "style": "small_cap",
+        "price": 266.0299987792969,
+        "market_cap": null,
+        "avg_value20": 11557241842.729492
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-11-04",
+    "regime": {
+      "close": 7688.6201171875,
+      "ma60": 7696.203190104166,
+      "mom5": -0.007148761156520855,
+      "mom20": -0.014503106610485372,
+      "mom1m": -0.01666597036476669,
+      "mom3m": -0.0027678280896552554,
+      "vol20": 0.1288911425147886
+    },
+    "exposure": {
+      "base": 0.35,
+      "after_stress": 0.23099999999999998,
+      "stress_baseline": 0.23099999999999998,
+      "final": 0.23099999999999998,
+      "stress_level": 1,
+      "fast_signal": -0.008500848263585548,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.23099999999999998,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.001970406473966513,
+        "return_5d": -0.005843100912696131,
+        "return_10d": -0.00977178924336386,
+        "vol_easing": false
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-11-05T10:10:51.092476",
+    "git_revision": "34901f07f2e825bbfddbd3a2c3686f96a771a4a1",
+    "data_as_of": {
+      "primary_index": "2026-11-04",
+      "secondary_index": null,
+      "universe_latest_min": "2026-11-04",
+      "universe_latest_max": "2026-11-04",
+      "target_securities": {
+        "AAPL": "2026-11-04",
+        "CVX": "2026-11-04",
+        "PG": "2026-11-04",
+        "ACN": "2026-11-04",
+        "PFE": "2026-11-04",
+        "NOW": "2026-11-04",
+        "ORCL": "2026-11-04",
+        "AMZN": "2026-11-04"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
