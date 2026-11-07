@@ -1,0 +1,144 @@
+{
+  "signal_date": "2026-11-06",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "CVX": 0.08570362305529872,
+    "PG": 0.06636732723351896,
+    "AAPL": 0.04018922150521296,
+    "ACN": 0.03843335232926451,
+    "MA": 0.01034158328693299,
+    "BRK-B": 0.010329715400539494,
+    "__CASH__": 0.7486351771892323
+  },
+  "ref_prices": {
+    "CVX": 212.61000061035156,
+    "PG": 165.39999389648438,
+    "AAPL": 342.3699951171875,
+    "ACN": 260.5,
+    "MA": 652.7000122070312,
+    "BRK-B": 570.8900146484375
+  },
+  "style_attribution": {
+    "signal_date": "2026-11-06",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.40519022617661005,
+      "kqm_small_cap_v22_short": 0.31937593495837097,
+      "k200_trend_sleeve": 0.0895356569526658,
+      "kqm": 0.08597340394275105,
+      "hybrid_portfolio_v2_4": 0.04611446676854874,
+      "k200_mean_rev": 0.03133747993343303,
+      "kqm_small_cap_v22": 0.022472831267620407
+    },
+    "target_style_sums": {
+      "small_cap": 0.2513648228107676
+    },
+    "cash_weight": 0.7486351771892323,
+    "targets": [
+      {
+        "ticker": "CVX",
+        "weight": 0.08570362305529872,
+        "style": "small_cap",
+        "price": 212.61000061035156,
+        "market_cap": null,
+        "avg_value20": 1843596938.4404755
+      },
+      {
+        "ticker": "PG",
+        "weight": 0.06636732723351896,
+        "style": "small_cap",
+        "price": 165.39999389648438,
+        "market_cap": null,
+        "avg_value20": 1730704465.8878326
+      },
+      {
+        "ticker": "AAPL",
+        "weight": 0.04018922150521296,
+        "style": "small_cap",
+        "price": 342.3699951171875,
+        "market_cap": null,
+        "avg_value20": 16724601685.750732
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.03843335232926451,
+        "style": "small_cap",
+        "price": 260.5,
+        "market_cap": null,
+        "avg_value20": 1595048099.2272186
+      },
+      {
+        "ticker": "MA",
+        "weight": 0.01034158328693299,
+        "style": "small_cap",
+        "price": 652.7000122070312,
+        "market_cap": null,
+        "avg_value20": 2255634653.1106567
+      },
+      {
+        "ticker": "BRK-B",
+        "weight": 0.010329715400539494,
+        "style": "small_cap",
+        "price": 570.8900146484375,
+        "market_cap": null,
+        "avg_value20": 2733390126.737671
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-11-06",
+    "regime": {
+      "close": 7376.85986328125,
+      "ma60": 7682.58818359375,
+      "mom5": -0.026808455020853827,
+      "mom20": -0.05564589998996128,
+      "mom1m": -0.05002987715186702,
+      "mom3m": -0.048528913769418036,
+      "vol20": 0.19804863059881445
+    },
+    "exposure": {
+      "base": 0.3,
+      "after_stress": 0.198,
+      "stress_baseline": 0.198,
+      "final": 0.198,
+      "stress_level": 1,
+      "fast_signal": -0.012999456413535726,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.198,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.0,
+        "return_5d": -0.007278983313475651,
+        "return_10d": -0.014927917433045779,
+        "vol_easing": false
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-11-07T09:30:50.232076",
+    "git_revision": "0e5c7e3a602066954dcc905634fadf6525fbc4f4",
+    "data_as_of": {
+      "primary_index": "2026-11-06",
+      "secondary_index": null,
+      "universe_latest_min": "2026-11-06",
+      "universe_latest_max": "2026-11-06",
+      "target_securities": {
+        "CVX": "2026-11-06",
+        "PG": "2026-11-06",
+        "AAPL": "2026-11-06",
+        "ACN": "2026-11-06",
+        "MA": "2026-11-06",
+        "BRK-B": "2026-11-06"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
