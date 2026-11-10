@@ -1,0 +1,144 @@
+{
+  "signal_date": "2026-11-09",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "CVX": 0.06903942348187028,
+    "PG": 0.05116725540119989,
+    "AAPL": 0.04867982765768753,
+    "ACN": 0.028655382689333528,
+    "BRK-B": 0.006339276443855694,
+    "MA": 0.006337014189620339,
+    "__CASH__": 0.7897818201364327
+  },
+  "ref_prices": {
+    "CVX": 210.77999877929688,
+    "PG": 168.32000732421875,
+    "AAPL": 350.69000244140625,
+    "ACN": 254.3699951171875,
+    "BRK-B": 575.25,
+    "MA": 655.8099975585938
+  },
+  "style_attribution": {
+    "signal_date": "2026-11-09",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.40421287072107925,
+      "kqm_small_cap_v22_short": 0.32085250085716355,
+      "k200_trend_sleeve": 0.08982241378595593,
+      "kqm": 0.08662809713926056,
+      "hybrid_portfolio_v2_4": 0.04476300803698427,
+      "k200_mean_rev": 0.03143784482508457,
+      "kqm_small_cap_v22": 0.022283264634471743
+    },
+    "target_style_sums": {
+      "small_cap": 0.2102181798635673
+    },
+    "cash_weight": 0.7897818201364327,
+    "targets": [
+      {
+        "ticker": "CVX",
+        "weight": 0.06903942348187028,
+        "style": "small_cap",
+        "price": 210.77999877929688,
+        "market_cap": null,
+        "avg_value20": 1853375766.9669342
+      },
+      {
+        "ticker": "PG",
+        "weight": 0.05116725540119989,
+        "style": "small_cap",
+        "price": 168.32000732421875,
+        "market_cap": null,
+        "avg_value20": 1760921804.2251587
+      },
+      {
+        "ticker": "AAPL",
+        "weight": 0.04867982765768753,
+        "style": "small_cap",
+        "price": 350.69000244140625,
+        "market_cap": null,
+        "avg_value20": 17137281916.156921
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.028655382689333528,
+        "style": "small_cap",
+        "price": 254.3699951171875,
+        "market_cap": null,
+        "avg_value20": 1579141236.1248016
+      },
+      {
+        "ticker": "BRK-B",
+        "weight": 0.006339276443855694,
+        "style": "small_cap",
+        "price": 575.25,
+        "market_cap": null,
+        "avg_value20": 2833313660.6170654
+      },
+      {
+        "ticker": "MA",
+        "weight": 0.006337014189620339,
+        "style": "small_cap",
+        "price": 655.8099975585938,
+        "market_cap": null,
+        "avg_value20": 2265588840.699463
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-11-09",
+    "regime": {
+      "close": 7549.93994140625,
+      "ma60": 7678.657853190104,
+      "mom5": 0.001132420926232225,
+      "mom20": -0.032956625548150265,
+      "mom1m": -0.03348892745196064,
+      "mom3m": -0.023066205507250248,
+      "vol20": 0.2188859439551086
+    },
+    "exposure": {
+      "base": 0.3,
+      "after_stress": 0.198,
+      "stress_baseline": 0.198,
+      "final": 0.198,
+      "stress_level": 1,
+      "fast_signal": -0.011715081391659443,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.198,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.0011832128031068478,
+        "return_5d": -0.004537020194600894,
+        "return_10d": -0.013364041650443692,
+        "vol_easing": false
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-11-10T10:40:31.844593",
+    "git_revision": "aad0497196418106cfc3755e96916bc1a0694f8e",
+    "data_as_of": {
+      "primary_index": "2026-11-09",
+      "secondary_index": null,
+      "universe_latest_min": "2026-11-09",
+      "universe_latest_max": "2026-11-09",
+      "target_securities": {
+        "CVX": "2026-11-09",
+        "PG": "2026-11-09",
+        "AAPL": "2026-11-09",
+        "ACN": "2026-11-09",
+        "BRK-B": "2026-11-09",
+        "MA": "2026-11-09"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
