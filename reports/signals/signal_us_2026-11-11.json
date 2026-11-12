@@ -1,0 +1,133 @@
+{
+  "signal_date": "2026-11-11",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "CVX": 0.06068603216615982,
+    "PG": 0.04726767909147283,
+    "ACN": 0.026216228531068655,
+    "BRK-B": 0.00696158234445593,
+    "MA": 0.006868477866842739,
+    "__CASH__": 0.8520000000000001
+  },
+  "ref_prices": {
+    "CVX": 213.27999877929688,
+    "PG": 167.6699981689453,
+    "ACN": 253.66000366210938,
+    "BRK-B": 588.239990234375,
+    "MA": 660.72998046875
+  },
+  "style_attribution": {
+    "signal_date": "2026-11-11",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.3992637504049771,
+      "kqm_small_cap_v22_short": 0.3170367911688553,
+      "kqm": 0.08983846037821613,
+      "k200_trend_sleeve": 0.0869071793301659,
+      "hybrid_portfolio_v2_4": 0.044239271787594424,
+      "kqm_small_cap_v22": 0.03229703416463314,
+      "k200_mean_rev": 0.03041751276555807
+    },
+    "target_style_sums": {
+      "small_cap": 0.14799999999999996
+    },
+    "cash_weight": 0.8520000000000001,
+    "targets": [
+      {
+        "ticker": "CVX",
+        "weight": 0.06068603216615982,
+        "style": "small_cap",
+        "price": 213.27999877929688,
+        "market_cap": null,
+        "avg_value20": 1840176900.6243134
+      },
+      {
+        "ticker": "PG",
+        "weight": 0.04726767909147283,
+        "style": "small_cap",
+        "price": 167.6699981689453,
+        "market_cap": null,
+        "avg_value20": 1765426782.3054504
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.026216228531068655,
+        "style": "small_cap",
+        "price": 253.66000366210938,
+        "market_cap": null,
+        "avg_value20": 1534938976.742096
+      },
+      {
+        "ticker": "BRK-B",
+        "weight": 0.00696158234445593,
+        "style": "small_cap",
+        "price": 588.239990234375,
+        "market_cap": null,
+        "avg_value20": 2856832402.916565
+      },
+      {
+        "ticker": "MA",
+        "weight": 0.006868477866842739,
+        "style": "small_cap",
+        "price": 660.72998046875,
+        "market_cap": null,
+        "avg_value20": 2205529261.140442
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-11-11",
+    "regime": {
+      "close": 7619.3798828125,
+      "ma60": 7673.7160237630205,
+      "mom5": -0.009005547591071306,
+      "mom20": -0.01289815173449993,
+      "mom1m": -0.023838511276613183,
+      "mom3m": -0.02302994954024251,
+      "vol20": 0.22210908972923907
+    },
+    "exposure": {
+      "base": 0.3,
+      "after_stress": 0.198,
+      "stress_baseline": 0.198,
+      "final": 0.198,
+      "stress_level": 1,
+      "fast_signal": -0.01205855491485619,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.198,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.0021261281845048607,
+        "return_5d": -0.004308791242889076,
+        "return_10d": -0.009981086928070648,
+        "vol_easing": false
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-11-12T10:32:13.419701",
+    "git_revision": "6b625ceb323ea1f3fbf41c3f74a268be0e4884c7",
+    "data_as_of": {
+      "primary_index": "2026-11-11",
+      "secondary_index": null,
+      "universe_latest_min": "2026-11-11",
+      "universe_latest_max": "2026-11-11",
+      "target_securities": {
+        "CVX": "2026-11-11",
+        "PG": "2026-11-11",
+        "ACN": "2026-11-11",
+        "BRK-B": "2026-11-11",
+        "MA": "2026-11-11"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
