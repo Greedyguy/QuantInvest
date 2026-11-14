@@ -1,0 +1,155 @@
+{
+  "signal_date": "2026-11-13",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "BRK-B": 0.04896979574892681,
+    "ACN": 0.035041532079199786,
+    "PG": 0.027070210278007562,
+    "WMT": 0.025040302444686677,
+    "MA": 0.016481224606240116,
+    "CVX": 0.015906742731100446,
+    "TXN": 0.010429536653126712,
+    "__CASH__": 0.8210606554587119
+  },
+  "ref_prices": {
+    "BRK-B": 592.9400024414062,
+    "ACN": 250.49000549316406,
+    "PG": 169.8000030517578,
+    "WMT": 128.08999633789062,
+    "MA": 661.1900024414062,
+    "CVX": 219.88999938964844,
+    "TXN": 303.6000061035156
+  },
+  "style_attribution": {
+    "signal_date": "2026-11-13",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.4011699935765727,
+      "kqm_small_cap_v22_short": 0.31544012348973005,
+      "kqm": 0.09218631008196465,
+      "k200_trend_sleeve": 0.08856734116272172,
+      "hybrid_portfolio_v2_4": 0.04262569348513686,
+      "k200_mean_rev": 0.030998569406952597,
+      "kqm_small_cap_v22": 0.029011968796921344
+    },
+    "target_style_sums": {
+      "small_cap": 0.1789393445412881
+    },
+    "cash_weight": 0.8210606554587119,
+    "targets": [
+      {
+        "ticker": "BRK-B",
+        "weight": 0.04896979574892681,
+        "style": "small_cap",
+        "price": 592.9400024414062,
+        "market_cap": null,
+        "avg_value20": 2943171883.175049
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.035041532079199786,
+        "style": "small_cap",
+        "price": 250.49000549316406,
+        "market_cap": null,
+        "avg_value20": 1439140991.4208221
+      },
+      {
+        "ticker": "PG",
+        "weight": 0.027070210278007562,
+        "style": "small_cap",
+        "price": 169.8000030517578,
+        "market_cap": null,
+        "avg_value20": 1647901022.4945831
+      },
+      {
+        "ticker": "WMT",
+        "weight": 0.025040302444686677,
+        "style": "small_cap",
+        "price": 128.08999633789062,
+        "market_cap": null,
+        "avg_value20": 2701035138.440933
+      },
+      {
+        "ticker": "MA",
+        "weight": 0.016481224606240116,
+        "style": "small_cap",
+        "price": 661.1900024414062,
+        "market_cap": null,
+        "avg_value20": 2097089122.0031738
+      },
+      {
+        "ticker": "CVX",
+        "weight": 0.015906742731100446,
+        "style": "small_cap",
+        "price": 219.88999938964844,
+        "market_cap": null,
+        "avg_value20": 1845367675.4586792
+      },
+      {
+        "ticker": "TXN",
+        "weight": 0.010429536653126712,
+        "style": "small_cap",
+        "price": 303.6000061035156,
+        "market_cap": null,
+        "avg_value20": 2754001769.9823
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-11-13",
+    "regime": {
+      "close": 7561.669921875,
+      "ma60": 7670.464851888021,
+      "mom5": 0.025052673091114697,
+      "mom20": -0.012764643404632459,
+      "mom1m": -0.023552262681169167,
+      "mom3m": -0.023678336298407987,
+      "vol20": 0.21907339346145022
+    },
+    "exposure": {
+      "base": 0.4,
+      "after_stress": 0.264,
+      "stress_baseline": 0.264,
+      "final": 0.264,
+      "stress_level": 1,
+      "fast_signal": -0.013603567484379409,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.264,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.0029363995623628014,
+        "return_5d": 0.0029363995623628014,
+        "return_10d": -0.004219971571819414,
+        "vol_easing": true
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-11-14T09:42:54.849423",
+    "git_revision": "2bb007779d26926a6c41036828e8c951c0941c7a",
+    "data_as_of": {
+      "primary_index": "2026-11-13",
+      "secondary_index": null,
+      "universe_latest_min": "2026-11-13",
+      "universe_latest_max": "2026-11-13",
+      "target_securities": {
+        "BRK-B": "2026-11-13",
+        "ACN": "2026-11-13",
+        "PG": "2026-11-13",
+        "WMT": "2026-11-13",
+        "MA": "2026-11-13",
+        "CVX": "2026-11-13",
+        "TXN": "2026-11-13"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
