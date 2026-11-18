@@ -1,0 +1,144 @@
+{
+  "signal_date": "2026-11-17",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "BRK-B": 0.08009591750488074,
+    "WMT": 0.056568066702249474,
+    "ACN": 0.038914837277450265,
+    "TXN": 0.021800078000931037,
+    "PG": 0.008419402006228517,
+    "MA": 0.008201698508259988,
+    "__CASH__": 0.786
+  },
+  "ref_prices": {
+    "BRK-B": 586.760009765625,
+    "WMT": 127.5199966430664,
+    "ACN": 239.27999877929688,
+    "TXN": 295.8599853515625,
+    "PG": 171.72000122070312,
+    "MA": 645.72998046875
+  },
+  "style_attribution": {
+    "signal_date": "2026-11-17",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.4514144786394349,
+      "kqm_small_cap_v22_short": 0.22476477894846678,
+      "kqm": 0.10609417521150659,
+      "k200_trend_sleeve": 0.09994933501995537,
+      "hybrid_portfolio_v2_4": 0.04854745486460861,
+      "k200_mean_rev": 0.03498226725698439,
+      "kqm_small_cap_v22": 0.03424751005904346
+    },
+    "target_style_sums": {
+      "small_cap": 0.21400000000000002
+    },
+    "cash_weight": 0.786,
+    "targets": [
+      {
+        "ticker": "BRK-B",
+        "weight": 0.08009591750488074,
+        "style": "small_cap",
+        "price": 586.760009765625,
+        "market_cap": null,
+        "avg_value20": 2937325638.7973022
+      },
+      {
+        "ticker": "WMT",
+        "weight": 0.056568066702249474,
+        "style": "small_cap",
+        "price": 127.5199966430664,
+        "market_cap": null,
+        "avg_value20": 2716480650.4636765
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.038914837277450265,
+        "style": "small_cap",
+        "price": 239.27999877929688,
+        "market_cap": null,
+        "avg_value20": 1376546442.0737457
+      },
+      {
+        "ticker": "TXN",
+        "weight": 0.021800078000931037,
+        "style": "small_cap",
+        "price": 295.8599853515625,
+        "market_cap": null,
+        "avg_value20": 2702904054.7221375
+      },
+      {
+        "ticker": "PG",
+        "weight": 0.008419402006228517,
+        "style": "small_cap",
+        "price": 171.72000122070312,
+        "market_cap": null,
+        "avg_value20": 1697329483.8895416
+      },
+      {
+        "ticker": "MA",
+        "weight": 0.008201698508259988,
+        "style": "small_cap",
+        "price": 645.72998046875,
+        "market_cap": null,
+        "avg_value20": 2094835781.3308716
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-11-17",
+    "regime": {
+      "close": 7340.52978515625,
+      "ma60": 7660.9630126953125,
+      "mom5": -0.02398644667729022,
+      "mom20": -0.0482381420903617,
+      "mom1m": -0.04553536480956455,
+      "mom3m": -0.047671399801709646,
+      "vol20": 0.22920301178149302
+    },
+    "exposure": {
+      "base": 0.3,
+      "after_stress": 0.198,
+      "stress_baseline": 0.198,
+      "final": 0.198,
+      "stress_level": 1,
+      "fast_signal": -0.01209563696177196,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.198,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.0,
+        "return_5d": -0.0029299934674948958,
+        "return_10d": -0.004989124988483473,
+        "vol_easing": true
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-11-18T10:58:06.605970",
+    "git_revision": "4e5eb05bb7f9fbf3c064fe5ede46c76619e251bc",
+    "data_as_of": {
+      "primary_index": "2026-11-17",
+      "secondary_index": null,
+      "universe_latest_min": "2026-11-17",
+      "universe_latest_max": "2026-11-17",
+      "target_securities": {
+        "BRK-B": "2026-11-17",
+        "WMT": "2026-11-17",
+        "ACN": "2026-11-17",
+        "TXN": "2026-11-17",
+        "PG": "2026-11-17",
+        "MA": "2026-11-17"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
