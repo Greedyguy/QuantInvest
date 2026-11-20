@@ -1,0 +1,144 @@
+{
+  "signal_date": "2026-11-19",
+  "strategy": "multi_allocator_plus_safe_etf_kqm",
+  "signal_mode": "eod_fixed",
+  "targets": {
+    "BRK-B": 0.05519705982494852,
+    "WMT": 0.03946785912124484,
+    "ACN": 0.025590977577681466,
+    "TXN": 0.01525097693483779,
+    "PG": 0.006366484398888201,
+    "MA": 0.006126642142399177,
+    "__CASH__": 0.852
+  },
+  "ref_prices": {
+    "BRK-B": 572.0399780273438,
+    "WMT": 126.04000091552734,
+    "ACN": 218.5800018310547,
+    "TXN": 285.75,
+    "PG": 167.85000610351562,
+    "MA": 626.5
+  },
+  "style_attribution": {
+    "signal_date": "2026-11-19",
+    "style_context": {},
+    "strategy_weights": {
+      "etf_defensive_safe": 0.5027210992351968,
+      "kqm_small_cap_v22_short": 0.25536311751322055,
+      "k200_trend_sleeve": 0.08480467108988485,
+      "kqm": 0.06817481156791995,
+      "hybrid_portfolio_v2_4": 0.041210435094536625,
+      "k200_mean_rev": 0.0296816348814597,
+      "kqm_small_cap_v22": 0.018044230617781695
+    },
+    "target_style_sums": {
+      "small_cap": 0.14800000000000002
+    },
+    "cash_weight": 0.852,
+    "targets": [
+      {
+        "ticker": "BRK-B",
+        "weight": 0.05519705982494852,
+        "style": "small_cap",
+        "price": 572.0399780273438,
+        "market_cap": null,
+        "avg_value20": 2960144795.2194214
+      },
+      {
+        "ticker": "WMT",
+        "weight": 0.03946785912124484,
+        "style": "small_cap",
+        "price": 126.04000091552734,
+        "market_cap": null,
+        "avg_value20": 2820692280.3614807
+      },
+      {
+        "ticker": "ACN",
+        "weight": 0.025590977577681466,
+        "style": "small_cap",
+        "price": 218.5800018310547,
+        "market_cap": null,
+        "avg_value20": 1324041555.411148
+      },
+      {
+        "ticker": "TXN",
+        "weight": 0.01525097693483779,
+        "style": "small_cap",
+        "price": 285.75,
+        "market_cap": null,
+        "avg_value20": 2521362821.0502625
+      },
+      {
+        "ticker": "PG",
+        "weight": 0.006366484398888201,
+        "style": "small_cap",
+        "price": 167.85000610351562,
+        "market_cap": null,
+        "avg_value20": 1591277167.637558
+      },
+      {
+        "ticker": "MA",
+        "weight": 0.006126642142399177,
+        "style": "small_cap",
+        "price": 626.5,
+        "market_cap": null,
+        "avg_value20": 2072839377.4795532
+      }
+    ]
+  },
+  "decision_context": {
+    "signal_date": "2026-11-19",
+    "regime": {
+      "close": 7175.830078125,
+      "ma60": 7646.737679036459,
+      "mom5": -0.05486668636752867,
+      "mom20": -0.06362687288483604,
+      "mom1m": -0.07494225981960745,
+      "mom3m": -0.06496168824930282,
+      "vol20": 0.2333138572367599
+    },
+    "exposure": {
+      "base": 0.3,
+      "after_stress": 0.198,
+      "stress_baseline": 0.198,
+      "final": 0.198,
+      "stress_level": 1,
+      "fast_signal": -0.016035465224014,
+      "recovery": {
+        "mode": "shadow",
+        "candidate": 0.198,
+        "recovery_rung": 0,
+        "recovery_anchor": null,
+        "confirmed": false,
+        "confirmation_count": 0,
+        "shock": false,
+        "rebound_20d": 0.0,
+        "return_5d": -0.00881439478626822,
+        "return_10d": -0.008225765899631199,
+        "vol_easing": false
+      }
+    }
+  },
+  "meta": {
+    "start_date": "2020-01-01",
+    "generated_at": "2026-11-20T10:48:34.869353",
+    "git_revision": "ea32d45fbd16b691bff9d956144c58de469037a8",
+    "data_as_of": {
+      "primary_index": "2026-11-19",
+      "secondary_index": null,
+      "universe_latest_min": "2026-11-19",
+      "universe_latest_max": "2026-11-19",
+      "target_securities": {
+        "BRK-B": "2026-11-19",
+        "WMT": "2026-11-19",
+        "ACN": "2026-11-19",
+        "TXN": "2026-11-19",
+        "PG": "2026-11-19",
+        "MA": "2026-11-19"
+      }
+    },
+    "max_security_weight": 0.3,
+    "target_turnover_cap": 0.25,
+    "stress_recovery_mode": "shadow"
+  }
+}
