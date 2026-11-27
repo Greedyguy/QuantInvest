@@ -3,9 +3,9 @@
   "strategy": "multi_allocator_plus_safe_etf_kqm",
   "signal_mode": "eod_fixed",
   "targets": {
-    "BRK-B": 0.07673011988751094,
-    "WMT": 0.06529024940369652,
-    "PG": 0.005979630708792561,
+    "BRK-B": 0.07673012065327134,
+    "WMT": 0.06529024980656961,
+    "PG": 0.005979629540159058,
     "__CASH__": 0.852
   },
   "ref_prices": {
@@ -17,13 +17,13 @@
     "signal_date": "2026-11-25",
     "style_context": {},
     "strategy_weights": {
-      "etf_defensive_safe": 0.5027634523506365,
-      "kqm_small_cap_v22_short": 0.17906618452220716,
-      "k200_trend_sleeve": 0.11374945454581122,
-      "kqm": 0.09305042442381563,
-      "hybrid_portfolio_v2_4": 0.05377414255366333,
-      "k200_mean_rev": 0.03981230909103393,
-      "kqm_small_cap_v22": 0.017784032512832348
+      "etf_defensive_safe": 0.5027634273358885,
+      "kqm_small_cap_v22_short": 0.17906617451556844,
+      "k200_trend_sleeve": 0.11374942396850177,
+      "kqm": 0.09305051996032332,
+      "hybrid_portfolio_v2_4": 0.053774128098485474,
+      "k200_mean_rev": 0.03981229838897562,
+      "kqm_small_cap_v22": 0.017784027732256763
     },
     "target_style_sums": {
       "small_cap": 0.14800000000000002
@@ -32,7 +32,7 @@
     "targets": [
       {
         "ticker": "BRK-B",
-        "weight": 0.07673011988751094,
+        "weight": 0.07673012065327134,
         "style": "small_cap",
         "price": 579.3200073242188,
         "market_cap": null,
@@ -40,15 +40,15 @@
       },
       {
         "ticker": "WMT",
-        "weight": 0.06529024940369652,
+        "weight": 0.06529024980656961,
         "style": "small_cap",
         "price": 131.94000244140625,
         "market_cap": null,
-        "avg_value20": 3180337713.042946
+        "avg_value20": 3180446563.54496
       },
       {
         "ticker": "PG",
-        "weight": 0.005979630708792561,
+        "weight": 0.005979629540159058,
         "style": "small_cap",
         "price": 173.22999572753906,
         "market_cap": null,
@@ -73,7 +73,7 @@
       "stress_baseline": 0.18,
       "final": 0.18,
       "stress_level": 1,
-      "fast_signal": -0.008747357677551082,
+      "fast_signal": -0.008747346681978296,
       "recovery": {
         "mode": "shadow",
         "candidate": 0.18,
@@ -82,17 +82,17 @@
         "confirmed": false,
         "confirmation_count": 0,
         "shock": false,
-        "rebound_20d": 0.0033779909978444156,
-        "return_5d": -0.0003120163047164448,
-        "return_10d": -0.0065088253464812285,
+        "rebound_20d": 0.0033779876879784787,
+        "return_5d": -0.00031201796916890956,
+        "return_10d": -0.006508825725733414,
         "vol_easing": true
       }
     }
   },
   "meta": {
     "start_date": "2020-01-01",
-    "generated_at": "2026-11-26T11:47:08.993805",
-    "git_revision": "9b2260d10bebc412bc22a1956c89c2ba22b80a23",
+    "generated_at": "2026-11-27T11:40:10.464656",
+    "git_revision": "239af6c90442a2385cca1fd4260be42a5a22132a",
     "data_as_of": {
       "primary_index": "2026-11-25",
       "secondary_index": null,
